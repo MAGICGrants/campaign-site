@@ -18,7 +18,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   project,
   openPaymentModal,
 }) => {
-  const { slug, title, summary, coverImage, git, twitter, personalTwitter, nym, goal, isFunded } =
+  const { slug, title, summary, coverImage, git, twitter, personalTwitter, personalWebsite, nym, goal, isFunded } =
     project
 
   return (
