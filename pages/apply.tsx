@@ -2,7 +2,7 @@ import { useRouter } from 'next/router'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { fetchPostJSON } from '../utils/api-helpers'
-import { Link } from 'next/link'
+import Link from 'next/link'
 export default function Apply() {
   async function handleClick() { }
   const [loading, setLoading] = useState(false)
