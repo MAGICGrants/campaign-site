@@ -47,7 +47,6 @@ export default function Apply() {
             areas of the Monero ecosystem. For research projects, please refer to special instructions 
             <a href="/apply_research">here</a>.
           </p>
-          </p>
           <h2>Proposal Evaluation Criteria</h2>
           <div>
             Submitted proposals will be evaluated by the committee based on the following criteria:  
