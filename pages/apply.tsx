@@ -2,6 +2,7 @@ import { useRouter } from 'next/router'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { fetchPostJSON } from '../utils/api-helpers'
+import { Link } from 'next/link'
 export default function Apply() {
   async function handleClick() { }
   const [loading, setLoading] = useState(false)
@@ -45,7 +46,7 @@ export default function Apply() {
             especially relating to privacy, security, user experience, and efficiency. 
             Proposals can be related to the Monero protocol directly, or they can be related to other 
             areas of the Monero ecosystem. For research projects, please refer to special instructions 
-            <a href="/apply_research">here</a>.
+            <Link href="/apply_research">here</Link>.
           </p>
           <h2>Proposal Evaluation Criteria</h2>
           <div>
