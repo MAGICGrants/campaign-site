@@ -73,7 +73,7 @@ export default function Apply() {
             To submit a proposal, please complete the form below or create an issue on <a href="https://github.com/MAGICGrants/Monero-Fund/issues/new?assignees=&labels=&template=grant-application.md&title=[Grant+Title]">Github</a>.  
             Applicants are free to use their legal name or a pseudonym at this step, 
             although note the <a href="#Eligibility"><b>Eligibility</b></a> section. 
-            You can choose to apply for a direct grant from the MAGIC Monero Fund's General Fund and/or 
+            You can choose to apply for a direct grant from the MAGIC Monero Fund&#39;s General Fund and/or 
             request that your project be listed on MoneroFund.org to raise funds from Monero
             community members.
           </p>
