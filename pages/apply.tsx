@@ -75,9 +75,8 @@ export default function Apply() {
             although note the <a href="#Eligibility"><b>Eligibility</b></a> section. 
             You can choose to apply for a direct grant from the MAGIC Monero Fund's General Fund and/or 
             request that your project be listed on MoneroFund.org to raise funds from Monero
-            community memers.
+            community members.
           </p>
-          <hr />
         </div>
         <label className="checkbox">
           <input type="checkbox" {...register('general_fund')} />
