@@ -58,9 +58,6 @@ export default function Apply() {
               <li><b>Quality:</b> The proposal should be well-written and well-organized.</li>
               <li><b>Relevance:</b> The proposal should be relevant to the Monero Project.</li>        
             </ul>
-            Proposals will be reviewd proptly my the MAGIC Monero Fund committee. 
-            Applicants will be notified of the committee's vote on approval within three 
-            weeks of submission except in extraordinary circumstances.
           </div>
           <h2 id="Eligibility">Eligibility</h2>
           <p>
