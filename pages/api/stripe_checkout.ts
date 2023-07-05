@@ -15,7 +15,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { amount, project_name, project_slug, email, name }: PayReq =
+  const { amount, project_slug, project_name, email, name }: PayReq =
     req.body
 
 
@@ -44,6 +44,7 @@ export default async function handler(
           },
         ],
         metadata: {
+          project_slug: project_slug || null,
           donor_email: email || null,
           donor_name: name || null,
         },
@@ -52,6 +53,7 @@ export default async function handler(
         // We need metadata in here for some reason
         payment_intent_data: {
           metadata: {
+            project_slug: project_slug || null,
             donor_email: email || null,
             donor_name: name || null,
           },
