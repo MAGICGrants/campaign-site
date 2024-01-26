@@ -14,6 +14,6 @@ ssh into the machine, and cd into the correct folder, under Production. Then:
 
 `sudo docker-compose up --build`
 
-After building coompletes, quite out with Ctrl + C
+After building coompletes, quit out with Ctrl + C
 
 `sudo docker start monerofund-frontend-page`
