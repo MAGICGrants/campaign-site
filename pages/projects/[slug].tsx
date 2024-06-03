@@ -15,7 +15,7 @@ import Link from 'next/link'
 import ShareButtons from '../../components/ShareButtons'
 import Progress from '../../components/Progress'
 import { fetchPostJSON, fetchGetJSONAuthedBTCPay, fetchGetJSONAuthedStripe } from '../../utils/api-helpers'
-import escapeHTML from 'escape-html'
+import xss from 'xss'
 
 type SingleProjectPageProps = {
   project: ProjectItem
@@ -138,7 +138,7 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, projects, stats })
             </p >
             <ShareButtons project={project} />
             <hr />
-            {content && <div dangerouslySetInnerHTML={{ __html: escapeHTML(content) }} />}
+            {content && <div dangerouslySetInnerHTML={{ __html: xss(content) }} />}
           </div >
         </article >
       </div >
