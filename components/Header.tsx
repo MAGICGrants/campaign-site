@@ -4,7 +4,7 @@ import { useRouter } from 'next/router'
 
 import Link from './CustomLink'
 import MobileNav from './MobileNav'
-import { fundHeaderNavLinks, homeHeaderNavLinks } from '../data/headerNavLinks'
+import { fundHeaderNavLinks } from '../data/headerNavLinks'
 import MagicLogo from './MagicLogo'
 import { Dialog, DialogContent, DialogTrigger } from './ui/dialog'
 import { Button } from './ui/button'
@@ -58,21 +58,6 @@ const Header = () => {
       </div>
 
       <div className="flex gap-2 items-center text-base leading-5">
-        {!fund &&
-          homeHeaderNavLinks.map((link) => (
-            <CustomLink
-              key={link.title}
-              href={`/${link.href}`}
-              className={
-                link.isButton
-                  ? 'rounded border border-primary bg-transparent px-4 py-2 font-semibold text-primary hover:border-transparent hover:bg-primary hover:text-white'
-                  : 'hidden p-1 font-medium text-gray-900 sm:p-4 md:inline-block'
-              }
-            >
-              {link.title}
-            </CustomLink>
-          ))}
-
         {!!fund &&
           fundHeaderNavLinks.map((link) => (
             <CustomLink

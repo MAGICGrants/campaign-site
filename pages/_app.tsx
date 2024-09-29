@@ -7,9 +7,9 @@ import Layout from '../components/Layout'
 import { Toaster } from '../components/ui/toaster'
 import { trpc } from '../utils/trpc'
 import { useFundSlug } from '../utils/use-fund-slug'
+import { funds } from '../utils/funds'
 
 import '../styles/globals.css'
-import { funds } from '../utils/funds'
 
 function MyApp({ Component, pageProps }: AppProps) {
   const fundSlug = useFundSlug()
