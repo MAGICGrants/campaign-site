@@ -23,6 +23,9 @@ import {
 import { useFundSlug } from '../utils/use-fund-slug'
 import CustomLink from './CustomLink'
 import { funds } from '../utils/funds'
+import MoneroLogo from './MoneroLogo'
+import FiroLogo from './FiroLogo'
+import PrivacyGuidesLogo from './PrivacyGuidesLogo'
 
 const Header = () => {
   const [registerIsOpen, setRegisterIsOpen] = useState(false)
@@ -48,12 +51,15 @@ const Header = () => {
           aria-label="Home"
           className="flex items-center mr-3 gap-4"
         >
-          <MagicLogo className="w-12 h-12" />
-          {
-            <span className="text-foreground text-lg font-bold">
-              {fund ? fund.title : 'MAGIC Grants'}
-            </span>
-          }
+          {!fundSlug && <MagicLogo className="w-12 h-12" />}
+          {fundSlug === 'monero' && <MoneroLogo className="w-12 h-12" />}
+          {fundSlug === 'firo' && <FiroLogo className="w-12 h-12" />}
+          {fundSlug === 'privacyguides' && <PrivacyGuidesLogo className="w-12 h-12" />}
+          {fundSlug === 'general' && <MagicLogo className="w-12 h-12" />}
+
+          <span className="text-foreground text-lg font-bold">
+            {fund ? fund.title : 'MAGIC Grants'}
+          </span>
         </Link>
       </div>
 
