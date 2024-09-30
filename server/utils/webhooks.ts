@@ -1,13 +1,14 @@
 import { NextApiRequest, NextApiResponse } from 'next'
+import { FundSlug } from '@prisma/client'
 import Stripe from 'stripe'
 import getRawBody from 'raw-body'
 import dayjs from 'dayjs'
 
-import { btcpayApi as _btcpayApi, prisma, stripe } from '../../server/services'
+import { btcpayApi as _btcpayApi, prisma, stripe as _stripe } from '../../server/services'
 import { DonationMetadata } from '../../server/types'
 import { sendDonationConfirmationEmail } from './mailing'
 
-export function getStripeWebhookHandler(secret: string) {
+export function getStripeWebhookHandler(fundSlug: FundSlug, secret: string) {
   return async (req: NextApiRequest, res: NextApiResponse) => {
     let event: Stripe.Event
 
@@ -15,7 +16,8 @@ export function getStripeWebhookHandler(secret: string) {
     const signature = req.headers['stripe-signature']
 
     try {
-      event = stripe.monero.webhooks.constructEvent(await getRawBody(req), signature!, secret)
+      const stripe = _stripe[fundSlug]
+      event = stripe.webhooks.constructEvent(await getRawBody(req), signature!, secret)
     } catch (err) {
       console.log(`⚠️  Webhook signature verification failed.`, (err as any).message)
       res.status(400).end()
