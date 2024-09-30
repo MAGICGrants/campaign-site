@@ -10,7 +10,7 @@ import {
 } from '../../../server/types'
 import { btcpayApi as _btcpayApi, btcpayApi, prisma } from '../../../server/services'
 import { env } from '../../../env.mjs'
-import axios from 'axios'
+import { sendDonationConfirmationEmail } from '../../../server/utils/mailing'
 
 export const config = {
   api: {
@@ -119,6 +119,20 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
               body.metadata.isMembership === 'true' ? dayjs().add(1, 'year').toDate() : null,
           },
         })
+
+        if (body.metadata.donorEmail && body.metadata.donorName) {
+          sendDonationConfirmationEmail({
+            to: body.metadata.donorEmail,
+            donorName: body.metadata.donorName,
+            fundSlug: body.metadata.fundSlug,
+            projectName: body.metadata.projectName,
+            isMembership: body.metadata.isMembership === 'true',
+            isSubscription: false,
+            pointsReceived: 0,
+            btcpayAsset: paymentMethod.cryptoCode as 'BTC' | 'XMR',
+            btcpayCryptoAmount: cryptoAmount,
+          })
+        }
       })
     )
   }

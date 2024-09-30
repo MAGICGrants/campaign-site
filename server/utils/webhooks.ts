@@ -2,10 +2,10 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import Stripe from 'stripe'
 import getRawBody from 'raw-body'
 import dayjs from 'dayjs'
-import crypto from 'crypto'
 
 import { btcpayApi as _btcpayApi, prisma, stripe } from '../../server/services'
 import { DonationMetadata } from '../../server/types'
+import { sendDonationConfirmationEmail } from './mailing'
 
 export function getStripeWebhookHandler(secret: string) {
   return async (req: NextApiRequest, res: NextApiResponse) => {
@@ -45,6 +45,19 @@ export function getStripeWebhookHandler(secret: string) {
               metadata.isMembership === 'true' ? dayjs().add(1, 'year').toDate() : null,
           },
         })
+
+      if (metadata.donorEmail && metadata.donorName) {
+        sendDonationConfirmationEmail({
+          to: metadata.donorEmail,
+          donorName: metadata.donorName,
+          fundSlug: metadata.fundSlug,
+          projectName: metadata.projectName,
+          isMembership: metadata.isMembership === 'true',
+          isSubscription: metadata.isSubscription === 'true',
+          stripeUsdAmount: paymentIntent.amount_received / 100,
+          pointsReceived: 0,
+        })
+      }
     }
 
     // Store subscription data when subscription invoice is paid
@@ -69,6 +82,19 @@ export function getStripeWebhookHandler(secret: string) {
             membershipExpiresAt: new Date(invoiceLine.period.end * 1000),
           },
         })
+
+        if (metadata.donorEmail && metadata.donorName) {
+          sendDonationConfirmationEmail({
+            to: metadata.donorEmail,
+            donorName: metadata.donorName,
+            fundSlug: metadata.fundSlug,
+            projectName: metadata.projectName,
+            isMembership: metadata.isMembership === 'true',
+            isSubscription: metadata.isSubscription === 'true',
+            stripeUsdAmount: invoice.total / 100,
+            pointsReceived: 0,
+          })
+        }
       }
     }
 
