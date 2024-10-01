@@ -9,19 +9,19 @@ interface Props {
   children: ReactNode
 }
 
-const inter = Inter({ subsets: ['latin'], display: 'swap', adjustFontFallback: false })
+const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
 const LayoutWrapper = ({ children }: Props) => {
   return (
     <>
       <style jsx global>{`
-        html {
+        body {
           font-family: ${inter.style.fontFamily};
         }
       `}</style>
 
       <SectionContainer>
-        <div className={`${inter.className} flex h-screen flex-col justify-between`}>
+        <div className="flex h-screen flex-col justify-between">
           <Header />
           <main className="grow">{children}</main>
           <Footer />

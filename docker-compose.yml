@@ -67,7 +67,6 @@ services:
       NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT: monerofund@magicgrants.org
       NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT: monerofund@magicgrants.org
       NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT: monerofund@magicgrants.org
-
     depends_on:
       - postgres
 

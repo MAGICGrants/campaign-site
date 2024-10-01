@@ -1,5 +1,10 @@
 import { FundSlug } from '@prisma/client'
 
+export type KeycloakJwtPayload = {
+  sub: string
+  email: string
+}
+
 export type DonationMetadata = {
   userId: string | null
   donorEmail: string | null

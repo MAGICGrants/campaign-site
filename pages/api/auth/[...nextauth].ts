@@ -2,12 +2,9 @@ import NextAuth, { AuthOptions } from 'next-auth'
 import { jwtDecode } from 'jwt-decode'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import axios from 'axios'
-import { env } from '../../../env.mjs'
 
-type KeycloakJwtPayload = {
-  sub: string
-  email: string
-}
+import { env } from '../../../env.mjs'
+import { KeycloakJwtPayload } from '../../../server/types'
 
 export const authOptions: AuthOptions = {
   session: { strategy: 'jwt' },
