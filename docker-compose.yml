@@ -55,6 +55,7 @@ services:
       KEYCLOAK_REALM_NAME: magic
 
       BTCPAY_URL: ${BTCPAY_URL}
+      BTCPAY_EXTERNAL_URL: https://btcpay.magicgrants.org
       BTCPAY_API_KEY: ${BTCPAY_API_KEY}
       BTCPAY_STORE_ID: ${BTCPAY_STORE_ID}
       BTCPAY_WEBHOOK_SECRET: ${BTCPAY_WEBHOOK_SECRET}

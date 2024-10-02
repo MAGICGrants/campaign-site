@@ -141,7 +141,9 @@ export const donationRouter = router({
         checkout: { redirectURL: `${env.APP_URL}/${input.fundSlug}/thankyou` },
       })
 
-      return { url: invoice.checkoutLink }
+      const url = invoice.checkoutLink.replace(/^(https?:\/\/)([^\/]+)/, env.BTCPAY_EXTERNAL_URL)
+
+      return { url }
     }),
 
   payMembershipWithFiat: protectedProcedure

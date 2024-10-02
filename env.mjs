@@ -34,6 +34,7 @@ export const env = createEnv({
     KEYCLOAK_REALM_NAME: z.string().min(1),
 
     BTCPAY_URL: z.string().url(),
+    BTCPAY_EXTERNAL_URL: z.string().url(),
     BTCPAY_API_KEY: z.string().min(1),
     BTCPAY_STORE_ID: z.string().min(1),
     BTCPAY_WEBHOOK_SECRET: z.string().min(1),
@@ -82,6 +83,7 @@ export const env = createEnv({
     STRIPE_GENERAL_WEBHOOK_SECRET: process.env.STRIPE_GENERAL_WEBHOOK_SECRET,
 
     KEYCLOAK_URL: process.env.KEYCLOAK_URL,
+    BTCPAY_EXTERNAL_URL: process.env.BTCPAY_EXTERNAL_URL,
     KEYCLOAK_CLIENT_ID: process.env.KEYCLOAK_CLIENT_ID,
     KEYCLOAK_CLIENT_SECRET: process.env.KEYCLOAK_CLIENT_SECRET,
     KEYCLOAK_REALM_NAME: process.env.KEYCLOAK_REALM_NAME,
