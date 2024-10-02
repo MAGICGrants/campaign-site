@@ -5,6 +5,13 @@ export type KeycloakJwtPayload = {
   email: string
 }
 
+export type UserSettingsJwtPayload = {
+  action: 'email_verify' | 'password-reset'
+  tokenVersion: number
+  userId: string
+  email: string
+}
+
 export type DonationMetadata = {
   userId: string | null
   donorEmail: string | null

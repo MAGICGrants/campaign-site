@@ -177,6 +177,7 @@ export const donationRouter = router({
       const user = await keycloak.users.findOne({ id: userId })
       const email = user?.email!
       const name = user?.attributes?.name?.[0]!
+
       let stripeCustomerId =
         user?.attributes?.[fundSlugToCustomerIdAttr[input.fundSlug]]?.[0] || null
 
@@ -185,10 +186,7 @@ export const donationRouter = router({
 
         stripeCustomerId = customer.id
 
-        await keycloak.users.update(
-          { id: userId },
-          { email: email, attributes: { stripeCustomerId } }
-        )
+        await keycloak.users.update({ id: userId }, { email, attributes: { stripeCustomerId } })
       }
 
       const metadata: DonationMetadata = {

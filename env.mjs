@@ -11,6 +11,7 @@ export const env = createEnv({
     BUILD_MODE: z.boolean(),
     APP_URL: z.string().url(),
     NEXTAUTH_SECRET: z.string().min(32),
+    USER_SETTINGS_JWT_SECRET: z.string().min(32),
 
     SMTP_HOST: z.string().min(1),
     SMTP_PORT: z.string().min(1),
@@ -63,6 +64,7 @@ export const env = createEnv({
     BUILD_MODE: !!process.env.BUILD_MODE,
     APP_URL: process.env.APP_URL,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    USER_SETTINGS_JWT_SECRET: process.env.USER_SETTINGS_JWT_SECRET,
 
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_PORT: process.env.SMTP_PORT,

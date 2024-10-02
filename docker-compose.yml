@@ -32,6 +32,7 @@ services:
       NEXTAUTH_URL: https://donate.magicgrants.org
       NEXTAUTH_URL_INTERNAL: http://localhost:3000
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      USER_SETTINGS_JWT_SECRET: ${USER_SETTINGS_JWT_SECRET}
 
       SMTP_HOST: email-smtp.us-east-2.amazonaws.com
       SMTP_PORT: 587
