@@ -19,6 +19,7 @@ export type DonationMetadata = {
   projectSlug: string
   projectName: string
   fundSlug: FundSlug
+  itemDesc?: string
   isMembership: 'true' | 'false'
   isSubscription: 'true' | 'false'
   isTaxDeductible: 'true' | 'false'

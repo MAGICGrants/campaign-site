@@ -9,7 +9,7 @@ import { env } from '../../env.mjs'
 import { btcpayApi, keycloak, prisma, stripe as _stripe } from '../services'
 import { authenticateKeycloakClient } from '../utils/keycloak'
 import { BtcPayCreateInvoiceRes, DonationMetadata } from '../types'
-import { fundSlugs } from '../../utils/funds'
+import { funds, fundSlugs } from '../../utils/funds'
 import { fundSlugToCustomerIdAttr } from '../utils/funds'
 
 export const donationRouter = router({
@@ -128,6 +128,7 @@ export const donationRouter = router({
         projectSlug: input.projectSlug,
         projectName: input.projectName,
         fundSlug: input.fundSlug,
+        itemDesc: `MAGIC ${funds[input.fundSlug].title}`,
         isMembership: 'false',
         isSubscription: 'false',
         isTaxDeductible: input.taxDeductible ? 'true' : 'false',
@@ -295,6 +296,7 @@ export const donationRouter = router({
         donorEmail: email,
         projectSlug: input.projectSlug,
         projectName: input.projectName,
+        itemDesc: `MAGIC ${funds[input.fundSlug].title}`,
         fundSlug: input.fundSlug,
         isMembership: 'true',
         isSubscription: 'false',
