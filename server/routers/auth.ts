@@ -88,13 +88,14 @@ export const authRouter = router({
 
       const user = await keycloak.users.findOne({ id: decoded.userId })
 
-      if (!user || !user.id || !user.attributes)
+      if (!user || !user.id)
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'USER_NOT_FOUND',
         })
 
-      const emailVerifyTokenVersion = parseInt(user.attributes.emailVerifyTokenVersion?.[0]) || null
+      const emailVerifyTokenVersion =
+        parseInt(user.attributes?.emailVerifyTokenVersion?.[0]) || null
 
       if (emailVerifyTokenVersion !== decoded.tokenVersion) {
         throw new TRPCError({
@@ -125,14 +126,14 @@ export const authRouter = router({
       const users = await keycloak.users.find({ email: input.email })
       const user = users[0]
 
-      if (!user || !user.id || !user.attributes)
+      if (!user || !user.id)
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'USER_NOT_FOUND',
         })
 
       let passwordResetTokenVersion =
-        parseInt(user.attributes.passwordResetTokenVersion?.[0]) || null
+        parseInt(user.attributes?.passwordResetTokenVersion?.[0]) || null
 
       if (!passwordResetTokenVersion) {
         await keycloak.users.update(
@@ -187,21 +188,22 @@ export const authRouter = router({
       await authenticateKeycloakClient()
       const user = await keycloak.users.findOne({ id: decoded.userId })
 
-      if (!user || !user.attributes)
+      if (!user || !user.id || !user.email)
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'USER_NOT_FOUND',
         })
 
-      const passwordResetTokenVersion =
-        parseInt(user.attributes.passwordResetTokenVersion?.[0]) || null
+      let passwordResetTokenVersion =
+        parseInt(user.attributes?.passwordResetTokenVersion?.[0]) || null
 
       if (!passwordResetTokenVersion) {
-        console.error(`User ${user.id} has no passwordResetTokenVersion attribute`)
+        await keycloak.users.update(
+          { id: user.id },
+          { email: user.email, attributes: { passwordResetTokenVersion: 1 } }
+        )
 
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-        })
+        passwordResetTokenVersion = 1
       }
 
       if (decoded.tokenVersion !== passwordResetTokenVersion)
