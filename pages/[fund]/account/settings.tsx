@@ -118,7 +118,7 @@ function Settings() {
 
       <div className="w-full max-w-lg mx-auto flex flex-col space-y-12">
         <div className="w-full flex flex-col space-y-6">
-          <h1 className="font-semibold">Change Password</h1>
+          <h1 className="font-bold">Change Password</h1>
 
           <Form {...changePasswordForm}>
             <form
@@ -179,7 +179,7 @@ function Settings() {
         </div>
 
         <div className="w-full flex flex-col space-y-6">
-          <h1 className="font-semibold">Change Email</h1>
+          <h1 className="font-bold">Change Email</h1>
 
           <Form {...changeEmailForm}>
             <form
