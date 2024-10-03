@@ -74,6 +74,7 @@ export const accountRouter = router({
       }
 
       const user = await keycloak.users.findOne({ id: userId })
+      console.log(user)
 
       if (!user || !user.id || !user.email || !user.attributes)
         throw new TRPCError({
