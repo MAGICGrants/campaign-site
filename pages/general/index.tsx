@@ -2,11 +2,8 @@ import { useEffect, useState } from 'react'
 import type { NextPage } from 'next'
 import Head from 'next/head'
 import { useSession } from 'next-auth/react'
-import { useTheme } from 'next-themes'
 
 import { getProjects } from '../../utils/md'
-import { ProjectItem } from '../../utils/types'
-import Typing from '../../components/Typing'
 import CustomLink from '../../components/CustomLink'
 import { Button } from '../../components/ui/button'
 import { Dialog, DialogContent, DialogTrigger } from '../../components/ui/dialog'
@@ -51,7 +48,7 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
       <div className="divide-y divide-gray-200">
         <div className="pt-4 md:pb-8">
           <h1 className="py-4 text-3xl font-extrabold leading-9 tracking-tight text-gray-900 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14">
-            Support <Typing />
+            Support General Fund
           </h1>
           <p className="max-w-3xl text-xl leading-7 text-gray-500">
             Help us to provide sustainable funding for free and open-source contributors working on
