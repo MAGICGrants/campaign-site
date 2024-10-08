@@ -42,7 +42,8 @@ export function getStripeWebhookHandler(fundSlug: FundSlug, secret: string) {
             projectName: metadata.projectName,
             projectSlug: metadata.projectSlug,
             fundSlug: metadata.fundSlug,
-            fiatAmount: paymentIntent.amount_received / 100,
+            netFiatAmount: paymentIntent.amount_received / 100,
+            grossFiatAmount: paymentIntent.amount_received / 100,
             membershipExpiresAt:
               metadata.isMembership === 'true' ? dayjs().add(1, 'year').toDate() : null,
           },
@@ -80,7 +81,8 @@ export function getStripeWebhookHandler(fundSlug: FundSlug, secret: string) {
             projectName: metadata.projectName,
             projectSlug: metadata.projectSlug,
             fundSlug: metadata.fundSlug,
-            fiatAmount: invoice.total / 100,
+            netFiatAmount: invoice.total / 100,
+            grossFiatAmount: invoice.total / 100,
             membershipExpiresAt: new Date(invoiceLine.period.end * 1000),
           },
         })

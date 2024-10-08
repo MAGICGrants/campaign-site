@@ -81,8 +81,10 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
         projectSlug: body.metadata.projectSlug,
         fundSlug: body.metadata.fundSlug,
         cryptoCode,
-        cryptoAmount,
-        fiatAmount: Number((cryptoAmount * cryptoRate).toFixed(2)),
+        netCryptoAmount: cryptoAmount,
+        grossCryptoAmount: cryptoAmount,
+        netFiatAmount: Number((cryptoAmount * cryptoRate).toFixed(2)),
+        grossFiatAmount: Number((cryptoAmount * cryptoRate).toFixed(2)),
       },
     })
   }
@@ -113,8 +115,10 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
             projectSlug: body.metadata.projectSlug,
             fundSlug: body.metadata.fundSlug,
             cryptoCode: paymentMethod.cryptoCode,
-            cryptoAmount,
-            fiatAmount: Number(fiatAmount.toFixed(2)),
+            netCryptoAmount: cryptoAmount,
+            grossCryptoAmount: cryptoAmount,
+            netFiatAmount: Number(fiatAmount.toFixed(2)),
+            grossFiatAmount: Number(fiatAmount.toFixed(2)),
             membershipExpiresAt:
               body.metadata.isMembership === 'true' ? dayjs().add(1, 'year').toDate() : null,
           },

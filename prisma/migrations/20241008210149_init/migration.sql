@@ -15,18 +15,35 @@ CREATE TABLE "Donation" (
     "projectName" TEXT NOT NULL,
     "fundSlug" "FundSlug" NOT NULL,
     "cryptoCode" TEXT,
-    "fiatAmount" DOUBLE PRECISION NOT NULL,
-    "cryptoAmount" DOUBLE PRECISION,
+    "grossCryptoAmount" DOUBLE PRECISION,
+    "netCryptoAmount" DOUBLE PRECISION,
+    "grossFiatAmount" DOUBLE PRECISION NOT NULL,
+    "netFiatAmount" DOUBLE PRECISION NOT NULL,
+    "pointsAdded" INTEGER NOT NULL DEFAULT 0,
     "membershipExpiresAt" TIMESTAMP(3),
 
     CONSTRAINT "Donation_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE UNIQUE INDEX "Donation_btcPayInvoiceId_key" ON "Donation"("btcPayInvoiceId");
+-- CreateTable
+CREATE TABLE "ProjectAddresses" (
+    "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "projectSlug" TEXT NOT NULL,
+    "fundSlug" "FundSlug" NOT NULL,
+    "btcPayInvoiceId" TEXT NOT NULL,
+    "bitcoinAddress" TEXT NOT NULL,
+    "moneroAddress" TEXT NOT NULL,
+
+    CONSTRAINT "ProjectAddresses_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Donation_stripeInvoiceId_key" ON "Donation"("stripeInvoiceId");
+
+-- CreateIndex
+CREATE INDEX "Donation_btcPayInvoiceId_idx" ON "Donation"("btcPayInvoiceId");
 
 -- CreateIndex
 CREATE INDEX "Donation_stripePaymentIntentId_idx" ON "Donation"("stripePaymentIntentId");
@@ -36,3 +53,6 @@ CREATE INDEX "Donation_stripeSubscriptionId_idx" ON "Donation"("stripeSubscripti
 
 -- CreateIndex
 CREATE INDEX "Donation_userId_idx" ON "Donation"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ProjectAddresses_projectSlug_key" ON "ProjectAddresses"("projectSlug");
