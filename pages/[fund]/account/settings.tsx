@@ -17,7 +17,8 @@ import Spinner from '../../../components/Spinner'
 import { toast } from '../../../components/ui/use-toast'
 import { trpc } from '../../../utils/trpc'
 import { useFundSlug } from '../../../utils/use-fund-slug'
-import { useSession } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
+import { useRouter } from 'next/router'
 
 const changePasswordFormSchema = z
   .object({
@@ -66,7 +67,8 @@ function Settings() {
 
       changePasswordForm.reset()
 
-      toast({ title: 'Password successfully changed!' })
+      toast({ title: 'Password successfully changed! Please log in again.' })
+      await signOut({ callbackUrl: `/${fundSlug}/?loginEmail=${session.data?.user.email}` })
     } catch (error) {
       const errorMessage = (error as any).message
 

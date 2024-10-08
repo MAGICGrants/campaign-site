@@ -58,6 +58,8 @@ export const accountRouter = router({
           credentials: [{ type: 'password', value: input.newPassword, temporary: false }],
         }
       )
+
+      await keycloak.users.logout({ id: userId })
     }),
 
   requestEmailChange: protectedProcedure

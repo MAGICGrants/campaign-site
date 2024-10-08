@@ -116,6 +116,8 @@ export const authRouter = router({
         }
       )
 
+      await keycloak.users.logout({ id: decoded.userId })
+
       return { email: decoded.email }
     }),
 
@@ -222,6 +224,8 @@ export const authRouter = router({
           },
         }
       )
+
+      await keycloak.users.logout({ id: decoded.userId })
 
       return { email: decoded.email }
     }),
