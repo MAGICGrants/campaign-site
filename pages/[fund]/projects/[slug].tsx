@@ -171,13 +171,21 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
 
       <Dialog open={donateModalOpen} onOpenChange={setDonateModalOpen}>
         <DialogContent>
-          <DonationFormModal project={project} />
+          <DonationFormModal
+            project={project}
+            close={() => setDonateModalOpen(false)}
+            openRegisterModal={() => setRegisterIsOpen(true)}
+          />
         </DialogContent>
       </Dialog>
 
       <Dialog open={memberModalOpen} onOpenChange={setMemberModalOpen}>
         <DialogContent>
-          <MembershipFormModal project={project} />
+          <MembershipFormModal
+            project={project}
+            close={() => setMemberModalOpen(false)}
+            openRegisterModal={() => setRegisterIsOpen(true)}
+          />
         </DialogContent>
       </Dialog>
 

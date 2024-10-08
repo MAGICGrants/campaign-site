@@ -122,13 +122,21 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
 
       <Dialog open={donateModalOpen} onOpenChange={setDonateModalOpen}>
         <DialogContent>
-          <DonationFormModal project={fund} />
+          <DonationFormModal
+            project={fund}
+            close={() => setDonateModalOpen(false)}
+            openRegisterModal={() => setRegisterIsOpen(true)}
+          />
         </DialogContent>
       </Dialog>
 
       <Dialog open={memberModalOpen} onOpenChange={setMemberModalOpen}>
         <DialogContent>
-          <MembershipFormModal project={fund} />
+          <MembershipFormModal
+            project={fund}
+            close={() => setMemberModalOpen(false)}
+            openRegisterModal={() => setRegisterIsOpen(true)}
+          />
         </DialogContent>
       </Dialog>
 
