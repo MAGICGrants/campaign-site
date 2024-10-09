@@ -55,4 +55,4 @@ CREATE INDEX "Donation_stripeSubscriptionId_idx" ON "Donation"("stripeSubscripti
 CREATE INDEX "Donation_userId_idx" ON "Donation"("userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ProjectAddresses_projectSlug_key" ON "ProjectAddresses"("projectSlug");
+CREATE UNIQUE INDEX "ProjectAddresses_projectSlug_fundSlug_key" ON "ProjectAddresses"("projectSlug", "fundSlug");

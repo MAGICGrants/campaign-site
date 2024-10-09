@@ -110,8 +110,8 @@ async function handle(
       let moneroAddress: string | null = null
 
       if (!project.isFunded) {
-        const existingAddresses = await prisma.projectAddresses.findFirst({
-          where: { projectSlug: project.slug, fundSlug: project.fund },
+        const existingAddresses = await prisma.projectAddresses.findUnique({
+          where: { projectSlug_fundSlug: { projectSlug: project.slug, fundSlug: project.fund } },
         })
 
         // Create invoice if there's no existing address
