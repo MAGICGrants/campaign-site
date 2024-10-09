@@ -39,6 +39,7 @@ export type BtcPayGetPaymentMethodsRes = {
   amount: string
   cryptoCode: string
   paymentMethod: string
+  paymentMethodPaid: string
   destination: string
 }[]
 

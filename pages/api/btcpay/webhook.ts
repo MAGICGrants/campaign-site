@@ -105,11 +105,11 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
 
     await Promise.all(
       paymentMethods.map(async (paymentMethod) => {
-        const cryptoAmount = Number(paymentMethod.amount)
+        const cryptoAmount = Number(paymentMethod.paymentMethodPaid)
 
         if (!cryptoAmount) return
 
-        const fiatAmount = Number(paymentMethod.amount) * Number(paymentMethod.rate)
+        const fiatAmount = Number(paymentMethod.paymentMethodPaid) * Number(paymentMethod.rate)
 
         await prisma.donation.create({
           data: {
