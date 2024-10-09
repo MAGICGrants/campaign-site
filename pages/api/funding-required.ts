@@ -137,10 +137,9 @@ async function handle(
           const { data: paymentMethods } = await btcpayApi.get<BtcPayGetPaymentMethodsRes>(
             `/invoices/${invoice.id}/payment-methods`
           )
-          console.log(paymentMethods)
 
           paymentMethods.forEach((paymentMethod) => {
-            if (paymentMethod.paymentMethod === 'BTC-OnChain') {
+            if (paymentMethod.paymentMethod === 'BTC') {
               bitcoinAddress = paymentMethod.destination
             }
 
