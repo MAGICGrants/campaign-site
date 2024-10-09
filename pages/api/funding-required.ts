@@ -81,13 +81,15 @@ async function handle(
   const cacheKey = `${query.fund}-${query.asset}-${query.project_status}`
   const cachedResponse = cachedResponses[cacheKey]
   if (cachedResponse && cachedResponse.expiresAt > new Date()) {
-    // return res.send(cachedResponse.data)
+    return res.send(cachedResponse.data)
   }
 
   const projects = (await getProjects(query.fund)).filter((project) =>
-    query.project_status === 'ANY' || query.project_status === 'FUNDED'
+    query.project_status === 'FUNDED'
       ? project.isFunded
-      : !project.isFunded
+      : query.project_status === 'ANY'
+        ? true
+        : !project.isFunded
   )
 
   const rates: Record<string, number | undefined> = {}
