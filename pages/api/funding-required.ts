@@ -81,7 +81,7 @@ async function handle(
   const cacheKey = `${query.fund}-${query.asset}-${query.project_status}`
   const cachedResponse = cachedResponses[cacheKey]
   if (cachedResponse && cachedResponse.expiresAt > new Date()) {
-    return res.send(cachedResponse.data)
+    // return res.send(cachedResponse.data)
   }
 
   const projects = (await getProjects(query.fund)).filter((project) =>
@@ -134,11 +134,12 @@ async function handle(
             metadata,
           })
 
-          const paymentMethodsResponse = await btcpayApi.get<BtcPayGetPaymentMethodsRes>(
+          const { data: paymentMethods } = await btcpayApi.get<BtcPayGetPaymentMethodsRes>(
             `/invoices/${invoice.id}/payment-methods`
           )
+          console.log(paymentMethods)
 
-          paymentMethodsResponse.data.forEach((paymentMethod: any) => {
+          paymentMethods.forEach((paymentMethod) => {
             if (paymentMethod.paymentMethod === 'BTC-OnChain') {
               bitcoinAddress = paymentMethod.destination
             }
