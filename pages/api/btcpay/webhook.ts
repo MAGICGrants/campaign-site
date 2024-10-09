@@ -28,6 +28,7 @@ type BtcpayBody = Record<string, any> & {
   storeId: string
   invoiceId: string
   metadata: DonationMetadata
+  paymentMethod: string
 }
 
 async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
@@ -64,7 +65,10 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ success: true })
     }
 
-    const cryptoCode = body.paymentMethod === 'BTC-OnChain' ? 'BTC' : 'XMR'
+    // Handle payment methods like "BTC-LightningNetwork" if added in the future
+    const cryptoCode = body.paymentMethod.includes('-')
+      ? body.paymentMethod.split('-')[0]
+      : body.paymentMethod
 
     const { data: rates } = await btcpayApi.get<BtcPayGetRatesRes>(
       `/rates?currencyPair=${cryptoCode}_USD`
