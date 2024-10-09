@@ -11,7 +11,7 @@ export type ProjectItem = {
   website: string
   socialLinks: string[]
   date: string
-  staticXMRaddress?: string
+  staticXMRaddress?: string | null
   goal: number
   isFunded?: boolean
   numDonationsBTC: number

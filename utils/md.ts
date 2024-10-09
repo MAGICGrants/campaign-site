@@ -47,7 +47,7 @@ export function getProjectBySlug(slug: string, fundSlug: FundSlug) {
     socialLinks: data.socialLinks,
     goal: data.goal,
     isFunded: !!data.isFunded,
-    staticXMRaddress: data.staticXMRaddress,
+    staticXMRaddress: data.staticXMRaddress || null,
     numDonationsBTC: data.numDonationsBTC || 0,
     numDonationsXMR: data.numDonationsXMR || 0,
     numDonationsFiat: data.numDonationsFiat || 0,
@@ -91,7 +91,6 @@ export async function getProjects(fundSlug?: FundSlug) {
   // Get donation stats for active projects
   await Promise.all(
     projects.map(async (project) => {
-      console.log(project.isFunded)
       if (project.isFunded) return
 
       const donations = !env.BUILD_MODE
