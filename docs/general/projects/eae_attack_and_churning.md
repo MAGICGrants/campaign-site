@@ -12,10 +12,10 @@ type: 'Other Free and Open Source Project'
 date: '2023-06-08'
 staticXMRaddress: '87LZA8XLDvhVKLi974MaxUANcvkWdL6n986R7WNgKLXY16y31t69Z8228EWcg8THQq3tuAWfQ7Np35Tt3AhPrjzcNbm8Jr5'
 goal: 29260
-isFunded: true
-numDonationsXMR: 27
-totalDonationsXMRInFiat: 29260
-totalDonationsXMR: 220
+isFunded: false
+numDonationsXMR: 0
+totalDonationsXMRInFiat: 0
+totalDonationsXMR: 0
 numDonationsBTC: 0
 totalDonationsBTCInFiat: 0
 totalDonationsBTC: 0
