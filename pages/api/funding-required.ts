@@ -2,7 +2,6 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import { FundSlug } from '@prisma/client'
 import { z } from 'zod'
 import dayjs from 'dayjs'
-import path from 'path'
 
 import { getProjects } from '../../utils/md'
 import { env } from '../../env.mjs'
@@ -14,7 +13,7 @@ import {
   BtcPayGetRatesRes,
   DonationMetadata,
 } from '../../server/types'
-import { funds, fundSlugs } from '../../utils/funds'
+import { fundSlugs } from '../../utils/funds'
 
 const ASSETS = ['BTC', 'XMR', 'USD'] as const
 
@@ -195,7 +194,7 @@ async function handle(
         fund: project.fund,
         date: project.date,
         author: project.nym,
-        url: path.join(env.APP_URL, project.fund, project.slug),
+        url: `${env.APP_URL}/${project.fund}/${project.slug}`,
         is_funded: !!project.isFunded,
         target_amount_btc: Number(targetAmountBtc.toFixed(8)),
         target_amount_xmr: Number(targetAmountXmr.toFixed(12)),
