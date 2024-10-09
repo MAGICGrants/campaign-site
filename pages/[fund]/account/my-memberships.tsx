@@ -30,7 +30,7 @@ function MyMemberships() {
         <title>Monero Fund - My Memberships</title>
       </Head>
 
-      <div className="w-full max-w-5xl mx-auto flex flex-col">
+      <div className="w-full max-w-5xl h-full mx-auto flex flex-col">
         <div className="flex flex-row justify-between">
           <h1 className="text-3xl font-bold mb-4">My Memberships</h1>
           {membershipListQuery.data?.billingPortalUrl && (
@@ -43,28 +43,30 @@ function MyMemberships() {
           )}
         </div>
 
-        <Table className="">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Project</TableHead>
-              <TableHead>Method</TableHead>
-              <TableHead>Recurring</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Period End</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {membershipListQuery.data?.memberships.map((membership) => (
-              <TableRow key={membership.createdAt.toISOString()}>
-                <TableCell>{membership.projectName}</TableCell>
-                <TableCell>{membership.btcPayInvoiceId ? 'Crypto' : 'Fiat'}</TableCell>
-                <TableCell>{membership.stripeSubscriptionId ? 'Yes' : 'No'}</TableCell>
-                <TableCell>{dayjs(membership.createdAt).format('lll')}</TableCell>
-                <TableCell>{dayjs(membership.membershipExpiresAt).format('lll')}</TableCell>
+        <div className="w-full flex overflow-x-auto grow">
+          <Table className="min-w-[700px] grow">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Project</TableHead>
+                <TableHead>Method</TableHead>
+                <TableHead>Recurring</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Period End</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {membershipListQuery.data?.memberships.map((membership) => (
+                <TableRow key={membership.createdAt.toISOString()}>
+                  <TableCell>{membership.projectName}</TableCell>
+                  <TableCell>{membership.btcPayInvoiceId ? 'Crypto' : 'Fiat'}</TableCell>
+                  <TableCell>{membership.stripeSubscriptionId ? 'Yes' : 'No'}</TableCell>
+                  <TableCell>{dayjs(membership.createdAt).format('lll')}</TableCell>
+                  <TableCell>{dayjs(membership.membershipExpiresAt).format('lll')}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </>
   )

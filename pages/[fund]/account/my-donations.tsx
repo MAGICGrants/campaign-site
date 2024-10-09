@@ -34,29 +34,31 @@ function MyDonations() {
         <title>Monero Fund - My Donations</title>
       </Head>
 
-      <div className="w-full max-w-5xl mx-auto flex flex-col">
+      <div className="w-full max-w-5xl h-full mx-auto flex flex-col">
         <h1 className="text-3xl font-bold mb-4">My Donations</h1>
 
-        <Table className="">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Project</TableHead>
-              <TableHead>Method</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Date</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {donationListQuery.data?.map((donation) => (
-              <TableRow key={donation.createdAt.toISOString()}>
-                <TableCell>{donation.projectName}</TableCell>
-                <TableCell>{donation.btcPayInvoiceId ? 'Crypto' : 'Fiat'}</TableCell>
-                <TableCell>${donation.grossFiatAmount}</TableCell>
-                <TableCell>{dayjs(donation.createdAt).format('lll')}</TableCell>
+        <div className="w-full flex overflow-x-auto grow">
+          <Table className="min-w-[700px] grow">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Project</TableHead>
+                <TableHead>Method</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Date</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {donationListQuery.data?.map((donation) => (
+                <TableRow key={donation.createdAt.toISOString()}>
+                  <TableCell>{donation.projectName}</TableCell>
+                  <TableCell>{donation.btcPayInvoiceId ? 'Crypto' : 'Fiat'}</TableCell>
+                  <TableCell>${donation.grossFiatAmount}</TableCell>
+                  <TableCell>{dayjs(donation.createdAt).format('lll')}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </>
   )

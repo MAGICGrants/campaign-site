@@ -57,7 +57,7 @@ const Header = () => {
           {fundSlug === 'privacyguides' && <PrivacyGuidesLogo className="w-12 h-12" />}
           {fundSlug === 'general' && <MagicLogo className="w-12 h-12" />}
 
-          <span className="text-foreground text-lg font-bold">
+          <span className="text-foreground text-lg font-bold hidden sm:block">
             {fund ? fund.title : 'MAGIC Grants'}
           </span>
         </Link>
@@ -82,10 +82,15 @@ const Header = () => {
         {!!fund && session.status !== 'authenticated' && (
           <>
             <Dialog open={loginIsOpen} onOpenChange={setLoginIsOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="w-24">
-                  Login
-                </Button>
+              <DialogTrigger>
+                <>
+                  <Button variant="outline" className="w-18 block sm:hidden" size="sm">
+                    Login
+                  </Button>
+                  <Button variant="outline" className="w-24 hidden sm:block">
+                    Login
+                  </Button>
+                </>
               </DialogTrigger>
               <DialogContent>
                 <LoginFormModal
@@ -97,8 +102,13 @@ const Header = () => {
             </Dialog>
 
             <Dialog open={registerIsOpen} onOpenChange={setRegisterIsOpen}>
-              <DialogTrigger asChild>
-                <Button className="w-24">Register</Button>
+              <DialogTrigger>
+                <>
+                  <Button className="w-18 block sm:hidden" size="sm">
+                    Register
+                  </Button>
+                  <Button className="w-24 hidden sm:block">Register</Button>
+                </>
               </DialogTrigger>
               <DialogContent>
                 <RegisterFormModal
@@ -140,7 +150,7 @@ const Header = () => {
           </DropdownMenu>
         )}
 
-        <MobileNav />
+        {!!fundSlug && <MobileNav />}
       </div>
 
       <Dialog open={passwordResetIsOpen} onOpenChange={setPasswordResetIsOpen}>
