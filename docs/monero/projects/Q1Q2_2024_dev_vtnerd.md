@@ -14,15 +14,15 @@ type: 'Other Free and Open Source Project'
 staticXMRaddress: '8454MvGDuZPFP1WKSMcgbRJqV1sXHz7Z3KyURMpkoLXR3CJUZiebjymjQGc6YvTWqhFZEtJwELbcgFHZ9qGPwPsF7fWLWPT'
 goal: 28800
 isFunded: true
-numdonationsxmr: 43
-totaldonationsinfiatxmr: 28800
-totaldonationsxmr: 226.1
-numdonationsbtc: 0
-totaldonationsinfiatbtc: 0
-totaldonationsbtc: 0
-fiatnumdonations: 0
-fiattotaldonationsinfiat: 0
-fiattotaldonations: 0
+numDonationsXMR: 43
+totalDonationsXMRInFiat: 28800
+totalDonationsXMR: 226.1
+numDonationsBTC: 0
+totalDonationsBTCInFiat: 0
+totalDonationsBTC: 0
+numDonationsFiat: 0
+totalDonationsFiat: 0
+
 ---
 
 ### Funded goal: 28,800 USD

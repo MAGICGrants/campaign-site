@@ -234,19 +234,19 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
 
   const donationStats = {
     xmr: {
-      count: project.isFunded ? project.numdonationsxmr : 0,
-      amount: project.isFunded ? project.totaldonationsxmr : 0,
-      fiatAmount: project.isFunded ? project.totaldonationsinfiatxmr : 0,
+      count: project.isFunded ? project.numDonationsXMR : 0,
+      amount: project.isFunded ? project.totalDonationsXMR : 0,
+      fiatAmount: project.isFunded ? project.totalDonationsXMRInFiat : 0,
     },
     btc: {
-      count: project.isFunded ? project.numdonationsbtc : 0,
-      amount: project.isFunded ? project.totaldonationsbtc : 0,
-      fiatAmount: project.isFunded ? project.totaldonationsinfiatbtc : 0,
+      count: project.isFunded ? project.numDonationsBTC : 0,
+      amount: project.isFunded ? project.totalDonationsBTC : 0,
+      fiatAmount: project.isFunded ? project.totalDonationsBTCInFiat : 0,
     },
     usd: {
-      count: project.isFunded ? project.fiatnumdonations : 0,
-      amount: project.isFunded ? project.fiattotaldonations : 0,
-      fiatAmount: project.isFunded ? project.fiattotaldonationsinfiat : 0,
+      count: project.isFunded ? project.numDonationsFiat : 0,
+      amount: project.isFunded ? project.totalDonationsFiat : 0,
+      fiatAmount: project.isFunded ? project.totalDonationsFiat : 0,
     },
   }
 

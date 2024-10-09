@@ -16,31 +16,6 @@ const directories: Record<FundSlug, string> = {
   general: join(process.cwd(), 'docs/general/projects'),
 }
 
-const FIELDS = [
-  'fund',
-  'title',
-  'summary',
-  'slug',
-  'content',
-  'coverImage',
-  'nym',
-  'date',
-  'goal',
-  'website',
-  'socialLinks',
-  'staticXMRaddress',
-  'isFunded',
-  'numdonationsxmr',
-  'totaldonationsinfiatxmr',
-  'totaldonationsxmr',
-  'numdonationsbtc',
-  'totaldonationsinfiatbtc',
-  'totaldonationsbtc',
-  'fiatnumdonations',
-  'fiattotaldonationsinfiat',
-  'fiattotaldonations',
-]
-
 const projectSlugsByFund: Record<FundSlug, string[]> = {
   monero: fs.readdirSync(directories.monero),
   firo: fs.readdirSync(directories.firo),
@@ -54,40 +29,34 @@ export function getSingleFile(path: string) {
 }
 
 export function getProjectBySlug(slug: string, fundSlug: FundSlug) {
-  const fields = FIELDS
   const realSlug = slug.replace(/\.md$/, '')
   const fullPath = join(directories[fundSlug], `${sanitize(realSlug)}.md`)
   const fileContents = fs.readFileSync(fullPath, 'utf8')
   const { data, content } = matter(fileContents)
 
-  const items: any = {
-    numdonationsxmr: 0,
-    totaldonationsinfiatxmr: 0,
-    totaldonationsxmr: 0,
-    numdonationsbtc: 0,
-    totaldonationsinfiatbtc: 0,
-    totaldonationsbtc: 0,
-    fiatnumdonations: 0,
-    fiattotaldonationsinfiat: 0,
-    fiattotaldonations: 0,
+  const project: ProjectItem = {
+    fund: data.fund,
+    slug: realSlug,
+    title: data.title,
+    summary: data.summary,
+    content: content,
+    coverImage: data.coverImage,
+    nym: data.nym,
+    date: data.date,
+    website: data.website,
+    socialLinks: data.socialLinks,
+    goal: data.goal,
+    numDonationsBTC: 0,
+    numDonationsXMR: 0,
+    numDonationsFiat: 0,
+    totalDonationsBTC: 0,
+    totalDonationsXMR: 0,
+    totalDonationsFiat: 0,
+    totalDonationsBTCInFiat: 0,
+    totalDonationsXMRInFiat: 0,
   }
 
-  // Ensure only the minimal needed data is exposed
-  fields.forEach((field) => {
-    if (field === 'slug') {
-      items[field] = realSlug
-    }
-
-    if (field === 'content') {
-      items[field] = content
-    }
-
-    if (typeof data[field] !== 'undefined') {
-      items[field] = data[field]
-    }
-  })
-
-  return items as ProjectItem
+  return project
 }
 
 export async function getProjects(fundSlug?: FundSlug) {
@@ -130,29 +99,28 @@ export async function getProjects(fundSlug?: FundSlug) {
 
       donations.forEach((donation) => {
         if (donation.cryptoCode === 'XMR') {
-          project.numdonationsxmr += 1
-          project.totaldonationsxmr += donation.netCryptoAmount || 0
-          project.totaldonationsinfiatxmr += donation.netFiatAmount
+          project.numDonationsXMR += 1
+          project.totalDonationsXMR += donation.netCryptoAmount || 0
+          project.totalDonationsXMRInFiat += donation.netFiatAmount
         }
 
         if (donation.cryptoCode === 'BTC') {
-          project.numdonationsbtc += 1
-          project.totaldonationsbtc += donation.netCryptoAmount || 0
-          project.totaldonationsinfiatbtc += donation.netFiatAmount
+          project.numDonationsBTC += 1
+          project.totalDonationsBTC += donation.netCryptoAmount || 0
+          project.totalDonationsBTCInFiat += donation.netFiatAmount
         }
 
         if (donation.cryptoCode === null) {
-          project.fiatnumdonations += 1
-          project.fiattotaldonations += donation.netFiatAmount
-          project.fiattotaldonationsinfiat += donation.netFiatAmount
+          project.numDonationsFiat += 1
+          project.totalDonationsFiat += donation.netFiatAmount
         }
       })
 
       // Make isFunded true if goal has been reached
       const donationsSum =
-        ((project.totaldonationsinfiatxmr +
-          project.totaldonationsinfiatbtc +
-          project.fiattotaldonationsinfiat) /
+        ((project.totalDonationsXMRInFiat +
+          project.totalDonationsBTCInFiat +
+          project.totalDonationsFiat) /
           project.goal) *
         100
 

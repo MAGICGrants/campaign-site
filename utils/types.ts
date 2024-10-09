@@ -14,15 +14,14 @@ export type ProjectItem = {
   staticXMRaddress?: string
   goal: number
   isFunded?: boolean
-  numdonationsxmr: number
-  totaldonationsinfiatxmr: number
-  totaldonationsxmr: number
-  numdonationsbtc: number
-  totaldonationsinfiatbtc: number
-  totaldonationsbtc: number
-  fiatnumdonations: number
-  fiattotaldonationsinfiat: number
-  fiattotaldonations: number
+  numDonationsBTC: number
+  numDonationsXMR: number
+  numDonationsFiat: number
+  totalDonationsBTC: number
+  totalDonationsXMR: number
+  totalDonationsFiat: number
+  totalDonationsBTCInFiat: number
+  totalDonationsXMRInFiat: number
 }
 
 export type PayReq = {

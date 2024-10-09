@@ -180,9 +180,9 @@ async function handle(
       const targetAmountUsd = project.goal
 
       const allDonationsSumUsd =
-        project.totaldonationsinfiatbtc +
-        project.totaldonationsinfiatxmr +
-        project.fiattotaldonationsinfiat
+        project.totalDonationsBTCInFiat +
+        project.totalDonationsXMRInFiat +
+        project.totalDonationsFiat
 
       const remainingAmountBtc = (project.goal - allDonationsSumUsd) / (rates.BTC || 0)
       const remainingAmountXmr = (project.goal - allDonationsSumUsd) / (rates.XMR || 0)
@@ -204,12 +204,12 @@ async function handle(
         address_btc: bitcoinAddress,
         address_xmr: moneroAddress,
         raised_amount_percent:
-          ((project.totaldonationsinfiatxmr +
-            project.totaldonationsinfiatbtc +
-            project.fiattotaldonationsinfiat) /
+          ((project.totalDonationsBTCInFiat +
+            project.totalDonationsXMRInFiat +
+            project.totalDonationsFiat) /
             project.goal) *
           100,
-        contributions: project.numdonationsbtc + project.numdonationsxmr + project.fiatnumdonations,
+        contributions: project.numDonationsBTC + project.numDonationsXMR + project.numDonationsFiat,
       }
     })
   )
