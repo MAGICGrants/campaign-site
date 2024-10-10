@@ -70,7 +70,14 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, customImageStyles })
             </span>
           </div>
 
-          <Progress current={20000} goal={10000} />
+          <Progress
+            current={
+              project.totalDonationsBTCInFiat +
+              project.totalDonationsXMRInFiat +
+              project.totalDonationsFiat
+            }
+            goal={project.goal}
+          />
         </figcaption>
       </figure>
     </Link>
