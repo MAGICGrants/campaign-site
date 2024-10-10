@@ -99,6 +99,9 @@ export async function getProjects(fundSlug?: FundSlug) {
           })
         : []
 
+      console.log('Donations for', project.title)
+      console.log(donations)
+
       donations.forEach((donation) => {
         if (donation.cryptoCode === 'XMR') {
           project.numDonationsXMR += 1
@@ -131,6 +134,9 @@ export async function getProjects(fundSlug?: FundSlug) {
       }
     })
   )
+
+  console.log('getProjects return:')
+  console.log(projects)
 
   return projects
 }

@@ -91,6 +91,9 @@ async function handle(
         : !project.isFunded
   )
 
+  console.log('Funding required filtered projects:')
+  console.log(projects)
+
   const rates: Record<string, number | undefined> = {}
 
   // Get exchange rates if target asset is not USD (or if there is no target asset)
@@ -204,12 +207,13 @@ async function handle(
         remaining_amount_usd: Number((remainingAmountUsd > 0 ? remainingAmountUsd : 0).toFixed(2)),
         address_btc: bitcoinAddress,
         address_xmr: moneroAddress,
-        raised_amount_percent:
+        raised_amount_percent: Math.floor(
           ((project.totalDonationsBTCInFiat +
             project.totalDonationsXMRInFiat +
             project.totalDonationsFiat) /
             project.goal) *
-          100,
+            100
+        ),
         contributions: project.numDonationsBTC + project.numDonationsXMR + project.numDonationsFiat,
       }
     })
