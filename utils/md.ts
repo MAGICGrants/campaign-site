@@ -102,7 +102,7 @@ export async function getProjects(fundSlug?: FundSlug) {
       console.log('Donations for', project.title)
       console.log('Params: ', env.BUILD_MODE, project.slug, project.fund)
       console.log(donations)
-      console.log('Unfiltered:', await prisma.donation.findMany())
+      console.log('Unfiltered:', !env.BUILD_MODE ? await prisma.donation.findMany() : [])
 
       donations.forEach((donation) => {
         if (donation.cryptoCode === 'XMR') {
