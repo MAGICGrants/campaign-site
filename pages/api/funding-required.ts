@@ -91,9 +91,6 @@ async function handle(
         : !project.isFunded
   )
 
-  console.log('Funding required filtered projects:')
-  console.log(projects)
-
   const rates: Record<string, number | undefined> = {}
 
   // Get exchange rates if target asset is not USD (or if there is no target asset)
