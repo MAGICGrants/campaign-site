@@ -27,7 +27,7 @@ type BtcpayBody = Record<string, any> & {
   timestamp: number
   storeId: string
   invoiceId: string
-  metadata: DonationMetadata
+  metadata?: DonationMetadata
   paymentMethod: string
 }
 
@@ -57,6 +57,10 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
     console.error('Invalid signature')
     res.status(400).json({ success: false })
     return
+  }
+
+  if (!body.metadata) {
+    return res.status(200).json({ success: true })
   }
 
   if (body.type === 'InvoicePaymentSettled') {
@@ -105,6 +109,8 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
 
     await Promise.all(
       paymentMethods.map(async (paymentMethod) => {
+        if (!body.metadata) return
+
         const cryptoAmount = Number(paymentMethod.paymentMethodPaid)
 
         if (!cryptoAmount) return
