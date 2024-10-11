@@ -82,15 +82,15 @@ const Header = () => {
         {!!fund && session.status !== 'authenticated' && (
           <>
             <Dialog open={loginIsOpen} onOpenChange={setLoginIsOpen}>
-              <DialogTrigger>
-                <>
-                  <Button variant="outline" className="w-18 block sm:hidden" size="sm">
-                    Login
-                  </Button>
-                  <Button variant="outline" className="w-24 hidden sm:block">
-                    Login
-                  </Button>
-                </>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-18 block sm:hidden" size="sm">
+                  Login
+                </Button>
+              </DialogTrigger>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-24 hidden sm:block">
+                  Login
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <LoginFormModal
@@ -102,13 +102,13 @@ const Header = () => {
             </Dialog>
 
             <Dialog open={registerIsOpen} onOpenChange={setRegisterIsOpen}>
-              <DialogTrigger>
-                <>
-                  <Button className="w-18 block sm:hidden" size="sm">
-                    Register
-                  </Button>
-                  <Button className="w-24 hidden sm:block">Register</Button>
-                </>
+              <DialogTrigger asChild>
+                <Button className="w-18 block sm:hidden" size="sm">
+                  Register
+                </Button>
+              </DialogTrigger>
+              <DialogTrigger asChild>
+                <Button className="w-24 hidden sm:block">Register</Button>
               </DialogTrigger>
               <DialogContent>
                 <RegisterFormModal
