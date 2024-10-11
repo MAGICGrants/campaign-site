@@ -131,6 +131,7 @@ async function handle(
           }
 
           const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>('/invoices', {
+            checkout: { monitoringMinutes: 9999999 },
             currency: CURRENCY,
             metadata,
           })
