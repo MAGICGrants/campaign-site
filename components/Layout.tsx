@@ -5,6 +5,7 @@ import { Inter } from 'next/font/google'
 import SectionContainer from './SectionContainer'
 import Footer from './Footer'
 import Header from './Header'
+import { useFundSlug } from '../utils/use-fund-slug'
 
 interface Props {
   children: ReactNode
@@ -13,11 +14,16 @@ interface Props {
 const inter = Inter({ subsets: ['latin'] })
 
 const LayoutWrapper = ({ children }: Props) => {
+  const fundSlug = useFundSlug()
   const { data: session } = useSession()
 
   useEffect(() => {
     if (session?.error === 'RefreshAccessTokenError') {
-      signOut()
+      if (fundSlug) {
+        signOut({ callbackUrl: `/${fundSlug}/?loginEmail=${session?.user.email}` })
+      } else {
+        signOut({ callbackUrl: '/' })
+      }
     }
   }, [session])
 
