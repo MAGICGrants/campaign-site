@@ -16,7 +16,7 @@
   }
 
   .monero {
-    --background: 223, 100%, 97%;
+    --background: 24, 100%, 95%;
     --foreground: 223, 84%, 5%;
 
     --card: 0 0% 100%;
@@ -68,7 +68,7 @@
   }
 
   .privacyguides {
-    --background: 223, 100%, 97%;
+    --background: 40, 100%, 95;
     --foreground: 223, 84%, 5%;
 
     --card: 0 0% 100%;
@@ -94,7 +94,7 @@
   }
 
   .general {
-    --background: 223, 100%, 97%;
+    --background: 220, 100%, 95%;
     --foreground: 223, 84%, 5%;
 
     --card: 0 0% 100%;

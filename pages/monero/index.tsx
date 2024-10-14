@@ -48,7 +48,7 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
       <div className="divide-y divide-gray-200">
         <div className="pt-4 md:pb-8">
           <h1 className="py-4 text-3xl font-extrabold leading-9 tracking-tight text-gray-900 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14">
-            Support Monero Fund
+            Support Monero
           </h1>
           <p className="max-w-3xl text-lg leading-7 text-gray-500">
             Help us to provide sustainable funding for free and open-source contributors working on
@@ -61,7 +61,7 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
               onClick={() => setDonateModalOpen(true)}
               size="lg"
             >
-              Donate to Monero Comittee General Fund
+              Donate to Monero Fund
             </Button>
 
             {!userHasMembershipQuery.data && (
@@ -98,7 +98,7 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
           </div>
 
           <p className="text-sm leading-7 text-gray-400">
-            We are a 501(c)(3) public charity. All donations are tax deductible.
+            We are a 501(c)(3) public charity. Your donation may qualify for a tax deduction.
           </p>
         </div>
       </div>
