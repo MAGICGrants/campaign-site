@@ -56,6 +56,8 @@ Create a `.env `file as a copy of `.env.example` and set the values for the empt
 
 4. Go to **Developers** -> **Webhooks**, and add a new webhook endpoint. Add `<Your app public address>/api/stripe/monero-webhook` to the URL field replacing `<Your app public address>` with your app's public address, then add the secret to the `STRIPE_MONERO_WEBHOOK_SECRET` environment variable in your `.env` file. To expose the app to the internet so Stripe can reach the webhook endpoint, you can use tunneling services like Visual Studio Code's built-in [port-forwarding feature](https://code.visualstudio.com/docs/editor/port-forwarding) or [Ngrok](https://ngrok.io).
 
+This makes you able to test Stripe donations in the Monero fund, which should be enough for development. You can add random values to the other Stripe enviroment variables to bypass validation.
+
 You are now all set up to start developing!
 
 ## Funding required endpoint
