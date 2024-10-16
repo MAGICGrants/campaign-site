@@ -63,14 +63,14 @@ services:
       BTCPAY_WEBHOOK_SECRET: ${BTCPAY_WEBHOOK_SECRET}
 
       MONERO_APPLICATION_RECIPIENT: monerofund@magicgrants.org
-      FIRO_APPLICATION_RECIPIENT: monerofund@magicgrants.org
-      PRIVACY_GUIDES_APPLICATION_RECIPIENT: monerofund@magicgrants.org
-      GENERAL_APPLICATION_RECIPIENT: monerofund@magicgrants.org
+      FIRO_APPLICATION_RECIPIENT: firofund@magicgrants.org
+      PRIVACY_GUIDES_APPLICATION_RECIPIENT: privacyguidesfund@magicgrants.org
+      GENERAL_APPLICATION_RECIPIENT: info@magicgrants.org
 
       NEXT_PUBLIC_MONERO_APPLICATION_RECIPIENT: monerofund@magicgrants.org
-      NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT: monerofund@magicgrants.org
-      NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT: monerofund@magicgrants.org
-      NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT: monerofund@magicgrants.org
+      NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT: firofund@magicgrants.org
+      NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT: privacyguidesfund@magicgrants.org
+      NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT: info@magicgrants.org
     depends_on:
       - postgres
 
