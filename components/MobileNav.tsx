@@ -70,7 +70,7 @@ const MobileNav = () => {
         </div>
         <nav className="fixed mt-8 h-full">
           {!!fund &&
-            fundHeaderNavLinks.map((link) => (
+            fundHeaderNavLinks[fund.slug].map((link) => (
               <div key={link.title} className="px-12 py-4">
                 <CustomLink
                   href={`/${fundSlug}/${link.href}`}

@@ -28,6 +28,16 @@ export function getSingleFile(path: string) {
   return fs.readFileSync(fullPath, 'utf8')
 }
 
+export function fileExists(path: string) {
+  const fullPath = join(process.cwd(), path)
+  try {
+    fs.accessSync(fullPath, fs.constants.F_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function getProjectBySlug(slug: string, fundSlug: FundSlug) {
   const realSlug = slug.replace(/\.md$/, '')
   const fullPath = join(directories[fundSlug], `${sanitize(realSlug)}.md`)

@@ -2,7 +2,7 @@ import xss from 'xss'
 import { FundSlug } from '@prisma/client'
 
 import markdownToHtml from '../../utils/markdownToHtml'
-import { getSingleFile } from '../../utils/md'
+import { fileExists, getSingleFile } from '../../utils/md'
 import { fundSlugs } from '../../utils/funds'
 
 export default function Faq({ content }: { content: string }) {
@@ -28,7 +28,9 @@ export async function getStaticProps({ params }: { params: { fund: FundSlug } })
 
 export function getStaticPaths() {
   return {
-    paths: fundSlugs.map((fund) => `/${fund}/faq`),
+    paths: fundSlugs
+      .filter((fundSlug) => fileExists(`docs/${fundSlug}/faq.md`))
+      .map((fundSlug) => `/${fundSlug}/faq`),
     fallback: true,
   }
 }

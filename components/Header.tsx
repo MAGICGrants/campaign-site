@@ -65,7 +65,7 @@ const Header = () => {
 
       <div className="flex gap-2 items-center text-base leading-5">
         {!!fund &&
-          fundHeaderNavLinks.map((link) => (
+          fundHeaderNavLinks[fund.slug].map((link) => (
             <CustomLink
               key={link.title}
               href={`/${fundSlug}/${link.href}`}
