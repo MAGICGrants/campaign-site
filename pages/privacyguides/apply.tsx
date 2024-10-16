@@ -34,19 +34,19 @@ export default function Apply() {
     <div className="mx-auto flex-1 flex flex-col items-center justify-center gap-4 py-8 prose">
       <form onSubmit={handleSubmit(onSubmit)} className="max-w-5xl flex flex-col gap-4 p-4">
         <div>
-          <h1>Application for Monero Fund Project Listing or General Fund Grant</h1>
-          <p>Thanks for your interest in the Monero Fund!</p>
+          <h1>Application for Privacy Guides Fund Project Listing or General Fund Grant</h1>
+          <p>Thanks for your interest in the Privacy Guides Fund!</p>
+          {/* REVIEW START */}
           <p>
             We&#39;re incredibly grateful to contributors like you working to support Monero,
             Bitcoin and other free and open source projects.
           </p>
           <p>
-            The MAGIC Monero Fund is offering a grant program and fundraising platform to support
-            Monero research and development, especially relating to privacy, security, user
+            The MAGIC Privacy Guides Fund is offering a grant program and fundraising platform to
+            support Monero research and development, especially relating to privacy, security, user
             experience, and efficiency. Proposals can be related to the Monero protocol directly, or
             they can be related to other areas of the Monero ecosystem. For research projects,
-            please refer to special instructions
-            <Link href="/apply_research"> here</Link>.
+            please refer to special instructions <Link href="/apply_research">here</Link>.
           </p>
           <h2>Proposal Evaluation Criteria</h2>
           <div>
@@ -71,6 +71,7 @@ export default function Apply() {
               </li>
             </ul>
           </div>
+          {/* REVIEW END */}
           <h2 id="Eligibility">Eligibility</h2>
           <p>
             All qualified researchers are eligible to apply, regardless of educational attainment or
@@ -87,33 +88,35 @@ export default function Apply() {
           <h2>How to Submit a Proposal</h2>
           <p>
             To submit a proposal, please complete the form below or create an issue on{' '}
+            {/* REVIEW START */}
             <a href="https://github.com/MAGICGrants/Monero-Fund/issues/new?assignees=&labels=&template=grant-application.md&title=[Grant+Title]">
               Github
             </a>
-            . Applicants are free to use their legal name or a pseudonym at this step, although note
+            .{/* REVIEW END */}
+            Applicants are free to use their legal name or a pseudonym at this step, although note
             the{' '}
             <a href="#Eligibility">
               <b>Eligibility</b>
             </a>{' '}
-            section. You can choose to apply for a direct grant from the MAGIC Monero Fund&#39;s
-            General Fund and/or request that your project be listed on MoneroFund.org to raise funds
-            from Monero community members.
+            section. You can choose to apply for a direct grant from the MAGIC Privacy Guides
+            Fund&#39;s General Fund and/or request that your project be listed on
+            donate.magicgrants.org to raise funds from community members.
           </p>
           <p>
             Please note this form is not considered confidential and is effectively equivalent to a
-            public GitHub issue. In order to reach out privately, please send an email to
-            MoneroFund@magicgrants.org.
+            public GitHub issue. In order to reach out privately, please send an email to{' '}
+            {fundSlugToRecipientEmail[fundSlug]}.
           </p>
         </div>
 
         <label className="checkbox">
           <input type="checkbox" {...register('general_fund')} />
-          Apply to receive a grant from the Magic Monero Fund.
+          Apply to receive a grant from the Magic Privacy Guides Fund.
         </label>
 
         <label className="checkbox">
           <input type="checkbox" {...register('explore_page')} />
-          Apply for project to be listed on the Monero Fund Donation Page.
+          Apply for project to be listed on the Privacy Guides Fund Donation Page.
         </label>
 
         <div className="w-full flex flex-col">
@@ -184,7 +187,7 @@ export default function Apply() {
         <div className="w-full flex flex-col">
           <label htmlFor="short_description">Short Project Description *</label>
           <small>
-            This will be listed on the explore projects page of the Monero Fund website. 2-3
+            This will be listed on the explore projects page of the Privacy Guides Fund website. 2-3
             sentences.
           </small>
           <textarea
@@ -197,8 +200,8 @@ export default function Apply() {
         <div className="w-full flex flex-col">
           <label htmlFor="long_description">Long Project Description</label>
           <small>
-            This will be listed on your personal project page of the Monero Fund website. It can be
-            longer and go into detail about your project.
+            This will be listed on your personal project page of the Privacy Guides Fund website. It
+            can be longer and go into detail about your project.
           </small>
           <textarea
             className="appearance-none block w-full text-gray-700 border rounded py-2 px-3 mb-3 leading-tight focus:outline-none focus:ring-0"
@@ -229,6 +232,7 @@ export default function Apply() {
           />
         </div>
 
+        {/* REVIEW START */}
         <div className="w-full flex flex-col">
           <label htmlFor="potential_impact">Potential Impact *</label>
           <small>Why is this project important to the Monero community?</small>
@@ -238,6 +242,7 @@ export default function Apply() {
             {...register('potential_impact', { required: true })}
           />
         </div>
+        {/* REVIEW END */}
 
         <div className="w-full flex flex-col">
           <label htmlFor="timelines">Project Timelines and Potential Milestones *</label>
@@ -273,10 +278,10 @@ export default function Apply() {
         </div>
 
         <small>
-          The MAGIC Monero Fund may require each recipient to sign a Grant Agreement before any
-          funds are disbursed. This agreement will set milestones and funds will only be released
-          upon completion of milestones. In order to comply with US regulations, recipients will
-          need to identify themselves to MAGIC, in accordance with US law.
+          The MAGIC Privacy Guides Fund may require each recipient to sign a Grant Agreement before
+          any funds are disbursed. This agreement will set milestones and funds will only be
+          released upon completion of milestones. In order to comply with US regulations, recipients
+          will need to identify themselves to MAGIC, in accordance with US law.
         </small>
 
         <Button disabled={applyMutation.isPending}>Apply</Button>

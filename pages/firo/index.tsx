@@ -51,7 +51,8 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
             Support Firo
           </h1>
           <p className="max-w-3xl text-xl leading-7 text-gray-500">
-            Help us support security audits, essential infrastructure, and research for the Firo ecosystem.
+            Help us support security audits, essential infrastructure, and research for the Firo
+            ecosystem.
           </p>
 
           <div className="flex flex-col md:flex-row my-4 gap-2">
@@ -91,7 +92,7 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
               Want to receive funding for your work?
               <CustomLink href={`/${fund.slug}/apply`}>
                 {' '}
-                Apply for a Monero development or research grant!
+                Apply for a Firo development or research grant!
               </CustomLink>
             </p>
           </div>

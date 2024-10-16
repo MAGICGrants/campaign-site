@@ -34,18 +34,18 @@ export default function Apply() {
     <div className="mx-auto flex-1 flex flex-col items-center justify-center gap-4 py-8 prose">
       <form onSubmit={handleSubmit(onSubmit)} className="max-w-5xl flex flex-col gap-4 p-4">
         <div>
-          <h1>Application for Monero Fund Project Listing or General Fund Grant</h1>
-          <p>Thanks for your interest in the Monero Fund!</p>
+          <h1>Application for Firo Fund Project Listing or General Fund Grant</h1>
+          <p>Thanks for your interest in the Firo Fund!</p>
           <p>
-            We&#39;re incredibly grateful to contributors like you working to support Monero,
-            Bitcoin and other free and open source projects.
+            We&#39;re incredibly grateful to contributors like you working to support Firo and other
+            free and open source projects.
           </p>
           <p>
-            The MAGIC Monero Fund is offering a grant program and fundraising platform to support
-            Monero research and development, especially relating to privacy, security, user
-            experience, and efficiency. Proposals can be related to the Monero protocol directly, or
-            they can be related to other areas of the Monero ecosystem. For research projects,
-            please refer to special instructions
+            The MAGIC Firo Fund is offering a grant program and fundraising platform to support Firo
+            research and development, especially relating to privacy, security, user experience, and
+            efficiency. Proposals can be related to the Firo protocol directly, or they can be
+            related to other areas of the Firo ecosystem. For research projects, please refer to
+            special instructions
             <Link href="/apply_research"> here</Link>.
           </p>
           <h2>Proposal Evaluation Criteria</h2>
@@ -53,7 +53,7 @@ export default function Apply() {
             Submitted proposals will be evaluated by the committee based on the following criteria:
             <ul>
               <li>
-                <b>Impact:</b> The proposal should have a clear impact on the Monero Project.
+                <b>Impact:</b> The proposal should have a clear impact on the Firo Project.
               </li>
               <li>
                 <b>Originality:</b> The proposal should be original and not a rehash of existing
@@ -67,7 +67,7 @@ export default function Apply() {
                 <b>Quality:</b> The proposal should be well-written and well-organized.
               </li>
               <li>
-                <b>Relevance:</b> The proposal should be relevant to the Monero Project.
+                <b>Relevance:</b> The proposal should be relevant to the Firo Project.
               </li>
             </ul>
           </div>
@@ -87,33 +87,34 @@ export default function Apply() {
           <h2>How to Submit a Proposal</h2>
           <p>
             To submit a proposal, please complete the form below or create an issue on{' '}
+            {/* REVIEW START */}
             <a href="https://github.com/MAGICGrants/Monero-Fund/issues/new?assignees=&labels=&template=grant-application.md&title=[Grant+Title]">
               Github
             </a>
-            . Applicants are free to use their legal name or a pseudonym at this step, although note
-            the{' '}
+            {/* REVIEW END */}. Applicants are free to use their legal name or a pseudonym at this
+            step, although note the{' '}
             <a href="#Eligibility">
               <b>Eligibility</b>
             </a>{' '}
-            section. You can choose to apply for a direct grant from the MAGIC Monero Fund&#39;s
-            General Fund and/or request that your project be listed on MoneroFund.org to raise funds
-            from Monero community members.
+            section. You can choose to apply for a direct grant from the MAGIC Firo Fund&#39;s
+            General Fund and/or request that your project be listed on donate.magicgrants.org to
+            raise funds from Firo community members.
           </p>
           <p>
             Please note this form is not considered confidential and is effectively equivalent to a
-            public GitHub issue. In order to reach out privately, please send an email to
-            MoneroFund@magicgrants.org.
+            public GitHub issue. In order to reach out privately, please send an email to{' '}
+            {fundSlugToRecipientEmail[fundSlug]}.
           </p>
         </div>
 
         <label className="checkbox">
           <input type="checkbox" {...register('general_fund')} />
-          Apply to receive a grant from the Magic Monero Fund.
+          Apply to receive a grant from the Magic Firo Fund.
         </label>
 
         <label className="checkbox">
           <input type="checkbox" {...register('explore_page')} />
-          Apply for project to be listed on the Monero Fund Donation Page.
+          Apply for project to be listed on the Firo Fund Donation Page.
         </label>
 
         <div className="w-full flex flex-col">
@@ -184,7 +185,7 @@ export default function Apply() {
         <div className="w-full flex flex-col">
           <label htmlFor="short_description">Short Project Description *</label>
           <small>
-            This will be listed on the explore projects page of the Monero Fund website. 2-3
+            This will be listed on the explore projects page of the Firo Fund website. 2-3
             sentences.
           </small>
           <textarea
@@ -197,7 +198,7 @@ export default function Apply() {
         <div className="w-full flex flex-col">
           <label htmlFor="long_description">Long Project Description</label>
           <small>
-            This will be listed on your personal project page of the Monero Fund website. It can be
+            This will be listed on your personal project page of the Firo Fund website. It can be
             longer and go into detail about your project.
           </small>
           <textarea
@@ -231,7 +232,7 @@ export default function Apply() {
 
         <div className="w-full flex flex-col">
           <label htmlFor="potential_impact">Potential Impact *</label>
-          <small>Why is this project important to the Monero community?</small>
+          <small>Why is this project important to the Firo community?</small>
           <textarea
             className="appearance-none block w-full text-gray-700 border rounded py-2 px-3 mb-3 leading-tight focus:outline-none focus:ring-0"
             id="potential_impact"
@@ -273,10 +274,10 @@ export default function Apply() {
         </div>
 
         <small>
-          The MAGIC Monero Fund may require each recipient to sign a Grant Agreement before any
-          funds are disbursed. This agreement will set milestones and funds will only be released
-          upon completion of milestones. In order to comply with US regulations, recipients will
-          need to identify themselves to MAGIC, in accordance with US law.
+          The MAGIC Firo Fund may require each recipient to sign a Grant Agreement before any funds
+          are disbursed. This agreement will set milestones and funds will only be released upon
+          completion of milestones. In order to comply with US regulations, recipients will need to
+          identify themselves to MAGIC, in accordance with US law.
         </small>
 
         <Button disabled={applyMutation.isPending}>Apply</Button>

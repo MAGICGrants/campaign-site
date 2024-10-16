@@ -51,7 +51,9 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
             Support MAGIC Grants
           </h1>
           <p className="max-w-3xl text-xl leading-7 text-gray-500">
-            MAGIC Grants is a public charity that provides undergraduate scholarships for students interested in cryptocurrencies and privacy, supports public cryptocurrency infrastructure, and supports privacy.
+            MAGIC Grants is a public charity that provides undergraduate scholarships for students
+            interested in cryptocurrencies and privacy, supports public cryptocurrency
+            infrastructure, and supports privacy.
           </p>
 
           <div className="flex flex-col md:flex-row my-4 gap-2">
@@ -91,7 +93,7 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
               Want to receive funding for your work?
               <CustomLink href={`/${fund.slug}/apply`}>
                 {' '}
-                Apply for a Monero development or research grant!
+                Apply for a General Fund development or research grant!
               </CustomLink>
             </p>
           </div>

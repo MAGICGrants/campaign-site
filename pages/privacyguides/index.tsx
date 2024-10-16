@@ -51,7 +51,9 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
             Support Privacy Guides
           </h1>
           <p className="max-w-3xl text-xl leading-7 text-gray-500">
-            Privacy Guides is a not-for-profit, volunteer-run project that hosts online communities and publishes news and recommendations surrounding privacy and security tools, services, and knowledge.
+            Privacy Guides is a not-for-profit, volunteer-run project that hosts online communities
+            and publishes news and recommendations surrounding privacy and security tools, services,
+            and knowledge.
           </p>
 
           <div className="flex flex-col md:flex-row my-4 gap-2">
@@ -91,7 +93,7 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
               Want to receive funding for your work?
               <CustomLink href={`/${fund.slug}/apply`}>
                 {' '}
-                Apply for a Monero development or research grant!
+                Apply for a Privacy Guides development or research grant!
               </CustomLink>
             </p>
           </div>
