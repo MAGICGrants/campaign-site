@@ -46,7 +46,7 @@ export default function Apply() {
             experience, and efficiency. Proposals can be related to the Monero protocol directly, or
             they can be related to other areas of the Monero ecosystem. For research projects,
             please refer to special instructions
-            <Link href="/apply_research"> here</Link>.
+            <Link href="/monero/apply_research"> here</Link>.
           </p>
           <h2>Proposal Evaluation Criteria</h2>
           <div>
