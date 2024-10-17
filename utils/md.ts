@@ -17,10 +17,12 @@ const directories: Record<FundSlug, string> = {
 }
 
 const projectSlugsByFund: Record<FundSlug, string[]> = {
-  monero: fs.readdirSync(directories.monero),
-  firo: fs.readdirSync(directories.firo),
-  privacyguides: fs.readdirSync(directories.privacyguides),
-  general: fs.readdirSync(directories.general),
+  monero: fs.readdirSync(directories.monero).filter((filename) => filename !== '.gitkeep'),
+  firo: fs.readdirSync(directories.firo).filter((filename) => filename !== '.gitkeep'),
+  privacyguides: fs
+    .readdirSync(directories.privacyguides)
+    .filter((filename) => filename !== '.gitkeep'),
+  general: fs.readdirSync(directories.general).filter((filename) => filename !== '.gitkeep'),
 }
 
 export function getSingleFile(path: string) {
