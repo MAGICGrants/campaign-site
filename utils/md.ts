@@ -26,12 +26,12 @@ const projectSlugsByFund: Record<FundSlug, string[]> = {
 }
 
 export function getSingleFile(path: string) {
-  const fullPath = join(process.cwd(), path)
+  const fullPath = join(process.cwd(), sanitize(path))
   return fs.readFileSync(fullPath, 'utf8')
 }
 
 export function fileExists(path: string) {
-  const fullPath = join(process.cwd(), path)
+  const fullPath = join(process.cwd(), sanitize(path))
   try {
     fs.accessSync(fullPath, fs.constants.F_OK)
     return true
