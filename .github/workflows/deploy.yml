@@ -3,12 +3,12 @@ name: Deploy app to donate.magicgrants.org
 on:
   push:
     branches:
-      - v2
+      - master
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: v2
+    environment: master
 
     steps:
       - uses: actions/checkout@v4
