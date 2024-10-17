@@ -77,7 +77,7 @@ function RegisterFormModal({ close, openLoginModal }: Props) {
     <>
       <DialogHeader>
         <DialogTitle>Register</DialogTitle>
-        <DialogDescription>Start supporting Monero projects today!</DialogDescription>
+        <DialogDescription>Start supporting projects today!</DialogDescription>
       </DialogHeader>
 
       <Form {...form}>

@@ -81,11 +81,10 @@ export const funds: Record<FundSlug, ProjectItem & { slug: FundSlug }> = {
     fund: 'general',
     slug: 'general',
     nym: 'MagicGeneral',
-    website: 'https://monerofund.org',
+    website: 'https://magicgrants.org',
     socialLinks: [
-      'https://monerofund.org',
+      'https://magicgrants.org',
       'https://x.com/magicgrants',
-      'https://mastodon.neat.computer/@username',
       'https://github.com/magicgrants',
     ],
     title: 'General Fund',
