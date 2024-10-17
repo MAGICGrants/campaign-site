@@ -87,16 +87,6 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
             )}
           </div>
 
-          <div className="flex flex-row flex-wrap">
-            <p className="text-md leading-7 text-gray-500">
-              Want to receive funding for your work?
-              <CustomLink href={`/${fund.slug}/apply`}>
-                {' '}
-                Apply for a Firo development or research grant!
-              </CustomLink>
-            </p>
-          </div>
-
           <p className="text-sm leading-7 text-gray-400">
             We are a 501(c)(3) public charity. Your donation may qualify for a tax deduction.
           </p>
