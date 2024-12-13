@@ -28,12 +28,12 @@
 
 ## How do you collect Monero donations?
 
-- We use BTCPay Server to receive all cryptocurrency donations. For fiat donations, we leverage Stripe Payments.
+- We use BTCPay Server to receive Monero and Bitcoin donations. For fiat donations, we leverage Stripe Payments.
 
 ## Can you provide the view key to verify the Fund's incoming Monero donations?
 
 - Yes. You can create a view-only Monero wallet with this information:
-- Do **not** donate to this Monero address directly instead of using the form on this website, because it is shared with other MAGIC funds, and therefore may not be properly attributed to Privacy Guides.
+- Do **not** donate to this Monero address directly instead of using the form on this website, because it is **shared** with other MAGIC funds, and therefore may not be properly attributed to Privacy Guides.
 - Main address:
   ```
   4BE3G7JCwcphuZYGw56AcpDEsDsZ7kCDjZwkxQSf3cSrJxbq4Mgqu1tNZeQny1QUZG9aeNWaHEiK82fvzsCcuySJSFccM5u
@@ -51,8 +51,9 @@
 
 ## Are my donations tax-deductible?
 
-- Yes. MAGIC Privacy Guides Fund is a project fiscally hosted by MAGIC Grants, a 501(c)(3) non-profit organization. All gifts and donations are tax-deductible in the USA.
+- Yes. MAGIC Privacy Guides Fund is a project fiscally hosted by MAGIC Grants, a 501(c)(3) non-profit organization. Your donation may qualify for a tax deduction.
 - If you would like to receive a tax deduction, we may need to collect supplementary information such as your name and email for required record keeping. If you donate over $500 with cryptocurrencies, you will need to fill out [Form 8283](https://www.irs.gov/pub/irs-pdf/f8283.pdf) and email that form to [info@maigcgrants.org](mailto:info@magicgrants.org) for us to sign Part V.
+- MAGIC Grants does not provide legal or tax advice. Please consult a tax professional to determine if your donation is eligible for a tax deduction.
 
 ## Can I donate with bank transfer or wire?
 
