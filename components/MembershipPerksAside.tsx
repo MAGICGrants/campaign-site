@@ -55,14 +55,7 @@ function MembershipPerksAside() {
               <div className="text-md">
                 <CheckIcon className="text-teal-500" />
               </div>
-              <p>Show your support with a special Member flair on the Privacy Guides forum.</p>
-            </div>
-
-            <div className="flex flex-row space-x-2 items-start">
-              <div className="text-md">
-                <CheckIcon className="text-teal-500" />
-              </div>
-              <p>Get recognized with your name (or pseudonym) included in Privacy Guides videos.</p>
+              <p>Show your support with a special <a href="https://discuss.privacyguides.net/t/getting-your-member-flair-on-the-forum/25453">Member flair</a> on the Privacy Guides forum.</p>
             </div>
 
             <div className="flex flex-row space-x-2 items-start">
