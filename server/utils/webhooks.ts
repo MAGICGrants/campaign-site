@@ -56,8 +56,21 @@ export function getStripeWebhookHandler(fundSlug: FundSlug, secret: string) {
         ? Number((grossFiatAmount * 0.9).toFixed(2))
         : grossFiatAmount
       const pointsAdded = shouldGivePointsBack ? Math.floor(grossFiatAmount / POINTS_PER_USD) : 0
-      const membershipExpiresAt =
-        metadata.isMembership === 'true' ? dayjs().add(1, 'year').toDate() : null
+      let membershipExpiresAt = null
+
+      if (
+        paymentIntent.metadata.isMembership === 'true' &&
+        paymentIntent.metadata.membershipTerm === 'monthly'
+      ) {
+        membershipExpiresAt = dayjs().add(1, 'month').toDate()
+      }
+
+      if (
+        paymentIntent.metadata.isMembership === 'true' &&
+        paymentIntent.metadata.membershipTerm === 'annually'
+      ) {
+        membershipExpiresAt = dayjs().add(1, 'year').toDate()
+      }
 
       // Add PG forum user to membership group
       if (metadata.isMembership && metadata.fundSlug === 'privacyguides' && metadata.userId) {
@@ -75,12 +88,13 @@ export function getStripeWebhookHandler(fundSlug: FundSlug, secret: string) {
           netFiatAmount,
           pointsAdded,
           membershipExpiresAt,
+          membershipTerm: metadata.membershipTerm,
           showDonorNameOnLeaderboard: metadata.showDonorNameOnLeaderboard === 'true',
           donorName: metadata.donorName,
         },
       })
 
-      // // Add points
+      // Add points
       if (shouldGivePointsBack && metadata.userId) {
         // Get balance for project/fund by finding user's last point history
         const currentBalance = await getUserPointBalance(metadata.userId)
@@ -98,15 +112,17 @@ export function getStripeWebhookHandler(fundSlug: FundSlug, secret: string) {
         })
       }
 
+      // Get attestation and send confirmation email
       if (metadata.donorEmail && metadata.donorName) {
         let attestationMessage = ''
         let attestationSignature = ''
 
-        if (metadata.isMembership === 'true') {
+        if (metadata.isMembership === 'true' && metadata.membershipTerm) {
           const attestation = await getMembershipAttestation({
             donorName: metadata.donorName,
             donorEmail: metadata.donorEmail,
             amount: Number(grossFiatAmount.toFixed(2)),
+            term: metadata.membershipTerm,
             method: 'Fiat',
             fundName: funds[metadata.fundSlug].title,
             fundSlug: metadata.fundSlug,
@@ -191,6 +207,7 @@ export function getStripeWebhookHandler(fundSlug: FundSlug, secret: string) {
           netFiatAmount,
           pointsAdded,
           membershipExpiresAt,
+          membershipTerm: metadata.membershipTerm,
           showDonorNameOnLeaderboard: metadata.showDonorNameOnLeaderboard === 'true',
           donorName: metadata.donorName,
         },
@@ -214,7 +231,7 @@ export function getStripeWebhookHandler(fundSlug: FundSlug, secret: string) {
         })
       }
 
-      if (metadata.donorEmail && metadata.donorName) {
+      if (metadata.donorEmail && metadata.donorName && metadata.membershipTerm) {
         const donations = await prisma.donation.findMany({
           where: {
             stripeSubscriptionId: invoice.subscription.toString(),
@@ -235,6 +252,7 @@ export function getStripeWebhookHandler(fundSlug: FundSlug, secret: string) {
           donorEmail: metadata.donorEmail,
           amount: membershipValue,
           method: 'Fiat',
+          term: metadata.membershipTerm,
           fundName: funds[metadata.fundSlug].title,
           fundSlug: metadata.fundSlug,
           periodStart: membershipStart,

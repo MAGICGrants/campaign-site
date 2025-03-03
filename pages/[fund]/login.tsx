@@ -71,7 +71,11 @@ function Login() {
         )
       }
 
-      toast({ title: 'Error', description: 'Sorry, something went wrong.', variant: 'destructive' })
+      return toast({
+        title: 'Error',
+        description: 'Sorry, something went wrong.',
+        variant: 'destructive',
+      })
     }
 
     toast({

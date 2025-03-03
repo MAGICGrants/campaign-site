@@ -1,5 +1,5 @@
 import * as ed from '@noble/ed25519'
-import { FundSlug } from '@prisma/client'
+import { FundSlug, MembershipTerm } from '@prisma/client'
 import dayjs from 'dayjs'
 
 import { env } from '../../env.mjs'
@@ -53,6 +53,7 @@ Verify this attestation at donate.magicgrants.org/${fundSlug}/verify-attestation
 type GetMembershipAttestation = {
   donorName: string
   donorEmail: string
+  term: MembershipTerm
   amount: number
   method: string
   fundName: string
@@ -64,6 +65,7 @@ type GetMembershipAttestation = {
 export async function getMembershipAttestation({
   donorName,
   donorEmail,
+  term,
   amount,
   method,
   fundName,
@@ -75,6 +77,7 @@ export async function getMembershipAttestation({
 
 Name: ${donorName}
 Email: ${donorEmail}
+Term: ${term.charAt(0).toUpperCase() + term.slice(1)}
 Total amount to date: $${amount.toFixed(2)}
 Method: ${method}
 Fund: ${fundName}

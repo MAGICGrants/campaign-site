@@ -25,6 +25,11 @@ enum AccountConnectionType {
   privacyGuidesForum
 }
 
+enum MembershipTerm {
+  monthly
+  annually
+}
+
 model Donation {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -34,7 +39,7 @@ model Donation {
   donorName                  String?
   btcPayInvoiceId            String?
   stripePaymentIntentId      String? // For donations and non-recurring memberships
-  stripeInvoiceId            String?   @unique // For recurring memberships
+  stripeInvoiceId            String?         @unique // For recurring memberships
   stripeSubscriptionId       String? // For recurring memberships
   projectSlug                String
   projectName                String
@@ -44,9 +49,10 @@ model Donation {
   netCryptoAmount            Float?
   grossFiatAmount            Float
   netFiatAmount              Float
-  pointsAdded                Int       @default(0)
+  pointsAdded                Int             @default(0)
   membershipExpiresAt        DateTime?
-  showDonorNameOnLeaderboard Boolean?  @default(false)
+  membershipTerm             MembershipTerm?
+  showDonorNameOnLeaderboard Boolean?        @default(false)
 
   @@index([btcPayInvoiceId])
   @@index([stripePaymentIntentId])
