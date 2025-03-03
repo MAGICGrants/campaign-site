@@ -136,10 +136,12 @@ const FormMessage = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
-  const { error, formMessageId, ...rest } = useFormField()
-  // console.log(error, rest.name)
+  const { error, formMessageId, name, ...rest } = useFormField()
+  const {
+    formState: { errors },
+  } = useFormContext()
 
-  const body = error ? String(error?.message) : children
+  const body = error ? String(errors[name]?.message) : children
 
   if (!body) {
     return null
