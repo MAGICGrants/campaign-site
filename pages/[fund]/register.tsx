@@ -38,6 +38,7 @@ import { Checkbox } from '../../components/ui/checkbox'
 import { env } from '../../env.mjs'
 import { authOptions } from '../api/auth/[...nextauth]'
 import MembershipPerksAside from '../../components/MembershipPerksAside'
+import CustomLink from '../../components/CustomLink'
 
 const schema = z
   .object({
@@ -559,6 +560,11 @@ function RegisterFormModal() {
             </div>
           </form>
         </Form>
+
+        <p className="text-sm text-gray-900">
+          By clicking Register, you agree to our <CustomLink href="/terms">Terms of Use</CustomLink>{' '}
+          and <CustomLink href="/terms">Privacy Policy</CustomLink>.
+        </p>
       </div>
     </div>
   )
