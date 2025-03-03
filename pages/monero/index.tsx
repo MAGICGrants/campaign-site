@@ -57,13 +57,13 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
                 {session.status === 'authenticated' ? (
                   <Link href={`/${fund.slug}/membership`}>
                     <Button variant="light" size="lg">
-                      Get Annual Membership
+                      Get Membership
                     </Button>
                   </Link>
                 ) : (
                   <Link href={`/${fund.slug}/register?nextAction=membership`}>
                     <Button variant="light" size="lg">
-                      Get Annual Membership
+                      Get Membership
                     </Button>
                   </Link>
                 )}
