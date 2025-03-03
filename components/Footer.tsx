@@ -24,8 +24,7 @@ function Footer() {
       </div>
 
       <div className="space-x-4 text-center text-xs text-gray-500">
-        © {new Date().getFullYear()} MAGIC Grants. This website builds upon technology by Open
-        Sats.
+        © {new Date().getFullYear()} MAGIC Grants. <a href="https://github.com/MAGICGrants/campaign-site/blob/master/LICENSE">See License</a>
       </div>
     </footer>
   )
