@@ -5,7 +5,13 @@ import { z } from 'zod'
 import UserRepresentation from '@keycloak/keycloak-admin-client/lib/defs/userRepresentation'
 
 import { protectedProcedure, publicProcedure, router } from '../trpc'
-import { CURRENCY, MAX_AMOUNT, MEMBERSHIP_PRICE, MIN_AMOUNT } from '../../config'
+import {
+  CURRENCY,
+  MAX_AMOUNT,
+  ANNUALLY_MEMBERSHIP_MIN_PRICE_USD,
+  MIN_AMOUNT,
+  MONTHLY_MEMBERSHIP_MIN_PRICE_USD,
+} from '../../config'
 import { env } from '../../env.mjs'
 import { btcpayApi, keycloak, prisma, stripe as _stripe } from '../services'
 import { authenticateKeycloakClient } from '../utils/keycloak'
@@ -91,6 +97,7 @@ export const donationRouter = router({
         fundSlug: input.fundSlug,
         isMembership: 'false',
         isSubscription: 'false',
+        membershipTerm: null,
         isTaxDeductible: input.taxDeductible ? 'true' : 'false',
         staticGeneratedForApi: 'false',
         givePointsBack: input.givePointsBack ? 'true' : 'false',
@@ -161,6 +168,7 @@ export const donationRouter = router({
         fundSlug: input.fundSlug,
         itemDesc: `MAGIC ${funds[input.fundSlug].title}`,
         isMembership: 'false',
+        membershipTerm: null,
         isSubscription: 'false',
         isTaxDeductible: input.taxDeductible ? 'true' : 'false',
         staticGeneratedForApi: 'false',
@@ -184,6 +192,8 @@ export const donationRouter = router({
     .input(
       z.object({
         fundSlug: z.enum(fundSlugs),
+        amount: z.number(),
+        term: z.enum(['monthly', 'annually']),
         recurring: z.boolean(),
         taxDeductible: z.boolean(),
         givePointsBack: z.boolean(),
@@ -192,6 +202,20 @@ export const donationRouter = router({
     .mutation(async ({ input, ctx }) => {
       const stripe = _stripe[input.fundSlug]
       const userId = ctx.session.user.sub
+
+      if (input.term === 'monthly' && input.amount < MONTHLY_MEMBERSHIP_MIN_PRICE_USD) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Min. monthly amount is $${MONTHLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+        })
+      }
+
+      if (input.term === 'annually' && input.amount < ANNUALLY_MEMBERSHIP_MIN_PRICE_USD) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Min. anually amount is $${ANNUALLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+        })
+      }
 
       const userHasMembership = await prisma.donation.findFirst({
         where: {
@@ -241,6 +265,7 @@ export const donationRouter = router({
         projectName: funds[input.fundSlug].title,
         fundSlug: input.fundSlug,
         isMembership: 'true',
+        membershipTerm: input.term,
         isSubscription: input.recurring ? 'true' : 'false',
         isTaxDeductible: input.taxDeductible ? 'true' : 'false',
         staticGeneratedForApi: 'false',
@@ -258,9 +283,9 @@ export const donationRouter = router({
             price_data: {
               currency: CURRENCY,
               product_data: {
-                name: `MAGIC Grants Annual Membership: ${funds[input.fundSlug].title}`,
+                name: `MAGIC Grants ${input.term === 'annually' ? 'Annual' : 'Monthly'} Membership: ${funds[input.fundSlug].title}`,
               },
-              unit_amount: MEMBERSHIP_PRICE * 100,
+              unit_amount: input.amount * 100,
             },
             quantity: 1,
           },
@@ -280,10 +305,10 @@ export const donationRouter = router({
             price_data: {
               currency: CURRENCY,
               product_data: {
-                name: `MAGIC Grants Annual Membership: ${funds[input.fundSlug].title}`,
+                name: `MAGIC Grants ${input.term === 'annually' ? 'Annual' : 'Monthly'} Membership: ${funds[input.fundSlug].title}`,
               },
-              recurring: { interval: 'year' },
-              unit_amount: MEMBERSHIP_PRICE * 100,
+              recurring: { interval: input.term === 'annually' ? 'year' : 'month' },
+              unit_amount: input.amount * 100,
             },
             quantity: 1,
           },
@@ -305,11 +330,27 @@ export const donationRouter = router({
     .input(
       z.object({
         fundSlug: z.enum(fundSlugs),
+        amount: z.number(),
+        term: z.enum(['monthly', 'annually']),
         taxDeductible: z.boolean(),
         givePointsBack: z.boolean(),
       })
     )
     .mutation(async ({ input, ctx }) => {
+      if (input.term === 'monthly' && input.amount < MONTHLY_MEMBERSHIP_MIN_PRICE_USD) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Min. monthly amount is $${MONTHLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+        })
+      }
+
+      if (input.term === 'annually' && input.amount < ANNUALLY_MEMBERSHIP_MIN_PRICE_USD) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Min. anually amount is $${ANNUALLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+        })
+      }
+
       const userId = ctx.session.user.sub
 
       const userHasMembership = await prisma.donation.findFirst({
@@ -341,6 +382,7 @@ export const donationRouter = router({
         itemDesc: `MAGIC ${funds[input.fundSlug].title}`,
         fundSlug: input.fundSlug,
         isMembership: 'true',
+        membershipTerm: input.term,
         isSubscription: 'false',
         isTaxDeductible: input.taxDeductible ? 'true' : 'false',
         staticGeneratedForApi: 'false',
@@ -349,7 +391,7 @@ export const donationRouter = router({
       }
 
       const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>(`/invoices`, {
-        amount: MEMBERSHIP_PRICE,
+        amount: input.amount,
         currency: CURRENCY,
         metadata,
         checkout: { redirectURL: `${env.APP_URL}/${input.fundSlug}/thankyou` },
@@ -514,6 +556,9 @@ export const donationRouter = router({
       const { message, signature } = await getMembershipAttestation({
         donorName: user.attributes?.name,
         donorEmail: ctx.session.user.email,
+        // For membership donations, a null membership term means that membership is an annual one,
+        // since it was started before monthly memberships were introduced.
+        term: donations[0].membershipTerm || 'annually',
         amount: membershipValue,
         method: donations[0].cryptoCode ? donations[0].cryptoCode : 'Fiat',
         fundSlug: donations[0].fundSlug,

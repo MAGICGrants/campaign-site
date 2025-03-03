@@ -122,8 +122,15 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
       `/invoices/${body.invoiceId}/payment-methods`
     )
 
-    const membershipExpiresAt =
-      body.metadata.isMembership === 'true' ? dayjs().add(1, 'year').toDate() : null
+    let membershipExpiresAt = null
+
+    if (body.metadata.isMembership === 'true' && body.metadata.membershipTerm === 'monthly') {
+      membershipExpiresAt = dayjs().add(1, 'month').toDate()
+    }
+
+    if (body.metadata.isMembership === 'true' && body.metadata.membershipTerm === 'annually') {
+      membershipExpiresAt = dayjs().add(1, 'year').toDate()
+    }
 
     // Create one donation and one point history for each invoice payment method
     await Promise.all(
@@ -165,6 +172,7 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
             netFiatAmount: Number(netFiatAmount.toFixed(2)),
             pointsAdded,
             membershipExpiresAt,
+            membershipTerm: body.metadata.membershipTerm,
             showDonorNameOnLeaderboard: body.metadata.showDonorNameOnLeaderboard === 'true',
             donorName: body.metadata.donorName,
           },
@@ -197,11 +205,12 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
           let attestationMessage = ''
           let attestationSignature = ''
 
-          if (body.metadata.isMembership === 'true') {
+          if (body.metadata.isMembership === 'true' && body.metadata.membershipTerm) {
             const attestation = await getMembershipAttestation({
               donorName: body.metadata.donorName,
               donorEmail: body.metadata.donorEmail,
               amount: Number(grossFiatAmount.toFixed(2)),
+              term: body.metadata.membershipTerm,
               method: paymentMethod.currency,
               fundName: funds[body.metadata.fundSlug].title,
               fundSlug: body.metadata.fundSlug,

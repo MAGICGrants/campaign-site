@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, CheckIcon } from 'lucide-react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
@@ -37,6 +37,8 @@ import { cn } from '../../utils/cn'
 import { Checkbox } from '../../components/ui/checkbox'
 import { env } from '../../env.mjs'
 import { authOptions } from '../api/auth/[...nextauth]'
+import { MONTHLY_MEMBERSHIP_MIN_PRICE_USD, ANNUALLY_MEMBERSHIP_MIN_PRICE_USD } from '../../config'
+import MembershipPerksAside from '../../components/MembershipPerksAside'
 
 const schema = z
   .object({
@@ -223,125 +225,23 @@ function RegisterFormModal() {
   }
 
   return (
-    <div className="w-full max-w-xl m-auto p-6 flex flex-col space-y-4 bg-white rounded-lg">
-      <h1 className="font-bold">Register</h1>
+    <div className="w-full flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0 justify-center items-center sm:items-start">
+      <MembershipPerksAside />
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col space-y-4">
-          <div className="w-full space-y-4 sm:space-x-2 sm:space-y-0 flex flex-col sm:flex-row">
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem className="grow">
-                  <FormLabel>First name *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+      <div className="max-w-[540px] mx-auto p-6 space-y-6 rounded-lg bg-white">
+        <h1 className="font-bold">Register</h1>
 
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem className="grow">
-                  <FormLabel>Last name *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="company"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Company (optional)</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email *</FormLabel>
-                <FormControl>
-                  <Input placeholder="johndoe@example.com" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password *</FormLabel>
-                <FormControl>
-                  <Input {...field} type="password" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="confirmPassword"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Confirm password *</FormLabel>
-                <FormControl>
-                  <Input {...field} type="password" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="_addMailingAddress"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                <FormControl>
-                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                </FormControl>
-                <div className="space-y-1 flex flex-col items-start leading-none">
-                  <FormLabel>Add mailing address</FormLabel>
-                  <FormDescription>
-                    You can also manage your mailing address in the account settings.
-                  </FormDescription>
-                </div>
-              </FormItem>
-            )}
-          />
-
-          {addMailingAddress && (
-            <>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col space-y-4">
+            <div className="w-full space-y-4 sm:space-x-2 sm:space-y-0 flex flex-col sm:flex-row">
               <FormField
                 control={form.control}
-                name="address.addressLine1"
+                name="firstName"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address line 1 *</FormLabel>
+                  <FormItem className="grow">
+                    <FormLabel>First name *</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder="John" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -350,107 +250,147 @@ function RegisterFormModal() {
 
               <FormField
                 control={form.control}
-                name="address.addressLine2"
+                name="lastName"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address line 2</FormLabel>
+                  <FormItem className="grow">
+                    <FormLabel>Last name *</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder="Doe" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            </div>
 
-              <FormField
-                control={form.control}
-                name="address.country"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Country *</FormLabel>
-                    <Popover
-                      modal
-                      open={countrySelectOpen}
-                      onOpenChange={(open) => setCountrySelectOpen(open)}
-                    >
-                      <PopoverTrigger>
-                        <div>
-                          <FormControl>
-                            <Select
-                              open={countrySelectOpen}
-                              onValueChange={() => setCountrySelectOpen(false)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue
-                                  placeholder={
-                                    (getCountriesQuery.data || []).find(
-                                      (country) => country.code === addressCountry
-                                    )?.name || ''
-                                  }
-                                />
-                              </SelectTrigger>
-                            </Select>
-                          </FormControl>
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent className="p-0">
-                        <Command>
-                          <CommandInput placeholder="Search country..." />
-                          <CommandList>
-                            <CommandEmpty>No country found.</CommandEmpty>
-                            <CommandGroup>
-                              {addressCountryOptions.map((country) => (
-                                <CommandItem
-                                  value={country.label}
-                                  key={country.value}
-                                  onSelect={() => (
-                                    form.setValue('address.country', country.value, {
-                                      shouldValidate: true,
-                                    }),
-                                    setCountrySelectOpen(false)
-                                  )}
-                                >
-                                  {country.label}
-                                  <Check
-                                    className={cn(
-                                      'ml-auto',
-                                      country.value === field.value ? 'opacity-100' : 'opacity-0'
-                                    )}
-                                  />
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="company"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company (optional)</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              {!!addressStateOptions.length && (
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="johndoe@example.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password *</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="password" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm password *</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="password" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="_addMailingAddress"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 flex flex-col items-start leading-none">
+                    <FormLabel>Add mailing address</FormLabel>
+                    <FormDescription>
+                      You can also manage your mailing address in the account settings.
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {addMailingAddress && (
+              <>
                 <FormField
                   control={form.control}
-                  name="address.state"
+                  name="address.addressLine1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address line 1 *</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="address.addressLine2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address line 2</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="address.country"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>State *</FormLabel>
+                      <FormLabel>Country *</FormLabel>
                       <Popover
                         modal
-                        open={stateSelectOpen}
-                        onOpenChange={(open) => setStateSelectOpen(open)}
+                        open={countrySelectOpen}
+                        onOpenChange={(open) => setCountrySelectOpen(open)}
                       >
                         <PopoverTrigger>
                           <div>
                             <FormControl>
-                              <Select>
+                              <Select
+                                open={countrySelectOpen}
+                                onValueChange={() => setCountrySelectOpen(false)}
+                              >
                                 <SelectTrigger>
                                   <SelectValue
                                     placeholder={
-                                      addressStateOptions.find(
-                                        (state) => state.value === addressState
-                                      )?.label
+                                      (getCountriesQuery.data || []).find(
+                                        (country) => country.code === addressCountry
+                                      )?.name || ''
                                     }
                                   />
                                 </SelectTrigger>
@@ -460,26 +400,26 @@ function RegisterFormModal() {
                         </PopoverTrigger>
                         <PopoverContent className="p-0">
                           <Command>
-                            <CommandInput placeholder="Search state..." />
+                            <CommandInput placeholder="Search country..." />
                             <CommandList>
-                              <CommandEmpty>No state found.</CommandEmpty>
+                              <CommandEmpty>No country found.</CommandEmpty>
                               <CommandGroup>
-                                {addressStateOptions.map((state) => (
+                                {addressCountryOptions.map((country) => (
                                   <CommandItem
-                                    value={state.label}
-                                    key={state.value}
+                                    value={country.label}
+                                    key={country.value}
                                     onSelect={() => (
-                                      form.setValue('address.state', state.value, {
+                                      form.setValue('address.country', country.value, {
                                         shouldValidate: true,
                                       }),
-                                      setStateSelectOpen(false)
+                                      setCountrySelectOpen(false)
                                     )}
                                   >
-                                    {state.label}
+                                    {country.label}
                                     <Check
                                       className={cn(
                                         'ml-auto',
-                                        state.value === field.value ? 'opacity-100' : 'opacity-0'
+                                        country.value === field.value ? 'opacity-100' : 'opacity-0'
                                       )}
                                     />
                                   </CommandItem>
@@ -493,66 +433,134 @@ function RegisterFormModal() {
                     </FormItem>
                   )}
                 />
-              )}
 
-              <FormField
-                control={form.control}
-                name="address.city"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>City *</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                {!!addressStateOptions.length && (
+                  <FormField
+                    control={form.control}
+                    name="address.state"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>State *</FormLabel>
+                        <Popover
+                          modal
+                          open={stateSelectOpen}
+                          onOpenChange={(open) => setStateSelectOpen(open)}
+                        >
+                          <PopoverTrigger>
+                            <div>
+                              <FormControl>
+                                <Select>
+                                  <SelectTrigger>
+                                    <SelectValue
+                                      placeholder={
+                                        addressStateOptions.find(
+                                          (state) => state.value === addressState
+                                        )?.label
+                                      }
+                                    />
+                                  </SelectTrigger>
+                                </Select>
+                              </FormControl>
+                            </div>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0">
+                            <Command>
+                              <CommandInput placeholder="Search state..." />
+                              <CommandList>
+                                <CommandEmpty>No state found.</CommandEmpty>
+                                <CommandGroup>
+                                  {addressStateOptions.map((state) => (
+                                    <CommandItem
+                                      value={state.label}
+                                      key={state.value}
+                                      onSelect={() => (
+                                        form.setValue('address.state', state.value, {
+                                          shouldValidate: true,
+                                        }),
+                                        setStateSelectOpen(false)
+                                      )}
+                                    >
+                                      {state.label}
+                                      <Check
+                                        className={cn(
+                                          'ml-auto',
+                                          state.value === field.value ? 'opacity-100' : 'opacity-0'
+                                        )}
+                                      />
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
 
-              <FormField
-                control={form.control}
-                name="address.zip"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Postal code *</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </>
-          )}
+                <FormField
+                  control={form.control}
+                  name="address.city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City *</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-          <Turnstile
-            ref={turnstileRef}
-            siteKey={env.NEXT_PUBLIC_TURNSTILE_SITEKEY}
-            onError={() => form.setValue('turnstileToken', '', { shouldValidate: true })}
-            onExpire={() => form.setValue('turnstileToken', '', { shouldValidate: true })}
-            onSuccess={(token) => form.setValue('turnstileToken', token, { shouldValidate: true })}
-          />
+                <FormField
+                  control={form.control}
+                  name="address.zip"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Postal code *</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
 
-          <div className="flex flex-row space-x-2">
-            <Button
-              type="button"
-              variant="link"
-              className="grow basis-0"
-              onClick={() => router.push(`/${fundSlug}/login`)}
-            >
-              I already have an account
-            </Button>
+            <Turnstile
+              ref={turnstileRef}
+              siteKey={env.NEXT_PUBLIC_TURNSTILE_SITEKEY}
+              onError={() => form.setValue('turnstileToken', '', { shouldValidate: true })}
+              onExpire={() => form.setValue('turnstileToken', '', { shouldValidate: true })}
+              onSuccess={(token) =>
+                form.setValue('turnstileToken', token, { shouldValidate: true })
+              }
+            />
 
-            <Button
-              type="submit"
-              disabled={!form.formState.isValid || form.formState.isSubmitting}
-              className="grow basis-0"
-            >
-              {form.formState.isSubmitting && <Spinner />} Register
-            </Button>
-          </div>
-        </form>
-      </Form>
+            <div className="flex flex-row space-x-2">
+              <Button
+                type="button"
+                variant="link"
+                className="grow basis-0"
+                onClick={() => router.push(`/${fundSlug}/login`)}
+              >
+                I already have an account
+              </Button>
+
+              <Button
+                type="submit"
+                disabled={!form.formState.isValid || form.formState.isSubmitting}
+                className="grow basis-0"
+              >
+                {form.formState.isSubmitting && <Spinner />} Register
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
     </div>
   )
 }

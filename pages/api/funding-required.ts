@@ -125,6 +125,7 @@ async function handle(
             projectName: project.title,
             fundSlug: project.fund as FundSlug,
             isMembership: 'false',
+            membershipTerm: null,
             isSubscription: 'false',
             isTaxDeductible: 'false',
             staticGeneratedForApi: 'true',

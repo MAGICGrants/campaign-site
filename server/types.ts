@@ -1,4 +1,4 @@
-import { FundSlug } from '@prisma/client'
+import { FundSlug, MembershipTerm } from '@prisma/client'
 
 export type KeycloakJwtPayload = {
   sub: string
@@ -21,6 +21,7 @@ export type DonationMetadata = {
   fundSlug: FundSlug
   itemDesc?: string
   isMembership: 'true' | 'false'
+  membershipTerm: MembershipTerm | null
   isSubscription: 'true' | 'false'
   isTaxDeductible: 'true' | 'false'
   staticGeneratedForApi: 'true' | 'false'
