@@ -52,7 +52,7 @@
 ## Are my donations tax-deductible?
 
 - Yes. MAGIC Privacy Guides Fund is a project fiscally hosted by MAGIC Grants, a 501(c)(3) non-profit organization. Your donation may qualify for a tax deduction.
-- If you would like to receive a tax deduction, we may need to collect supplementary information such as your name and email for required record keeping. If you donate over $500 with cryptocurrencies, you will need to fill out [Form 8283](https://www.irs.gov/pub/irs-pdf/f8283.pdf) and email that form to [info@maigcgrants.org](mailto:info@magicgrants.org) for us to sign Part V.
+- If you would like to receive a tax deduction, we may need to collect supplementary information such as your name and email for required record keeping. If you donate over $500 with cryptocurrencies, you will need to fill out [Form 8283](https://www.irs.gov/pub/irs-pdf/f8283.pdf) and email that form to [info@magicgrants.org](mailto:info@magicgrants.org) for us to sign Part V.
 - MAGIC Grants does not provide legal or tax advice. Please consult a tax professional to determine if your donation is eligible for a tax deduction.
 
 ## Can I donate with bank transfer or wire?
