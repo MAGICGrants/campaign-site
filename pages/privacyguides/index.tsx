@@ -33,6 +33,7 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
         <title>{fund.title}</title>
         <meta name="description" content="Donate to the MAGIC Privacy Guides Fund" />
         <link rel="icon" href="/favicon.ico" />
+        <link rel="me" href="https://mastodon.neat.computer/@privacyguides">
       </Head>
 
       <div className="divide-y divide-gray-200">
@@ -45,7 +46,6 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
             and publishes news and recommendations surrounding privacy and security tools, services,
             and knowledge.
           </p>
-          <a rel="me" href="https://mastodon.neat.computer/@privacyguides" style={{ display: 'none' }}></a>
 
           <div className="flex flex-col md:flex-row my-4 gap-2">
             <Link href={`/${fund.slug}/donate/${fund.slug}`}>
