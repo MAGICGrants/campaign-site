@@ -33,6 +33,7 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
         <title>{fund.title}</title>
         <meta name="description" content="Donate to the MAGIC Privacy Guides Fund" />
         <link rel="icon" href="/favicon.ico" />
+        <link rel="me" href="https://mastodon.neat.computer/@privacyguides">
       </Head>
 
       <div className="divide-y divide-gray-200">
