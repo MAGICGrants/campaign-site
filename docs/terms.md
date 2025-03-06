@@ -1,6 +1,6 @@
 # MAGIC Grants Terms of Use
 
-**Last updated: December 9, 2024**
+**Last updated: March 3, 2025**
 
 Welcome to the donate.magicgrants.org website and/or mobile application (individually and collectively, the **Site**). Your access and use of the Site and of features, software, products and services provided by MAGIC Grants (**MAGIC Grants**, **we**, **us**, or **our**) through the Site, (individually and collectively, the **Service**) is subject to the terms and conditions in this Terms of Use (**Terms of Use** or **Terms**).
 
@@ -52,6 +52,14 @@ You are responsible for providing the correct shipping and delivery details for 
 MAGIC Grants may discontinue the points and perks program without notice. If terminated, MAGIC Grants will treat any remaining points as a donation to MAGIC Grants. The value of points are not guaranteed. Points are not redeemable for cash. Points cannot be transferred to another person or account. If the program is terminated, please [contact](mailto:info@magicgrants.org) MAGIC Grants for a donation receipt for your points.
 
 If your account is terminated/closed for violation of these Terms of Use, then any points in the account will be forfeited without any compensation or donation receipt.
+
+## Membership
+
+This Site includes certain opportunities to earn a "Membership" for donating to specific campaigns. This Membership may include certain perks, which may be added, modified, or removed at any time without notice.
+
+Membership status does not entitle the Membership holder to any voting rights in MAGIC Grants, voting rights in any MAGIC Grants committee (or any MAGIC Fund), or any other right unless explicitly specified in writing through a different agreement.
+
+If you have any question about the optional Membership program, please [contact](mailto:info@magicgrants.org) MAGIC Grants.
 
 ## Accounts, Security, and Access
 
