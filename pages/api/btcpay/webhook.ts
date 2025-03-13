@@ -172,7 +172,7 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
             netFiatAmount: Number(netFiatAmount.toFixed(2)),
             pointsAdded,
             membershipExpiresAt,
-            membershipTerm: body.metadata.membershipTerm,
+            membershipTerm: body.metadata.membershipTerm || null,
             showDonorNameOnLeaderboard: body.metadata.showDonorNameOnLeaderboard === 'true',
             donorName: body.metadata.donorName,
           },
