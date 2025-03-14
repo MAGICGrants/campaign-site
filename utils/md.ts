@@ -2,7 +2,7 @@ import fs from 'fs'
 import { join } from 'path'
 import matter from 'gray-matter'
 import sanitize from 'sanitize-filename'
-import { FundSlug } from '@prisma/client'
+import { Donation, FundSlug } from '@prisma/client'
 
 import { fundSlugs } from './funds'
 import { ProjectItem } from './types'
@@ -105,11 +105,17 @@ export async function getProjects(fundSlug?: FundSlug) {
     projects.map(async (project) => {
       if (project.isFunded) return
 
-      const donations = !env.BUILD_MODE
-        ? await prisma.donation.findMany({
-            where: { projectSlug: project.slug, fundSlug: project.fund },
-          })
-        : []
+      let donations: Donation[] = []
+
+      try {
+        donations = await prisma.donation.findMany({
+          where: { projectSlug: project.slug, fundSlug: project.fund },
+        })
+      } catch {
+        console.log(
+          'Could not fetch donations. There is either a problem with Postgres or this is running on build time.'
+        )
+      }
 
       donations.forEach((donation) => {
         if (donation.cryptoCode === 'XMR') {
