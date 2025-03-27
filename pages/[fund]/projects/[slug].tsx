@@ -21,6 +21,7 @@ import { getFundSlugFromUrlPath } from '../../../utils/funds'
 import { useFundSlug } from '../../../utils/use-fund-slug'
 import { Table, TableBody, TableCell, TableRow } from '../../../components/ui/table'
 import { cn } from '../../../utils/cn'
+import { DonationCryptoPayments } from '../../../server/types'
 
 type SingleProjectPageProps = {
   project: ProjectItem
@@ -200,6 +201,11 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
       amount: project.isFunded ? project.totalDonationsBTC : 0,
       fiatAmount: project.isFunded ? project.totalDonationsBTCInFiat : 0,
     },
+    ltc: {
+      count: project.isFunded ? project.numDonationsLTC : 0,
+      amount: project.isFunded ? project.totalDonationsLTC : 0,
+      fiatAmount: project.isFunded ? project.totalDonationsLTCInFiat : 0,
+    },
     usd: {
       count: project.isFunded ? project.numDonationsFiat : 0,
       amount: project.isFunded ? project.totalDonationsFiat : 0,
@@ -212,20 +218,22 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
       where: { projectSlug: params.slug as string, fundSlug },
     })
 
+    const cryptoCodeToStats = {
+      BTC: donationStats.btc,
+      XMR: donationStats.xmr,
+      LTC: donationStats.ltc,
+    } as const
+
     donations.forEach((donation) => {
-      if (donation.cryptoCode === 'XMR') {
-        donationStats.xmr.count += 1
-        donationStats.xmr.amount += donation.netCryptoAmount || 0
-        donationStats.xmr.fiatAmount += donation.netFiatAmount
-      }
+      ;(donation.cryptoPayments as DonationCryptoPayments | null)?.forEach((payment) => {
+        const stats = cryptoCodeToStats[payment.cryptoCode]
 
-      if (donation.cryptoCode === 'BTC') {
-        donationStats.btc.count += 1
-        donationStats.btc.amount += donation.netCryptoAmount || 0
-        donationStats.btc.fiatAmount += donation.netFiatAmount
-      }
+        stats.count += 1
+        stats.amount += payment.netAmount
+        stats.fiatAmount += payment.netAmount * payment.rate
+      })
 
-      if (donation.cryptoCode === null) {
+      if (!donation.cryptoPayments) {
         donationStats.usd.count += 1
         donationStats.usd.amount += donation.netFiatAmount
         donationStats.usd.fiatAmount += donation.netFiatAmount

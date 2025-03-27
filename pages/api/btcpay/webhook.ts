@@ -7,22 +7,16 @@ import {
   BtcPayGetRatesRes,
   BtcPayGetPaymentMethodsRes,
   DonationMetadata,
-  StrapiCreatePointBody,
+  DonationCryptoPayments,
 } from '../../../server/types'
-import {
-  btcpayApi as _btcpayApi,
-  btcpayApi,
-  prisma,
-  privacyGuidesDiscourseApi,
-  strapiApi,
-} from '../../../server/services'
+import { btcpayApi as _btcpayApi, btcpayApi, prisma } from '../../../server/services'
 import { env } from '../../../env.mjs'
-import { getUserPointBalance } from '../../../server/utils/perks'
+import { givePointsToUser } from '../../../server/utils/perks'
 import { sendDonationConfirmationEmail } from '../../../server/utils/mailing'
 import { POINTS_PER_USD } from '../../../config'
 import { getDonationAttestation, getMembershipAttestation } from '../../../server/utils/attestation'
-import { funds } from '../../../utils/funds'
 import { addUserToPgMembersGroup } from '../../../utils/pg-forum-connection'
+import { log } from '../../../utils/logging'
 
 export const config = {
   api: {
@@ -30,7 +24,7 @@ export const config = {
   },
 }
 
-type BtcpayBody = Record<string, any> & {
+type WebhookBody = Record<string, any> & {
   deliveryId: string
   webhookId: string
   originalDeliveryId: string
@@ -41,6 +35,178 @@ type BtcpayBody = Record<string, any> & {
   invoiceId: string
   metadata?: DonationMetadata
   paymentMethod: string
+}
+
+async function handleFundingRequiredApiDonation(body: WebhookBody) {
+  if (!body.metadata) return
+
+  // Handle payment methods like "BTC-LightningNetwork" if added in the future
+  const cryptoCode = body.paymentMethod.includes('-')
+    ? body.paymentMethod.split('-')[0]
+    : body.paymentMethod
+
+  const { data: rates } = await btcpayApi.get<BtcPayGetRatesRes>(
+    `/rates?currencyPair=${cryptoCode}_USD`
+  )
+
+  const cryptoRate = Number(rates[0].rate)
+  const cryptoAmount = Number(body.payment.value)
+  const fiatAmount = Number((cryptoAmount * cryptoRate).toFixed(2))
+
+  await prisma.donation.create({
+    data: {
+      userId: null,
+      btcPayInvoiceId: body.invoiceId,
+      projectName: body.metadata.projectName,
+      projectSlug: body.metadata.projectSlug,
+      fundSlug: body.metadata.fundSlug,
+      grossFiatAmount: fiatAmount,
+      netFiatAmount: fiatAmount,
+      showDonorNameOnLeaderboard: body.metadata.showDonorNameOnLeaderboard === 'true',
+      donorName: body.metadata.donorName,
+    },
+  })
+
+  log('info', `[BTCPay webhook] Successfully processed invoice ${body.invoiceId}!`)
+}
+
+// This handles both donations and memberships.
+async function handleDonationOrMembership(body: WebhookBody) {
+  if (!body.metadata) return
+
+  const { data: paymentMethods } = await btcpayApi.get<BtcPayGetPaymentMethodsRes>(
+    `/invoices/${body.invoiceId}/payment-methods`
+  )
+
+  const termToMembershipExpiresAt = {
+    monthly: dayjs().add(1, 'month').toDate(),
+    annually: dayjs().add(1, 'year').toDate(),
+  } as const
+
+  let membershipExpiresAt = null
+
+  if (body.metadata.isMembership === 'true' && body.metadata.membershipTerm) {
+    membershipExpiresAt = termToMembershipExpiresAt[body.metadata.membershipTerm]
+  }
+
+  const cryptoPayments: DonationCryptoPayments = []
+
+  // Get how much was paid for each crypto
+  paymentMethods.forEach((paymentMethod) => {
+    if (!body.metadata) return
+
+    const shouldGivePointsBack = body.metadata.givePointsBack === 'true'
+    const cryptoRate = Number(paymentMethod.rate)
+    const grossCryptoAmount = Number(paymentMethod.paymentMethodPaid)
+
+    // Deduct 10% of amount if donator wants points
+    const netCryptoAmount = shouldGivePointsBack ? grossCryptoAmount * 0.9 : grossCryptoAmount
+
+    // Move on if amound paid with current method is 0
+    if (!grossCryptoAmount) return
+
+    cryptoPayments.push({
+      cryptoCode: paymentMethod.currency,
+      grossAmount: grossCryptoAmount,
+      netAmount: netCryptoAmount,
+      rate: cryptoRate,
+    })
+  })
+
+  const grossFiatAmount = Object.values(cryptoPayments).reduce(
+    (total, paymentMethod) => total + paymentMethod.grossAmount * paymentMethod.rate,
+    0
+  )
+
+  const netFiatAmount = Object.values(cryptoPayments).reduce(
+    (total, paymentMethod) => total + paymentMethod.netAmount * paymentMethod.rate,
+    0
+  )
+
+  const shouldGivePointsBack = body.metadata.givePointsBack === 'true'
+  const pointsToGive = shouldGivePointsBack ? Math.floor(grossFiatAmount / POINTS_PER_USD) : 0
+
+  const donation = await prisma.donation.create({
+    data: {
+      userId: body.metadata.userId,
+      btcPayInvoiceId: body.invoiceId,
+      projectName: body.metadata.projectName,
+      projectSlug: body.metadata.projectSlug,
+      fundSlug: body.metadata.fundSlug,
+      cryptoPayments,
+      grossFiatAmount: Number(grossFiatAmount.toFixed(2)),
+      netFiatAmount: Number(netFiatAmount.toFixed(2)),
+      pointsAdded: pointsToGive,
+      membershipExpiresAt,
+      membershipTerm: body.metadata.membershipTerm || null,
+      showDonorNameOnLeaderboard: body.metadata.showDonorNameOnLeaderboard === 'true',
+      donorName: body.metadata.donorName,
+    },
+  })
+
+  // Add PG forum user to membership group
+  if (
+    body.metadata.isMembership &&
+    body.metadata.fundSlug === 'privacyguides' &&
+    body.metadata.userId
+  ) {
+    try {
+      await addUserToPgMembersGroup(body.metadata.userId)
+    } catch (error) {
+      log(
+        'warn',
+        `[Webhook for invoice ${body.invoiceId}] Could not add user ${body.metadata.userId} to PG forum members group. Cause: ${error}`
+      )
+    }
+  }
+
+  // Add points
+  if (shouldGivePointsBack && body.metadata.userId) {
+    try {
+      await givePointsToUser({ pointsToGive, donation })
+    } catch (error) {
+      console.log((error as any).data.error)
+      throw error
+    }
+  }
+
+  if (body.metadata.donorEmail && body.metadata.donorName) {
+    let attestationMessage = ''
+    let attestationSignature = ''
+
+    if (body.metadata.isMembership === 'true' && body.metadata.membershipTerm) {
+      const attestation = await getMembershipAttestation({
+        donorName: body.metadata.donorName,
+        donorEmail: body.metadata.donorEmail,
+        totalAmountToDate: grossFiatAmount,
+        donation,
+      })
+
+      attestationMessage = attestation.message
+      attestationSignature = attestation.signature
+    }
+
+    if (body.metadata.isMembership === 'false') {
+      const attestation = await getDonationAttestation({
+        donorName: body.metadata.donorName,
+        donorEmail: body.metadata.donorEmail,
+        donation,
+      })
+
+      attestationMessage = attestation.message
+      attestationSignature = attestation.signature
+    }
+
+    sendDonationConfirmationEmail({
+      to: body.metadata.donorEmail,
+      donorName: body.metadata.donorName,
+      donation,
+      attestationMessage,
+      attestationSignature,
+    })
+  }
+
+  log('info', `[BTCPay webhook] Successfully processed invoice ${body.invoiceId}!`)
 }
 
 async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
@@ -56,7 +222,7 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
   }
 
   const rawBody = await getRawBody(req)
-  const body: BtcpayBody = JSON.parse(Buffer.from(rawBody).toString('utf8'))
+  const body: WebhookBody = JSON.parse(Buffer.from(rawBody).toString('utf8'))
 
   const expectedSigHash = crypto
     .createHmac('sha256', env.BTCPAY_WEBHOOK_SECRET)
@@ -67,7 +233,7 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
 
   if (expectedSigHash !== incomingSigHash) {
     console.error('Invalid signature')
-    res.status(400).json({ success: false })
+    res.status(401).json({ success: false })
     return
   }
 
@@ -81,35 +247,7 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ success: true })
     }
 
-    // Handle payment methods like "BTC-LightningNetwork" if added in the future
-    const cryptoCode = body.paymentMethod.includes('-')
-      ? body.paymentMethod.split('-')[0]
-      : body.paymentMethod
-
-    const { data: rates } = await btcpayApi.get<BtcPayGetRatesRes>(
-      `/rates?currencyPair=${cryptoCode}_USD`
-    )
-
-    const cryptoRate = Number(rates[0].rate)
-    const cryptoAmount = Number(body.payment.value)
-    const fiatAmount = Number((cryptoAmount * cryptoRate).toFixed(2))
-
-    await prisma.donation.create({
-      data: {
-        userId: null,
-        btcPayInvoiceId: body.invoiceId,
-        projectName: body.metadata.projectName,
-        projectSlug: body.metadata.projectSlug,
-        fundSlug: body.metadata.fundSlug,
-        cryptoCode,
-        grossCryptoAmount: cryptoAmount,
-        grossFiatAmount: fiatAmount,
-        netCryptoAmount: cryptoAmount,
-        netFiatAmount: fiatAmount,
-        showDonorNameOnLeaderboard: body.metadata.showDonorNameOnLeaderboard === 'true',
-        donorName: body.metadata.donorName,
-      },
-    })
+    await handleFundingRequiredApiDonation(body)
   }
 
   if (body.type === 'InvoiceSettled') {
@@ -118,143 +256,7 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ success: true })
     }
 
-    const { data: paymentMethods } = await btcpayApi.get<BtcPayGetPaymentMethodsRes>(
-      `/invoices/${body.invoiceId}/payment-methods`
-    )
-
-    let membershipExpiresAt = null
-
-    if (body.metadata.isMembership === 'true' && body.metadata.membershipTerm === 'monthly') {
-      membershipExpiresAt = dayjs().add(1, 'month').toDate()
-    }
-
-    if (body.metadata.isMembership === 'true' && body.metadata.membershipTerm === 'annually') {
-      membershipExpiresAt = dayjs().add(1, 'year').toDate()
-    }
-
-    // Create one donation and one point history for each invoice payment method
-    await Promise.all(
-      paymentMethods.map(async (paymentMethod) => {
-        if (!body.metadata) return
-        const shouldGivePointsBack = body.metadata.givePointsBack === 'true'
-        const cryptoRate = Number(paymentMethod.rate)
-        const grossCryptoAmount = Number(paymentMethod.paymentMethodPaid)
-        const grossFiatAmount = grossCryptoAmount * cryptoRate
-        // Deduct 10% of amount if donator wants points
-        const netCryptoAmount = shouldGivePointsBack ? grossCryptoAmount * 0.9 : grossCryptoAmount
-        const netFiatAmount = netCryptoAmount * cryptoRate
-
-        // Move on if amound paid with current method is 0
-        if (!grossCryptoAmount) return
-
-        const pointsAdded = shouldGivePointsBack ? Math.floor(grossFiatAmount / POINTS_PER_USD) : 0
-
-        // Add PG forum user to membership group
-        if (
-          body.metadata.isMembership &&
-          body.metadata.fundSlug === 'privacyguides' &&
-          body.metadata.userId
-        ) {
-          await addUserToPgMembersGroup(body.metadata.userId)
-        }
-
-        const donation = await prisma.donation.create({
-          data: {
-            userId: body.metadata.userId,
-            btcPayInvoiceId: body.invoiceId,
-            projectName: body.metadata.projectName,
-            projectSlug: body.metadata.projectSlug,
-            fundSlug: body.metadata.fundSlug,
-            cryptoCode: paymentMethod.currency,
-            grossCryptoAmount: Number(grossCryptoAmount.toFixed(2)),
-            grossFiatAmount: Number(grossFiatAmount.toFixed(2)),
-            netCryptoAmount: Number(netCryptoAmount.toFixed(2)),
-            netFiatAmount: Number(netFiatAmount.toFixed(2)),
-            pointsAdded,
-            membershipExpiresAt,
-            membershipTerm: body.metadata.membershipTerm || null,
-            showDonorNameOnLeaderboard: body.metadata.showDonorNameOnLeaderboard === 'true',
-            donorName: body.metadata.donorName,
-          },
-        })
-
-        // Add points
-        if (shouldGivePointsBack && body.metadata.userId) {
-          // Get balance for project/fund by finding user's last point history
-          const currentBalance = await getUserPointBalance(body.metadata.userId)
-
-          try {
-            await strapiApi.post<any, any, StrapiCreatePointBody>('/points', {
-              data: {
-                balanceChange: pointsAdded.toString(),
-                balance: (currentBalance + pointsAdded).toString(),
-                userId: body.metadata.userId,
-                donationId: donation.id,
-                donationProjectName: donation.projectName,
-                donationProjectSlug: donation.projectSlug,
-                donationFundSlug: donation.fundSlug,
-              },
-            })
-          } catch (error) {
-            console.log((error as any).data.error)
-            throw error
-          }
-        }
-
-        if (body.metadata.donorEmail && body.metadata.donorName) {
-          let attestationMessage = ''
-          let attestationSignature = ''
-
-          if (body.metadata.isMembership === 'true' && body.metadata.membershipTerm) {
-            const attestation = await getMembershipAttestation({
-              donorName: body.metadata.donorName,
-              donorEmail: body.metadata.donorEmail,
-              amount: Number(grossFiatAmount.toFixed(2)),
-              term: body.metadata.membershipTerm,
-              method: paymentMethod.currency,
-              fundName: funds[body.metadata.fundSlug].title,
-              fundSlug: body.metadata.fundSlug,
-              periodStart: new Date(),
-              periodEnd: membershipExpiresAt!,
-            })
-
-            attestationMessage = attestation.message
-            attestationSignature = attestation.signature
-          }
-
-          if (body.metadata.isMembership === 'false') {
-            const attestation = await getDonationAttestation({
-              donorName: body.metadata.donorName,
-              donorEmail: body.metadata.donorEmail,
-              amount: Number(grossFiatAmount.toFixed(2)),
-              method: paymentMethod.currency,
-              fundName: funds[body.metadata.fundSlug].title,
-              fundSlug: body.metadata.fundSlug,
-              projectName: body.metadata.projectName,
-              date: new Date(),
-              donationId: donation.id,
-            })
-
-            attestationMessage = attestation.message
-            attestationSignature = attestation.signature
-          }
-
-          sendDonationConfirmationEmail({
-            to: body.metadata.donorEmail,
-            donorName: body.metadata.donorName,
-            fundSlug: body.metadata.fundSlug,
-            projectName: body.metadata.projectName,
-            isMembership: body.metadata.isMembership === 'true',
-            isSubscription: false,
-            pointsReceived: pointsAdded,
-            btcpayAsset: paymentMethod.currency,
-            btcpayCryptoAmount: grossCryptoAmount,
-            attestationMessage,
-            attestationSignature,
-          })
-        }
-      })
-    )
+    await handleDonationOrMembership(body)
   }
 
   res.status(200).json({ success: true })

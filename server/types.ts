@@ -29,6 +29,13 @@ export type DonationMetadata = {
   showDonorNameOnLeaderboard: 'true' | 'false'
 }
 
+export type DonationCryptoPayments = {
+  cryptoCode: 'BTC' | 'XMR' | 'LTC'
+  grossAmount: number
+  netAmount: number
+  rate: number
+}[]
+
 export type BtcPayGetRatesRes = [
   {
     currencyPair: string
@@ -123,7 +130,7 @@ export type StrapiGetPerkRes = {
 
 // Strapi Order
 
-type StrapiOrder = {
+export type StrapiOrder = {
   id: number
   documentId: string
   createdAt: string
@@ -339,6 +346,7 @@ export type PrintfulCreateOrderReq = {
 }
 
 export type PrintfulCreateOrderRes = {
+  externalId: string
   costs: {
     currency: 'USD'
     subtotal: string

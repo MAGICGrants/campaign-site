@@ -16,12 +16,15 @@ export type ProjectItem = {
   isFunded?: boolean
   numDonationsBTC: number
   numDonationsXMR: number
+  numDonationsLTC: number
   numDonationsFiat: number
   totalDonationsBTC: number
   totalDonationsXMR: number
+  totalDonationsLTC: number
   totalDonationsFiat: number
   totalDonationsBTCInFiat: number
   totalDonationsXMRInFiat: number
+  totalDonationsLTCInFiat: number
 }
 
 export type PayReq = {
