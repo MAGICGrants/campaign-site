@@ -144,6 +144,17 @@ async function handleDonationOrMembership(body: WebhookBody) {
     },
   })
 
+  // Add points
+  if (shouldGivePointsBack && body.metadata.userId) {
+    try {
+      await givePointsToUser({ pointsToGive, donation })
+    } catch (error) {
+      log('error', `[Stripe webhook] Failed to give points. Rolling back.`)
+      prisma.donation.delete({ where: { id: donation.id } })
+      throw error
+    }
+  }
+
   // Add PG forum user to membership group
   if (
     body.metadata.isMembership &&
@@ -155,18 +166,8 @@ async function handleDonationOrMembership(body: WebhookBody) {
     } catch (error) {
       log(
         'warn',
-        `[Webhook for invoice ${body.invoiceId}] Could not add user ${body.metadata.userId} to PG forum members group. Cause: ${error}`
+        `[BTCPay webhook] Could not add user ${body.metadata.userId} to PG forum members group. Invoice: ${body.invoiceId}. NOT rolling back. Continuing... Cause: ${error}`
       )
-    }
-  }
-
-  // Add points
-  if (shouldGivePointsBack && body.metadata.userId) {
-    try {
-      await givePointsToUser({ pointsToGive, donation })
-    } catch (error) {
-      console.log((error as any).data.error)
-      throw error
     }
   }
 
@@ -197,13 +198,20 @@ async function handleDonationOrMembership(body: WebhookBody) {
       attestationSignature = attestation.signature
     }
 
-    sendDonationConfirmationEmail({
-      to: body.metadata.donorEmail,
-      donorName: body.metadata.donorName,
-      donation,
-      attestationMessage,
-      attestationSignature,
-    })
+    try {
+      sendDonationConfirmationEmail({
+        to: body.metadata.donorEmail,
+        donorName: body.metadata.donorName,
+        donation,
+        attestationMessage,
+        attestationSignature,
+      })
+    } catch (error) {
+      log(
+        'warn',
+        `[BTCPay webhook] Failed to send donation confirmation email for invoice ${body.invoiceId}. NOT rolling back. Cause: ${error}`
+      )
+    }
   }
 
   log('info', `[BTCPay webhook] Successfully processed invoice ${body.invoiceId}!`)

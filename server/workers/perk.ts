@@ -85,12 +85,17 @@ if (!globalForWorker.hasInitializedWorkers)
         job.data.perkPrintfulSyncVariantId &&
         job.data.shipping
       ) {
-        printfulOrder = await createPrintfulOrder({
-          shipping: job.data.shipping,
-          name: job.data.userFullname,
-          email: job.data.userEmail,
-          printfulSyncVariantId: job.data.perkPrintfulSyncVariantId,
-        })
+        try {
+          printfulOrder = await createPrintfulOrder({
+            shipping: job.data.shipping,
+            name: job.data.userFullname,
+            email: job.data.userEmail,
+            printfulSyncVariantId: job.data.perkPrintfulSyncVariantId,
+          })
+        } catch (error) {
+          log('error', `[Perk purchase worker] Failed to create Printful order.`)
+          throw error
+        }
       }
 
       let strapiOrder: StrapiOrder | null = null
@@ -104,7 +109,7 @@ if (!globalForWorker.hasInitializedWorkers)
           shipping: job.data.shipping,
         })
       } catch (error) {
-        log('error', `[Perk purchase worker] Failed to create Strapi order`)
+        log('error', `[Perk purchase worker] Failed to create Strapi order. Rolling back.`)
         cancelPrintfulOrder(printfulOrder?.externalId!)
         throw error
       }
@@ -118,22 +123,30 @@ if (!globalForWorker.hasInitializedWorkers)
           userId: job.data.userId,
         })
       } catch (error) {
-        log('error', `[Perk purchase worker] Failed to deduct points`)
-        cancelPrintfulOrder(printfulOrder?.externalId!)
+        log('error', `[Perk purchase worker] Failed to deduct points. Rolling back.`)
+        if (printfulOrder) cancelPrintfulOrder(printfulOrder.externalId)
         deleteStrapiOrder(strapiOrder.documentId)
         throw error
       }
 
-      sendPerkPurchaseConfirmationEmail({
-        to: job.data.userEmail,
-        perkName: job.data.perk.name,
-        pointsRedeemed: deductionAmount,
-        address: job.data.shipping,
-      })
+      try {
+        sendPerkPurchaseConfirmationEmail({
+          to: job.data.userEmail,
+          perkName: job.data.perk.name,
+          pointsRedeemed: deductionAmount,
+          address: job.data.shipping,
+        })
+      } catch (error) {
+        log(
+          'error',
+          `[Perk purchase worker] Failed to send puchase confirmation email. NOT rolling back.`
+        )
+        throw error
+      }
 
       log(
         'info',
-        `[Perk purchase worker] Successfully processed perk purchase! Printful order ID: ${printfulOrder?.externalId}`
+        `[Perk purchase worker] Successfully processed perk purchase! Order ID: ${strapiOrder.documentId}`
       )
     },
     { connection, concurrency: 1 }
