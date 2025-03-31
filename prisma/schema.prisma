@@ -52,6 +52,10 @@ model Donation {
   membershipTerm             MembershipTerm?
   showDonorNameOnLeaderboard Boolean?        @default(false)
 
+  cryptoCode        String?
+  grossCryptoAmount String?
+  netCryptoAmount   String?
+
   @@index([btcPayInvoiceId])
   @@index([stripePaymentIntentId])
   @@index([stripeSubscriptionId])
