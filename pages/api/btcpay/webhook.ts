@@ -13,10 +13,14 @@ import { btcpayApi as _btcpayApi, btcpayApi, prisma } from '../../../server/serv
 import { env } from '../../../env.mjs'
 import { givePointsToUser } from '../../../server/utils/perks'
 import { sendDonationConfirmationEmail } from '../../../server/utils/mailing'
-import { POINTS_PER_USD } from '../../../config'
+import { NET_DONATION_AMOUNT_WITH_POINTS_RATE, POINTS_PER_USD } from '../../../config'
 import { getDonationAttestation, getMembershipAttestation } from '../../../server/utils/attestation'
 import { addUserToPgMembersGroup } from '../../../utils/pg-forum-connection'
 import { log } from '../../../utils/logging'
+import {
+  getBtcPayInvoice,
+  getBtcPayInvoicePaymentMethods,
+} from '../../../server/utils/btcpayserver'
 
 export const config = {
   api: {
@@ -25,6 +29,7 @@ export const config = {
 }
 
 type WebhookBody = Record<string, any> & {
+  manuallyMarked: boolean
   deliveryId: string
   webhookId: string
   originalDeliveryId: string
@@ -72,11 +77,7 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
 
 // This handles both donations and memberships.
 async function handleDonationOrMembership(body: WebhookBody) {
-  if (!body.metadata) return
-
-  const { data: paymentMethods } = await btcpayApi.get<BtcPayGetPaymentMethodsRes>(
-    `/invoices/${body.invoiceId}/payment-methods`
-  )
+  if (!body.metadata || JSON.stringify(body.metadata) === '{}') return
 
   const termToMembershipExpiresAt = {
     monthly: dayjs().add(1, 'month').toDate(),
@@ -90,17 +91,20 @@ async function handleDonationOrMembership(body: WebhookBody) {
   }
 
   const cryptoPayments: DonationCryptoPayments = []
+  const paymentMethods = await getBtcPayInvoicePaymentMethods(body.invoiceId)
+  const shouldGivePointsBack = body.metadata.givePointsBack === 'true'
 
   // Get how much was paid for each crypto
   paymentMethods.forEach((paymentMethod) => {
     if (!body.metadata) return
 
-    const shouldGivePointsBack = body.metadata.givePointsBack === 'true'
     const cryptoRate = Number(paymentMethod.rate)
     const grossCryptoAmount = Number(paymentMethod.paymentMethodPaid)
 
     // Deduct 10% of amount if donator wants points
-    const netCryptoAmount = shouldGivePointsBack ? grossCryptoAmount * 0.9 : grossCryptoAmount
+    const netCryptoAmount = shouldGivePointsBack
+      ? grossCryptoAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
+      : grossCryptoAmount
 
     // Move on if amound paid with current method is 0
     if (!grossCryptoAmount) return
@@ -113,17 +117,40 @@ async function handleDonationOrMembership(body: WebhookBody) {
     })
   })
 
-  const grossFiatAmount = Object.values(cryptoPayments).reduce(
+  // Handle marked paid invoice
+  if (body.manuallyMarked) {
+    const invoice = await getBtcPayInvoice(body.invoiceId)
+
+    const amountPaidFiat = cryptoPayments.reduce(
+      (total, paymentMethod) => total + paymentMethod.grossAmount * paymentMethod.rate,
+      0
+    )
+
+    const invoiceAmountFiat = Number(invoice.amount)
+    const amountDueFiat = invoiceAmountFiat - amountPaidFiat
+
+    if (amountDueFiat > 0) {
+      cryptoPayments.push({
+        cryptoCode: 'MANUAL',
+        grossAmount: amountDueFiat,
+        netAmount: shouldGivePointsBack
+          ? amountDueFiat * NET_DONATION_AMOUNT_WITH_POINTS_RATE
+          : amountDueFiat,
+        rate: 1,
+      })
+    }
+  }
+
+  const grossFiatAmount = cryptoPayments.reduce(
     (total, paymentMethod) => total + paymentMethod.grossAmount * paymentMethod.rate,
     0
   )
 
-  const netFiatAmount = Object.values(cryptoPayments).reduce(
+  const netFiatAmount = cryptoPayments.reduce(
     (total, paymentMethod) => total + paymentMethod.netAmount * paymentMethod.rate,
     0
   )
 
-  const shouldGivePointsBack = body.metadata.givePointsBack === 'true'
   const pointsToGive = shouldGivePointsBack ? Math.floor(grossFiatAmount / POINTS_PER_USD) : 0
 
   const donation = await prisma.donation.create({

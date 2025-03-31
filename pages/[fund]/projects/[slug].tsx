@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import { GetServerSidePropsContext, NextPage } from 'next/types'
 import Head from 'next/head'
@@ -15,7 +13,6 @@ import PageHeading from '../../../components/PageHeading'
 import Progress from '../../../components/Progress'
 import { prisma } from '../../../server/services'
 import { Button } from '../../../components/ui/button'
-import CustomLink from '../../../components/CustomLink'
 import { trpc } from '../../../utils/trpc'
 import { getFundSlugFromUrlPath } from '../../../utils/funds'
 import { useFundSlug } from '../../../utils/use-fund-slug'
@@ -31,10 +28,6 @@ type SingleProjectPageProps = {
 
 const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) => {
   const router = useRouter()
-  const [registerIsOpen, setRegisterIsOpen] = useState(false)
-  const [loginIsOpen, setLoginIsOpen] = useState(false)
-  const [passwordResetIsOpen, setPasswordResetIsOpen] = useState(false)
-  const session = useSession()
   const fundSlug = useFundSlug()
 
   const { slug, title, summary, coverImage, content, nym, website, goal, isFunded } = project
@@ -106,10 +99,13 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
 
                 <ul className="font-semibold space-y-1">
                   <li className="flex items-center space-x-1">
-                    <span className="text-green-500 text-xl">{`${formatUsd(donationStats.xmr.fiatAmount + donationStats.btc.fiatAmount + donationStats.usd.fiatAmount)}`}</span>{' '}
+                    <span className="text-green-500 text-xl">{`${formatUsd(donationStats.xmr.fiatAmount + donationStats.btc.fiatAmount + donationStats.ltc.fiatAmount + donationStats.manual.fiatAmount + donationStats.usd.fiatAmount)}`}</span>{' '}
                     <span className="font-normal text-sm text-gray">
                       in{' '}
-                      {donationStats.xmr.count + donationStats.btc.count + donationStats.usd.count}{' '}
+                      {donationStats.xmr.count +
+                        donationStats.btc.count +
+                        donationStats.manual.count +
+                        donationStats.usd.count}{' '}
                       donations total
                     </span>
                   </li>
@@ -126,9 +122,16 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
                     </span>
                   </li>
                   <li>
-                    {`${formatUsd(donationStats.usd.amount)}`} Fiat{' '}
+                    {donationStats.ltc.amount}LTC{' '}
                     <span className="font-normal text-sm text-gray">
-                      in {donationStats.usd.count} donations
+                      in {donationStats.ltc.count} donations
+                    </span>
+                  </li>
+                  <li>
+                    {`${formatUsd(donationStats.usd.amount + donationStats.manual.fiatAmount)}`}{' '}
+                    Fiat{' '}
+                    <span className="font-normal text-sm text-gray">
+                      in {donationStats.usd.count + donationStats.manual.count} donations
                     </span>
                   </li>
                 </ul>
@@ -206,6 +209,11 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
       amount: project.isFunded ? project.totalDonationsLTC : 0,
       fiatAmount: project.isFunded ? project.totalDonationsLTCInFiat : 0,
     },
+    manual: {
+      count: project.isFunded ? project.numDonationsManual : 0,
+      amount: project.isFunded ? project.totalDonationsManual : 0,
+      fiatAmount: project.isFunded ? project.totalDonationsManual : 0,
+    },
     usd: {
       count: project.isFunded ? project.numDonationsFiat : 0,
       amount: project.isFunded ? project.totalDonationsFiat : 0,
@@ -222,6 +230,7 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
       BTC: donationStats.btc,
       XMR: donationStats.xmr,
       LTC: donationStats.ltc,
+      MANUAL: donationStats.manual,
     } as const
 
     donations.forEach((donation) => {

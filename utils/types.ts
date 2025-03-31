@@ -18,10 +18,12 @@ export type ProjectItem = {
   numDonationsXMR: number
   numDonationsLTC: number
   numDonationsFiat: number
+  numDonationsManual: number
   totalDonationsBTC: number
   totalDonationsXMR: number
   totalDonationsLTC: number
   totalDonationsFiat: number
+  totalDonationsManual: number
   totalDonationsBTCInFiat: number
   totalDonationsXMRInFiat: number
   totalDonationsLTCInFiat: number
@@ -42,6 +44,16 @@ export type ProjectDonationStats = {
     fiatAmount: number
   }
   btc: {
+    count: number
+    amount: number
+    fiatAmount: number
+  }
+  ltc: {
+    count: number
+    amount: number
+    fiatAmount: number
+  }
+  manual: {
     count: number
     amount: number
     fiatAmount: number

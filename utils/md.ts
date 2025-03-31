@@ -7,7 +7,6 @@ import { Donation, FundSlug } from '@prisma/client'
 import { fundSlugs } from './funds'
 import { ProjectItem } from './types'
 import { prisma } from '../server/services'
-import { env } from '../env.mjs'
 import { DonationCryptoPayments } from '../server/types'
 
 const directories: Record<FundSlug, string> = {
@@ -65,10 +64,12 @@ export function getProjectBySlug(slug: string, fundSlug: FundSlug) {
     numDonationsXMR: data.numDonationsXMR || 0,
     numDonationsLTC: data.numDonationsLTC || 0,
     numDonationsFiat: data.numDonationsFiat || 0,
+    numDonationsManual: data.numDonationsManual || 0,
     totalDonationsBTC: data.totalDonationsBTC || 0,
     totalDonationsXMR: data.totalDonationsXMR || 0,
     totalDonationsLTC: data.totalDonationsLTC || 0,
     totalDonationsFiat: data.totalDonationsFiat || 0,
+    totalDonationsManual: data.totalDonationsManual || 0,
     totalDonationsBTCInFiat: data.totalDonationsBTCInFiat || 0,
     totalDonationsXMRInFiat: data.totalDonationsXMRInFiat || 0,
     totalDonationsLTCInFiat: data.totalDonationsLTCInFiat || 0,
@@ -139,6 +140,11 @@ export async function getProjects(fundSlug?: FundSlug) {
             project.numDonationsLTC += 1
             project.totalDonationsLTC += payment.netAmount
             project.totalDonationsLTCInFiat += payment.netAmount * payment.rate
+          }
+
+          if (payment.cryptoCode === 'MANUAL') {
+            project.numDonationsManual += 1
+            project.totalDonationsManual += payment.netAmount * payment.rate
           }
         })
 

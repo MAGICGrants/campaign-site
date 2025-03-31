@@ -20,6 +20,7 @@ export const funds: Record<FundSlug, ProjectItem & { slug: FundSlug }> = {
     numDonationsXMR: 0,
     numDonationsLTC: 0,
     numDonationsFiat: 0,
+    numDonationsManual: 0,
     totalDonationsBTC: 0,
     totalDonationsXMR: 0,
     totalDonationsLTC: 0,
@@ -27,6 +28,7 @@ export const funds: Record<FundSlug, ProjectItem & { slug: FundSlug }> = {
     totalDonationsBTCInFiat: 0,
     totalDonationsXMRInFiat: 0,
     totalDonationsLTCInFiat: 0,
+    totalDonationsManual: 0,
   },
   firo: {
     fund: 'firo',
@@ -45,6 +47,7 @@ export const funds: Record<FundSlug, ProjectItem & { slug: FundSlug }> = {
     numDonationsXMR: 0,
     numDonationsLTC: 0,
     numDonationsFiat: 0,
+    numDonationsManual: 0,
     totalDonationsBTC: 0,
     totalDonationsXMR: 0,
     totalDonationsLTC: 0,
@@ -52,6 +55,7 @@ export const funds: Record<FundSlug, ProjectItem & { slug: FundSlug }> = {
     totalDonationsBTCInFiat: 0,
     totalDonationsXMRInFiat: 0,
     totalDonationsLTCInFiat: 0,
+    totalDonationsManual: 0,
   },
   privacyguides: {
     fund: 'privacyguides',
@@ -75,6 +79,7 @@ export const funds: Record<FundSlug, ProjectItem & { slug: FundSlug }> = {
     numDonationsXMR: 0,
     numDonationsLTC: 0,
     numDonationsFiat: 0,
+    numDonationsManual: 0,
     totalDonationsBTC: 0,
     totalDonationsXMR: 0,
     totalDonationsLTC: 0,
@@ -82,6 +87,7 @@ export const funds: Record<FundSlug, ProjectItem & { slug: FundSlug }> = {
     totalDonationsBTCInFiat: 0,
     totalDonationsXMRInFiat: 0,
     totalDonationsLTCInFiat: 0,
+    totalDonationsManual: 0,
   },
   general: {
     fund: 'general',
@@ -104,6 +110,7 @@ export const funds: Record<FundSlug, ProjectItem & { slug: FundSlug }> = {
     numDonationsXMR: 0,
     numDonationsLTC: 0,
     numDonationsFiat: 0,
+    numDonationsManual: 0,
     totalDonationsBTC: 0,
     totalDonationsXMR: 0,
     totalDonationsLTC: 0,
@@ -111,6 +118,7 @@ export const funds: Record<FundSlug, ProjectItem & { slug: FundSlug }> = {
     totalDonationsBTCInFiat: 0,
     totalDonationsXMRInFiat: 0,
     totalDonationsLTCInFiat: 0,
+    totalDonationsManual: 0,
   },
 }
 

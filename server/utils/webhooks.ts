@@ -13,7 +13,7 @@ import {
 import { DonationMetadata, StrapiCreatePointBody } from '../../server/types'
 import { sendDonationConfirmationEmail } from './mailing'
 import { getPointsBalance, givePointsToUser } from './perks'
-import { POINTS_PER_USD } from '../../config'
+import { NET_DONATION_AMOUNT_WITH_POINTS_RATE, POINTS_PER_USD } from '../../config'
 import { getDonationAttestation, getMembershipAttestation } from './attestation'
 import { addUserToPgMembersGroup } from '../../utils/pg-forum-connection'
 import { log } from '../../utils/logging'
@@ -32,7 +32,7 @@ async function handleDonationOrNonRecurringMembership(paymentIntent: Stripe.Paym
   const shouldGivePointsBack = metadata.givePointsBack === 'true'
   const grossFiatAmount = paymentIntent.amount_received / 100
   const netFiatAmount = shouldGivePointsBack
-    ? Number((grossFiatAmount * 0.9).toFixed(2))
+    ? Number((grossFiatAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE).toFixed(2))
     : grossFiatAmount
   const pointsToGive = shouldGivePointsBack ? Math.floor(grossFiatAmount / POINTS_PER_USD) : 0
   let membershipExpiresAt = null
@@ -143,7 +143,7 @@ async function handleRecurringMembership(invoice: Stripe.Invoice) {
   const shouldGivePointsBack = metadata.givePointsBack === 'true'
   const grossFiatAmount = invoice.total / 100
   const netFiatAmount = shouldGivePointsBack
-    ? Number((grossFiatAmount * 0.9).toFixed(2))
+    ? Number((grossFiatAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE).toFixed(2))
     : grossFiatAmount
   const pointsToGive = shouldGivePointsBack ? parseInt(String(grossFiatAmount * 100)) : 0
   const membershipExpiresAt = new Date(invoiceLine.period.end * 1000)

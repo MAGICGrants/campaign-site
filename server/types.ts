@@ -30,7 +30,7 @@ export type DonationMetadata = {
 }
 
 export type DonationCryptoPayments = {
-  cryptoCode: 'BTC' | 'XMR' | 'LTC'
+  cryptoCode: 'BTC' | 'XMR' | 'LTC' | 'MANUAL'
   grossAmount: number
   netAmount: number
   rate: number
@@ -43,6 +43,11 @@ export type BtcPayGetRatesRes = [
     rate: string
   },
 ]
+
+export type BtcPayGetInvoiceRes = {
+  id: string
+  amount: string
+}
 
 export type BtcPayGetPaymentMethodsRes = {
   rate: string
