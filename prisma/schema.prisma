@@ -38,7 +38,7 @@ model Donation {
   userId                     String?
   donorName                  String?
   btcPayInvoiceId            String?         @unique
-  stripePaymentIntentId      String? // For donations and non-recurring memberships
+  stripePaymentIntentId      String?         @unique // For donations and non-recurring memberships
   stripeInvoiceId            String?         @unique // For recurring memberships
   stripeSubscriptionId       String? // For recurring memberships
   projectSlug                String

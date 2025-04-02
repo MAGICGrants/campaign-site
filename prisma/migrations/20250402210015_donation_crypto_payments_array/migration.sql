@@ -2,6 +2,7 @@
   Warnings:
 
   - A unique constraint covering the columns `[btcPayInvoiceId]` on the table `Donation` will be added. If there are existing duplicate values, this will fail.
+  - A unique constraint covering the columns `[stripePaymentIntentId]` on the table `Donation` will be added. If there are existing duplicate values, this will fail.
 
 */
 -- AlterTable
@@ -11,3 +12,6 @@ ALTER COLUMN "netCryptoAmount" SET DATA TYPE TEXT;
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Donation_btcPayInvoiceId_key" ON "Donation"("btcPayInvoiceId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Donation_stripePaymentIntentId_key" ON "Donation"("stripePaymentIntentId");

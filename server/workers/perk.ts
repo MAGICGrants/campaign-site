@@ -110,7 +110,7 @@ if (!globalForWorker.hasInitializedWorkers)
         })
       } catch (error) {
         log('error', `[Perk purchase worker] Failed to create Strapi order. Rolling back.`)
-        cancelPrintfulOrder(printfulOrder?.externalId!)
+        await cancelPrintfulOrder(printfulOrder?.externalId!)
         throw error
       }
 
@@ -124,8 +124,8 @@ if (!globalForWorker.hasInitializedWorkers)
         })
       } catch (error) {
         log('error', `[Perk purchase worker] Failed to deduct points. Rolling back.`)
-        if (printfulOrder) cancelPrintfulOrder(printfulOrder.externalId)
-        deleteStrapiOrder(strapiOrder.documentId)
+        if (printfulOrder) await cancelPrintfulOrder(printfulOrder.externalId)
+        await deleteStrapiOrder(strapiOrder.documentId)
         throw error
       }
 

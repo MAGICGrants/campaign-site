@@ -32,9 +32,9 @@ export async function sendDonationConfirmationEmail({
   const fundName = funds[donation.fundSlug].title
   const isMembership = !donation.membershipExpiresAt
   const isSubscription = donation.stripeSubscriptionId
-  const isPaidWithCrypto = (donation.cryptoPayments as DonationCryptoPayments).length
-  const cryptoDonationDescription = (donation.cryptoPayments as DonationCryptoPayments)
-    .map((payment) => `${payment.grossAmount} ${payment.cryptoCode}`)
+  const isPaidWithCrypto = (donation.cryptoPayments as DonationCryptoPayments | null)?.length
+  const cryptoDonationDescription = (donation.cryptoPayments as DonationCryptoPayments | null)
+    ?.map((payment) => `${payment.grossAmount} ${payment.cryptoCode}`)
     .join(', ')
 
   const markdown = `# Donation receipt

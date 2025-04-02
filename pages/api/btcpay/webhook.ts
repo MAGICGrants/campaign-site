@@ -176,8 +176,11 @@ async function handleDonationOrMembership(body: WebhookBody) {
     try {
       await givePointsToUser({ pointsToGive, donation })
     } catch (error) {
-      log('error', `[Stripe webhook] Failed to give points. Rolling back.`)
-      prisma.donation.delete({ where: { id: donation.id } })
+      log(
+        'error',
+        `[Stripe webhook] Failed to give points for invoice ${body.invoiceId}. Rolling back.`
+      )
+      await prisma.donation.delete({ where: { id: donation.id } })
       throw error
     }
   }
@@ -193,8 +196,9 @@ async function handleDonationOrMembership(body: WebhookBody) {
     } catch (error) {
       log(
         'warn',
-        `[BTCPay webhook] Could not add user ${body.metadata.userId} to PG forum members group. Invoice: ${body.invoiceId}. NOT rolling back. Continuing... Cause: ${error}`
+        `[BTCPay webhook] Could not add user ${body.metadata.userId} to PG forum members group. Invoice: ${body.invoiceId}. NOT rolling back. Continuing... Cause:`
       )
+      console.error(error)
     }
   }
 
@@ -226,7 +230,7 @@ async function handleDonationOrMembership(body: WebhookBody) {
     }
 
     try {
-      sendDonationConfirmationEmail({
+      await sendDonationConfirmationEmail({
         to: body.metadata.donorEmail,
         donorName: body.metadata.donorName,
         donation,
@@ -236,8 +240,9 @@ async function handleDonationOrMembership(body: WebhookBody) {
     } catch (error) {
       log(
         'warn',
-        `[BTCPay webhook] Failed to send donation confirmation email for invoice ${body.invoiceId}. NOT rolling back. Cause: ${error}`
+        `[BTCPay webhook] Failed to send donation confirmation email for invoice ${body.invoiceId}. NOT rolling back. Cause:`
       )
+      console.error(error)
     }
   }
 

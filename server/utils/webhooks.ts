@@ -73,8 +73,11 @@ async function handleDonationOrNonRecurringMembership(paymentIntent: Stripe.Paym
     try {
       await givePointsToUser({ pointsToGive, donation })
     } catch (error) {
-      log('error', `[Stripe webhook] Failed to give points. Rolling back.`)
-      prisma.donation.delete({ where: { id: donation.id } })
+      log(
+        'error',
+        `[Stripe webhook] Failed to give points for payment intent ${paymentIntent.id}. Rolling back.`
+      )
+      await prisma.donation.delete({ where: { id: donation.id } })
       throw error
     }
   }
@@ -108,7 +111,7 @@ async function handleDonationOrNonRecurringMembership(paymentIntent: Stripe.Paym
     }
 
     try {
-      sendDonationConfirmationEmail({
+      await sendDonationConfirmationEmail({
         to: metadata.donorEmail,
         donorName: metadata.donorName,
         donation,
@@ -118,8 +121,9 @@ async function handleDonationOrNonRecurringMembership(paymentIntent: Stripe.Paym
     } catch (error) {
       log(
         'warn',
-        `[Stripe webhook] Failed to send donation confirmation email for payment intent ${paymentIntent.id}. NOT rolling back. Cause ${error}`
+        `[Stripe webhook] Failed to send donation confirmation email for payment intent ${paymentIntent.id}. NOT rolling back. Cause:`
       )
+      console.error(error)
     }
   }
 
@@ -179,8 +183,11 @@ async function handleRecurringMembership(invoice: Stripe.Invoice) {
     try {
       await givePointsToUser({ donation, pointsToGive })
     } catch (error) {
-      log('error', `[BTCPay webhook] Failed to give points. Rolling back.`)
-      prisma.donation.delete({ where: { id: donation.id } })
+      log(
+        'error',
+        `[BTCPay webhook] Failed to give points for invoice ${invoice.id}. Rolling back.`
+      )
+      await prisma.donation.delete({ where: { id: donation.id } })
       throw error
     }
   }
@@ -210,7 +217,7 @@ async function handleRecurringMembership(invoice: Stripe.Invoice) {
     })
 
     try {
-      sendDonationConfirmationEmail({
+      await sendDonationConfirmationEmail({
         to: metadata.donorEmail,
         donorName: metadata.donorName,
         donation,
@@ -220,8 +227,9 @@ async function handleRecurringMembership(invoice: Stripe.Invoice) {
     } catch (error) {
       log(
         'warn',
-        `[Stripe webhook] Failed to send donation confirmation email for invoice ${invoice.id}. NOT rolling back. Cause ${error}`
+        `[Stripe webhook] Failed to send donation confirmation email for invoice ${invoice.id}. NOT rolling back. Cause:`
       )
+      console.error(error)
     }
   }
 

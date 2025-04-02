@@ -76,11 +76,12 @@ export async function deductPointsFromUser({
   orderId,
 }: DeductPointsFromUserParams) {
   const pointsBalance = await getPointsBalance(userId)
+  const newPointsBalance = pointsBalance - deductionAmount
 
   await strapiApi.post<any, any, StrapiCreatePointBody>('/points', {
     data: {
       balanceChange: (-deductionAmount).toString(),
-      balance: pointsBalance.toString(),
+      balance: newPointsBalance.toString(),
       userId: userId,
       perk: perkId,
       order: orderId,
