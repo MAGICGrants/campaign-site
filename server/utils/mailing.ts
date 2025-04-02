@@ -69,8 +69,8 @@ export async function sendDonationConfirmationEmail({
 
   The following describes the context of your donation:
 
-  - [${!donation.pointsAdded ? '☑️' : '⬜'}] No goods or services were received in exchange for your generous donation.
-  - [${donation.pointsAdded ? '☑️' : '⬜'}] In connection with your generous donation, you received ${pointsFormat.format(donation.pointsAdded)} points, valued at approximately $${(donation.pointsAdded * POINTS_REDEEM_PRICE_USD).toFixed(2)}.
+  - ${!donation.pointsAdded ? '☑️' : '⬜'} No goods or services were received in exchange for your generous donation.
+  - ${donation.pointsAdded ? '☑️' : '⬜'} In connection with your generous donation, you received ${pointsFormat.format(donation.pointsAdded)} points, valued at approximately $${(donation.pointsAdded * POINTS_REDEEM_PRICE_USD).toFixed(2)}.
 
   ${isPaidWithCrypto ? 'If you wish to receive a tax deduction for a cryptocurrency donation over $500, you MUST complete [Form 8283](https://www.irs.gov/pub/irs-pdf/f8283.pdf) and send the completed form to [info@magicgrants.org](mailto:info@magicgrants.org) to qualify for a deduction.' : ''}
 

@@ -122,7 +122,7 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
                     </span>
                   </li>
                   <li>
-                    {donationStats.ltc.amount}LTC{' '}
+                    {donationStats.ltc.amount} LTC{' '}
                     <span className="font-normal text-sm text-gray">
                       in {donationStats.ltc.count} donations
                     </span>

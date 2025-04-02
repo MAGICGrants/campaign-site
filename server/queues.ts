@@ -4,6 +4,7 @@ import { redisConnection as connection } from '../config/redis'
 
 import './workers/perk'
 import './workers/membership-check'
+import './workers/donation-migration'
 
 export const perkPurchaseQueue = new Queue<PerkPurchaseWorkerData>('PerkPurchase', {
   connection,

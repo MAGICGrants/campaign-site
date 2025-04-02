@@ -7,7 +7,7 @@ services:
   magic-btcpayserver:
     restart: unless-stopped
     container_name: magic-btcpayserver
-    image: ${BTCPAY_IMAGE:-btcpayserver/btcpayserver:1.13.3-altcoins}
+    image: ${BTCPAY_IMAGE:-btcpayserver/btcpayserver:2.0.8}
     expose:
       - '49392'
     environment:
