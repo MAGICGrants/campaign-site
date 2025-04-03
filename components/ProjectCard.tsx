@@ -1,10 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, SVGProps } from 'react'
+import { FundSlug } from '@prisma/client'
 import Image from 'next/image'
 import Link from 'next/link'
 
 import { ProjectItem } from '../utils/types'
 import { cn } from '../utils/cn'
 import Progress from './Progress'
+import MoneroLogo from './MoneroLogo'
+import FiroLogo from './FiroLogo'
+import PrivacyGuidesLogo from './PrivacyGuidesLogo'
+import MagicLogo from './MagicLogo'
 
 const numberFormat = Intl.NumberFormat('en', { notation: 'compact', compactDisplay: 'short' })
 
@@ -13,21 +18,15 @@ export type ProjectCardProps = {
   customImageStyles?: React.CSSProperties
 }
 
+const placeholderImages: Record<FundSlug, (props: SVGProps<SVGSVGElement>) => JSX.Element> = {
+  monero: MoneroLogo,
+  firo: FiroLogo,
+  privacyguides: PrivacyGuidesLogo,
+  general: MagicLogo,
+}
+
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, customImageStyles }) => {
-  const [isHorizontal, setIsHorizontal] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    const img = document.createElement('img')
-    img.src = project.coverImage
-
-    // check if image is horizontal - added additional 10% to height to ensure only true
-    // horizontals get flagged.
-    img.onload = () => {
-      const { naturalWidth, naturalHeight } = img
-      const isHorizontal = naturalWidth >= naturalHeight * 1.1
-      setIsHorizontal(isHorizontal)
-    }
-  }, [project.coverImage])
+  const PlaceholderImage = placeholderImages[project.fund]
 
   return (
     <Link href={`/${project.fund}/projects/${project.slug}`} passHref target="_blank">
@@ -40,16 +39,20 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, customImageStyles })
           project.fund === 'general' && 'border-primary'
         )}
       >
-        <div className="flex h-36 w-full sm:h-52">
-          <Image
-            alt={project.title}
-            src={project.coverImage}
-            width={1200}
-            height={1200}
-            style={{ objectFit: 'contain', ...customImageStyles }}
-            priority={true}
-            className="cursor-pointer rounded-t-xl bg-white"
-          />
+        <div className="flex h-48 w-full sm:h-52">
+          {project.coverImage ? (
+            <Image
+              alt={project.title}
+              src={project.coverImage}
+              width={700}
+              height={700}
+              style={{ objectFit: 'contain', ...customImageStyles }}
+              priority={true}
+              className="cursor-pointer rounded-t-xl bg-white"
+            />
+          ) : (
+            <PlaceholderImage className="w-1/2 h-full max-h-full m-auto cursor-pointer rounded-t-xl bg-white" />
+          )}
         </div>
 
         <figcaption className="p-5 flex flex-col grow space-y-4 justify-between">
@@ -73,6 +76,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, customImageStyles })
               project.totalDonationsFiat
             }
             goal={project.goal}
+            percentOnly
           />
         </figcaption>
       </figure>

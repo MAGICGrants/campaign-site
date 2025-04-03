@@ -7,7 +7,7 @@ export type ProjectItem = {
   content?: string
   title: string
   summary: string
-  coverImage: string
+  coverImage?: string
   website: string
   socialLinks: string[]
   date: string
