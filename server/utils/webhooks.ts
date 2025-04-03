@@ -10,7 +10,7 @@ import {
   stripe as _stripe,
   strapiApi,
 } from '../../server/services'
-import { DonationMetadata, StrapiCreatePointBody } from '../../server/types'
+import { DonationMetadata } from '../../server/types'
 import { sendDonationConfirmationEmail } from './mailing'
 import { getPointsBalance, givePointsToUser } from './perks'
 import { NET_DONATION_AMOUNT_WITH_POINTS_RATE, POINTS_PER_USD } from '../../config'
@@ -25,6 +25,18 @@ async function handleDonationOrNonRecurringMembership(paymentIntent: Stripe.Paym
   if (!metadata) return
   if (JSON.stringify(metadata) === '{}') return
   if (metadata.isSubscription === 'true') return
+
+  const existingDonation = await prisma.donation.findFirst({
+    where: { stripePaymentIntentId: paymentIntent.id },
+  })
+
+  if (existingDonation) {
+    log(
+      'warn',
+      `[Stripe webhook] Attempted to process already processed payment intent ${paymentIntent.id}.`
+    )
+    return
+  }
 
   // Skip this event if intent is still not fully paid
   if (paymentIntent.amount_received !== paymentIntent.amount) return
@@ -138,9 +150,18 @@ async function handleRecurringMembership(invoice: Stripe.Invoice) {
 
   if (!invoiceLine) {
     log(
-      'info',
+      'warn',
       `[/api/stripe/${metadata.fundSlug}-webhook] Line not fund for invoice ${invoice.id}. Skipping.`
     )
+    return
+  }
+
+  const existingDonation = await prisma.donation.findFirst({
+    where: { stripeInvoiceId: invoice.id },
+  })
+
+  if (existingDonation) {
+    log('warn', `[Stripe webhook] Attempted to process already processed invoice ${invoice.id}.`)
     return
   }
 

@@ -43,7 +43,19 @@ type WebhookBody = Record<string, any> & {
 }
 
 async function handleFundingRequiredApiDonation(body: WebhookBody) {
-  if (!body.metadata) return
+  if (!body.metadata || JSON.stringify(body.metadata) === '{}') return
+
+  const existingDonation = await prisma.donation.findFirst({
+    where: { btcPayInvoiceId: body.invoiceId },
+  })
+
+  if (existingDonation) {
+    log(
+      'warn',
+      `[BTCPay webhook] Attempted to process already processed invoice ${body.invoiceId}.`
+    )
+    return
+  }
 
   // Handle payment methods like "BTC-LightningNetwork" if added in the future
   const cryptoCode = body.paymentMethod.includes('-')
@@ -78,6 +90,18 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
 // This handles both donations and memberships.
 async function handleDonationOrMembership(body: WebhookBody) {
   if (!body.metadata || JSON.stringify(body.metadata) === '{}') return
+
+  const existingDonation = await prisma.donation.findFirst({
+    where: { btcPayInvoiceId: body.invoiceId },
+  })
+
+  if (existingDonation) {
+    log(
+      'warn',
+      `[BTCPay webhook] Attempted to process already processed invoice ${body.invoiceId}.`
+    )
+    return
+  }
 
   const termToMembershipExpiresAt = {
     monthly: dayjs().add(1, 'month').toDate(),
