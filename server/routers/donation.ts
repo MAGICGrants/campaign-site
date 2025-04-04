@@ -503,13 +503,7 @@ export const donationRouter = router({
       const { message, signature } = await getDonationAttestation({
         donorName: user.attributes?.name,
         donorEmail: ctx.session.user.email,
-        amount: donation.grossFiatAmount,
-        method: donation.cryptoCode ? donation.cryptoCode : 'Fiat',
-        fundSlug: donation.fundSlug,
-        fundName: funds[donation.fundSlug].title,
-        projectName: donation.projectName,
-        date: donation.createdAt,
-        donationId: donation.id,
+        donation,
       })
 
       return { message, signature }
@@ -556,15 +550,9 @@ export const donationRouter = router({
       const { message, signature } = await getMembershipAttestation({
         donorName: user.attributes?.name,
         donorEmail: ctx.session.user.email,
-        // For membership donations, a null membership term means that membership is an annual one,
-        // since it was started before monthly memberships were introduced.
-        term: donations[0].membershipTerm || 'annually',
-        amount: membershipValue,
-        method: donations[0].cryptoCode ? donations[0].cryptoCode : 'Fiat',
-        fundSlug: donations[0].fundSlug,
-        fundName: funds[donations[0].fundSlug].title,
+        donation: donations[0],
         periodStart: membershipStart,
-        periodEnd: membershipEnd,
+        totalAmountToDate: membershipValue,
       })
 
       return { message, signature }

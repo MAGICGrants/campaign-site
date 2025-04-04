@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { GetStaticProps, GetStaticPropsContext } from 'next'
+import { SVGProps, useEffect, useRef, useState } from 'react'
+import { GetStaticPropsContext } from 'next'
+import Link from 'next/link'
+import Head from 'next/head'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { faMonero } from '@fortawesome/free-brands-svg-icons'
@@ -12,7 +14,6 @@ import { z } from 'zod'
 import Image from 'next/image'
 
 import { MAX_AMOUNT } from '../../../config'
-import { useFundSlug } from '../../../utils/use-fund-slug'
 import { trpc } from '../../../utils/trpc'
 import Spinner from '../../../components/Spinner'
 import { useToast } from '../../../components/ui/use-toast'
@@ -32,15 +33,25 @@ import CustomLink from '../../../components/CustomLink'
 import { getProjectBySlug, getProjects } from '../../../utils/md'
 import { funds, fundSlugs } from '../../../utils/funds'
 import { ProjectItem } from '../../../utils/types'
-import Link from 'next/link'
-import Head from 'next/head'
+import MoneroLogo from '../../../components/MoneroLogo'
+import FiroLogo from '../../../components/FiroLogo'
+import PrivacyGuidesLogo from '../../../components/PrivacyGuidesLogo'
+import MagicLogo from '../../../components/MagicLogo'
 
 type QueryParams = { fund: FundSlug; slug: string }
 type Props = { project: ProjectItem } & QueryParams
 
+const placeholderImages: Record<FundSlug, (props: SVGProps<SVGSVGElement>) => JSX.Element> = {
+  monero: MoneroLogo,
+  firo: FiroLogo,
+  privacyguides: PrivacyGuidesLogo,
+  general: MagicLogo,
+}
+
 function DonationPage({ fund: fundSlug, slug, project }: Props) {
   const session = useSession()
   const isAuthed = session.status === 'authenticated'
+  const PlaceholderImage = placeholderImages[project.fund]
 
   const schema = z
     .object({
@@ -153,14 +164,21 @@ function DonationPage({ fund: fundSlug, slug, project }: Props) {
       <div className="max-w-[540px] mx-auto p-6 space-y-6 rounded-lg bg-white">
         <div className="py-4 flex flex-col space-y-6">
           <div className="flex flex-col items-center sm:space-x-4 sm:flex-row">
-            <Image
-              alt={project.title}
-              src={project.coverImage}
-              width={200}
-              height={96}
-              objectFit="cover"
-              className="w-36 rounded-lg"
-            />
+            {project.coverImage ? (
+              <Image
+                alt={project.title}
+                src={project.coverImage}
+                width={200}
+                height={96}
+                objectFit="cover"
+                className="w-36 rounded-lg"
+              />
+            ) : (
+              <div className="w-52">
+                <PlaceholderImage className="w-20 h-20 m-auto" />
+              </div>
+            )}
+
             <div className="flex flex-col justify-center">
               <h2 className="text-center sm:text-left font-semibold">Donate to {project.title}</h2>
               <h3 className="text-gray-500">Pledge your support</h3>

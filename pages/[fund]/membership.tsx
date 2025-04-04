@@ -189,7 +189,7 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
             <div className="flex flex-col items-center sm:space-x-4 sm:flex-row">
               <Image
                 alt={project.title}
-                src={project.coverImage}
+                src={project.coverImage!}
                 width={200}
                 height={96}
                 objectFit="cover"
