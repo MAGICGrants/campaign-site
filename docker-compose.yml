@@ -113,7 +113,7 @@ services:
     container_name: magic-app
     restart: unless-stopped
     working_dir: /app
-    command: npm run dev
+    command: sh -c 'apk add --no-cache libc6-compat && npm run dev'
     ports:
       - 3000:3000
     volumes:
