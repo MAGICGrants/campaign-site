@@ -67,17 +67,15 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
 
       <div className="divide-y divide-gray-200">
         <PageHeading project={project}>
-          <div className="w-full flex flex-col items-center gap-4 xl:flex">
-            {coverImage ? (
+          <div className="w-full flex flex-col items-center gap-4">
+            {coverImage && (
               <Image
                 src={coverImage}
                 alt="avatar"
                 width={700}
                 height={700}
-                className="w-full max-w-[700px] mx-auto object-contain xl:hidden"
+                className="w-full max-w-96 mx-auto object-contain md:hidden"
               />
-            ) : (
-              <PlaceholderImage className="w-full max-w-[700px] mx-auto object-contain xl:hidden" />
             )}
 
             <div className="w-full max-w-96 space-y-6 p-6 bg-white rounded-lg">
@@ -172,7 +170,7 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
           </div>
 
           <article
-            className="prose max-w-none mt-4 p-6 xl:col-span-2 bg-white rounded-lg"
+            className="prose max-w-none mt-4 p-6 col-span-2 bg-white rounded-lg"
             dangerouslySetInnerHTML={{ __html: xss(content || '') }}
           />
         </PageHeading>
@@ -249,13 +247,5 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
     })
   }
 
-  return {
-    props: {
-      project: {
-        ...project,
-        content,
-      },
-      donationStats,
-    },
-  }
+  return { props: { project: { ...project, content }, donationStats } }
 }
