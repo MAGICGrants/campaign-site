@@ -38,8 +38,8 @@ import FiroLogo from '../../../components/FiroLogo'
 import PrivacyGuidesLogo from '../../../components/PrivacyGuidesLogo'
 import MagicLogo from '../../../components/MagicLogo'
 
-type QueryParams = { fund: FundSlug; slug: string }
-type Props = { project: ProjectItem } & QueryParams
+type QueryParams = { fund?: FundSlug; slug?: string }
+type Props = { project?: ProjectItem } & QueryParams
 
 const placeholderImages: Record<FundSlug, (props: SVGProps<SVGSVGElement>) => JSX.Element> = {
   monero: MoneroLogo,
@@ -48,10 +48,11 @@ const placeholderImages: Record<FundSlug, (props: SVGProps<SVGSVGElement>) => JS
   general: MagicLogo,
 }
 
-function DonationPage({ fund: fundSlug, slug, project }: Props) {
+function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
   const session = useSession()
   const isAuthed = session.status === 'authenticated'
-  const PlaceholderImage = placeholderImages[project.fund]
+
+  let PlaceholderImage = project ? placeholderImages[project.fund] : placeholderImages.general
 
   const schema = z
     .object({
@@ -64,10 +65,7 @@ function DonationPage({ fund: fundSlug, slug, project }: Props) {
     })
     .refine(
       (data) => (!isAuthed && data.showDonorNameOnLeaderboard === 'yes' ? !!data.name : true),
-      {
-        message: 'Name is required when you want it to be on the leaderboard.',
-        path: ['name'],
-      }
+      { message: 'Name is required when you want it to be on the leaderboard.', path: ['name'] }
     )
     .refine((data) => (!isAuthed && data.taxDeductible === 'yes' ? !!data.name : true), {
       message: 'Name is required when the donation is tax deductible.',
@@ -247,11 +245,7 @@ function DonationPage({ fund: fundSlug, slug, project }: Props) {
                           variant="light"
                           size="sm"
                           type="button"
-                          onClick={() =>
-                            form.setValue('amount', value, {
-                              shouldValidate: true,
-                            })
-                          }
+                          onClick={() => form.setValue('amount', value, { shouldValidate: true })}
                         >
                           ${value}
                         </Button>
@@ -427,7 +421,7 @@ function DonationPage({ fund: fundSlug, slug, project }: Props) {
           <div className="flex flex-col items-center">
             <p className="text-sm">Want to support more projects and receive optional perks?</p>
 
-            <Link href={`/${encodeURIComponent(fundSlug)}/register`}>
+            <Link href={`/${encodeURIComponent(fundSlug!)}/register`}>
               <Button type="button" size="lg" variant="link">
                 Create an account
               </Button>

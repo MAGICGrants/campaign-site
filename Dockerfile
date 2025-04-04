@@ -50,6 +50,8 @@ RUN \
 FROM base AS runner
 WORKDIR /app
 
+RUN apk add --no-cache libc6-compat
+
 ARG BUILD_MODE=1
 
 ENV NODE_ENV production

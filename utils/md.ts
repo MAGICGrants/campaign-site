@@ -103,7 +103,6 @@ export async function getProjects(fundSlug?: FundSlug) {
       if (a.isFunded && !b.isFunded) return 1
       return 0
     })
-    .slice(0, 6)
 
   // Get donation stats for active projects
   await Promise.all(
