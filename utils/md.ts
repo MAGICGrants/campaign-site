@@ -63,19 +63,19 @@ export function getProjectBySlug(slug: string, fundSlug: FundSlug) {
     numDonationsBTC: data.numDonationsBTC || 0,
     numDonationsXMR: data.numDonationsXMR || 0,
     numDonationsLTC: data.numDonationsLTC || 0,
-    numDonationsERC20: data.numDonationsERC20 || 0,
+    numDonationsEVM: data.numDonationsEVM || 0,
     numDonationsFiat: data.numDonationsFiat || 0,
     numDonationsManual: data.numDonationsManual || 0,
     totalDonationsBTC: data.totalDonationsBTC || 0,
     totalDonationsXMR: data.totalDonationsXMR || 0,
     totalDonationsLTC: data.totalDonationsLTC || 0,
-    totalDonationsERC20: data.totalDonationsERC20 || 0,
+    totalDonationsEVM: data.totalDonationsEVM || 0,
     totalDonationsFiat: data.totalDonationsFiat || 0,
     totalDonationsManual: data.totalDonationsManual || 0,
     totalDonationsBTCInFiat: data.totalDonationsBTCInFiat || 0,
     totalDonationsXMRInFiat: data.totalDonationsXMRInFiat || 0,
     totalDonationsLTCInFiat: data.totalDonationsLTCInFiat || 0,
-    totalDonationsERC20InFiat: data.totalDonationsERC20InFiat || 0,
+    totalDonationsEVMInFiat: data.totalDonationsEVMInFiat || 0,
   }
 
   return project

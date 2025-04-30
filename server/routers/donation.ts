@@ -137,7 +137,7 @@ export const donationRouter = router({
   donateWithCrypto: publicProcedure
     .input(
       z.object({
-        paymentMethod: z.enum(['btc', 'xmr', 'ltc', 'erc20']),
+        paymentMethod: z.enum(['btc', 'xmr', 'ltc', 'evm']),
         name: z.string().trim().min(1).nullable(),
         email: z.string().trim().email().nullable(),
         projectName: z.string().min(1),
@@ -180,7 +180,7 @@ export const donationRouter = router({
 
       let url = ''
 
-      if (input.paymentMethod !== 'erc20') {
+      if (input.paymentMethod !== 'evm') {
         const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>(`/invoices`, {
           amount: input.amount,
           currency: CURRENCY,
@@ -194,7 +194,7 @@ export const donationRouter = router({
         url = invoice.checkoutLink.replace(/^(https?:\/\/)([^\/]+)/, env.BTCPAY_EXTERNAL_URL)
       }
 
-      if (input.paymentMethod === 'erc20') {
+      if (input.paymentMethod === 'evm') {
         const charge = await createCoinbaseCharge({
           amountUsd: 0.1,
           fundSlug: input.fundSlug,
@@ -348,7 +348,7 @@ export const donationRouter = router({
   payMembershipWithCrypto: protectedProcedure
     .input(
       z.object({
-        paymentMethod: z.enum(['btc', 'xmr', 'ltc', 'erc20']),
+        paymentMethod: z.enum(['btc', 'xmr', 'ltc', 'evm']),
         fundSlug: z.enum(fundSlugs),
         amount: z.number(),
         term: z.enum(['monthly', 'annually']),
@@ -412,7 +412,7 @@ export const donationRouter = router({
 
       let url = ''
 
-      if (input.paymentMethod !== 'erc20') {
+      if (input.paymentMethod !== 'evm') {
         const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>(`/invoices`, {
           amount: input.amount,
           currency: CURRENCY,
@@ -426,7 +426,7 @@ export const donationRouter = router({
         url = invoice.checkoutLink.replace(/^(https?:\/\/)([^\/]+)/, env.BTCPAY_EXTERNAL_URL)
       }
 
-      if (input.paymentMethod === 'erc20') {
+      if (input.paymentMethod === 'evm') {
         const charge = await createCoinbaseCharge({
           amountUsd: input.amount,
           fundSlug: input.fundSlug,

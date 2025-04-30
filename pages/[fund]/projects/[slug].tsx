@@ -59,14 +59,14 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
     donationStats.xmr.fiatAmount +
     donationStats.btc.fiatAmount +
     donationStats.ltc.fiatAmount +
-    donationStats.erc20.fiatAmount +
+    donationStats.evm.fiatAmount +
     donationStats.usd.fiatAmount
 
   const totalDonationCount =
     donationStats.xmr.count +
     donationStats.btc.count +
     donationStats.ltc.count +
-    donationStats.erc20.count +
+    donationStats.evm.count +
     donationStats.manual.count +
     donationStats.usd.count
 
@@ -128,9 +128,9 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
                   </span>
                 </li>
                 <li>
-                  {formatUsd(donationStats.erc20.amount)}{' '}
+                  {formatUsd(donationStats.evm.amount)}{' '}
                   <span className="font-normal text-sm text-gray">
-                    in {donationStats.erc20.count} EVM token donations
+                    in {donationStats.evm.count} EVM token donations
                   </span>
                 </li>
                 <li>
@@ -213,10 +213,10 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
       amount: project.isFunded ? project.totalDonationsLTC : 0,
       fiatAmount: project.isFunded ? project.totalDonationsLTCInFiat : 0,
     },
-    erc20: {
-      count: project.isFunded ? project.numDonationsERC20 : 0,
-      amount: project.isFunded ? project.totalDonationsERC20 : 0,
-      fiatAmount: project.isFunded ? project.totalDonationsERC20InFiat : 0,
+    evm: {
+      count: project.isFunded ? project.numDonationsEVM : 0,
+      amount: project.isFunded ? project.totalDonationsEVM : 0,
+      fiatAmount: project.isFunded ? project.totalDonationsEVMInFiat : 0,
     },
     manual: {
       count: project.isFunded ? project.numDonationsManual : 0,
@@ -239,7 +239,7 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
       BTC: donationStats.btc,
       XMR: donationStats.xmr,
       LTC: donationStats.ltc,
-      ERC20: donationStats.erc20,
+      EVM: donationStats.evm,
       MANUAL: donationStats.manual,
     } as const
 
@@ -252,9 +252,9 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
           stats.amount += payment.netAmount
           stats.fiatAmount += payment.netAmount * payment.rate
         } else if (donation.coinbaseChargeId) {
-          cryptoCodeToStats.ERC20.count += 1
-          cryptoCodeToStats.ERC20.amount += payment.netAmount
-          cryptoCodeToStats.ERC20.fiatAmount += payment.netAmount * payment.rate
+          cryptoCodeToStats.EVM.count += 1
+          cryptoCodeToStats.EVM.amount += payment.netAmount
+          cryptoCodeToStats.EVM.fiatAmount += payment.netAmount * payment.rate
         }
       })
 

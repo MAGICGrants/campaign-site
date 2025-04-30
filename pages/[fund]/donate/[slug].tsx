@@ -53,7 +53,7 @@ const paymentMethodOptions = [
   { label: 'Monero', icon: MoneroLogo, value: 'xmr' },
   { label: 'Bitcoin', icon: BitcoinLogo, value: 'btc' },
   { label: 'Litecoin', icon: LitecoinLogo, value: 'ltc' },
-  { label: 'EVMs', icon: EvmIcon, value: 'erc20' },
+  { label: 'EVMs', icon: EvmIcon, value: 'evm' },
 ] as const
 
 function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
@@ -67,7 +67,7 @@ function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
       name: z.string().optional(),
       email: z.string().email().optional(),
       amount: z.coerce.number().min(1).max(MAX_AMOUNT),
-      paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'erc20']),
+      paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
       taxDeductible: z.enum(['yes', 'no']),
       givePointsBack: z.enum(['yes', 'no']),
       showDonorNameOnLeaderboard: z.enum(['yes', 'no']),

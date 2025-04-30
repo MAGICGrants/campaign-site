@@ -53,7 +53,7 @@ const paymentMethodOptions = [
   { label: 'Monero', icon: MoneroLogo, value: 'xmr' },
   { label: 'Bitcoin', icon: BitcoinLogo, value: 'btc' },
   { label: 'Litecoin', icon: LitecoinLogo, value: 'ltc' },
-  { label: 'EVMs', icon: EvmIcon, value: 'erc20' },
+  { label: 'EVMs', icon: EvmIcon, value: 'evm' },
 ] as const
 
 function MembershipPage({ fund: fundSlug, project }: Props) {
@@ -63,7 +63,7 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
   const schema = z
     .object({
       amount: z.coerce.number(),
-      paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'erc20']),
+      paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
       term: z.enum(['monthly', 'annually']),
       taxDeductible: z.enum(['yes', 'no']),
       recurring: z.enum(['yes', 'no']),
