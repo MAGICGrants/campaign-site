@@ -54,6 +54,9 @@ export const env = createEnv({
     PRIVACYGUIDES_DISCOURSE_API_USERNAME: z.string(),
     PRIVACYGUIDES_DISCOURSE_MEMBERSHIP_GROUP_ID: z.string(),
     ATTESTATION_PRIVATE_KEY_HEX: z.string().min(1),
+
+    COINBASE_COMMERCE_API_KEY: z.string().min(1),
+    COINBASE_COMMERCE_WEBHOOK_SECRET: z.string().min(1),
   },
   /*
    * Environment variables available on the client (and server).
@@ -138,6 +141,9 @@ export const env = createEnv({
 
     ATTESTATION_PRIVATE_KEY_HEX: process.env.ATTESTATION_PRIVATE_KEY_HEX,
     NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX: process.env.NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX,
+
+    COINBASE_COMMERCE_API_KEY: process.env.COINBASE_COMMERCE_API_KEY,
+    COINBASE_COMMERCE_WEBHOOK_SECRET: process.env.COINBASE_COMMERCE_WEBHOOK_SECRET,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

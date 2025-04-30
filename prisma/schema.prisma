@@ -41,6 +41,7 @@ model Donation {
   stripePaymentIntentId      String?         @unique // For donations and non-recurring memberships
   stripeInvoiceId            String?         @unique // For recurring memberships
   stripeSubscriptionId       String? // For recurring memberships
+  coinbaseChargeId           String?         @unique
   projectSlug                String
   projectName                String
   fundSlug                   FundSlug

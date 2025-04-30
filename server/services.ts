@@ -60,6 +60,11 @@ const privacyGuidesDiscourseApi = axios.create({
   },
 })
 
+const coinbaseCommerceApi = axios.create({
+  baseURL: 'https://api.commerce.coinbase.com',
+  headers: { 'X-CC-Api-Key': env.COINBASE_COMMERCE_API_KEY },
+})
+
 export {
   prisma,
   keycloak,
@@ -69,4 +74,5 @@ export {
   printfulApi,
   stripe,
   privacyGuidesDiscourseApi,
+  coinbaseCommerceApi,
 }

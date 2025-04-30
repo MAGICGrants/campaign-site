@@ -17,16 +17,19 @@ export type ProjectItem = {
   numDonationsBTC: number
   numDonationsXMR: number
   numDonationsLTC: number
+  numDonationsERC20: number
   numDonationsFiat: number
   numDonationsManual: number
   totalDonationsBTC: number
   totalDonationsXMR: number
   totalDonationsLTC: number
+  totalDonationsERC20: number
   totalDonationsFiat: number
   totalDonationsManual: number
   totalDonationsBTCInFiat: number
   totalDonationsXMRInFiat: number
   totalDonationsLTCInFiat: number
+  totalDonationsERC20InFiat: number
 }
 
 export type PayReq = {
@@ -49,6 +52,11 @@ export type ProjectDonationStats = {
     fiatAmount: number
   }
   ltc: {
+    count: number
+    amount: number
+    fiatAmount: number
+  }
+  erc20: {
     count: number
     amount: number
     fiatAmount: number

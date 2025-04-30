@@ -202,7 +202,7 @@ async function handleDonationOrMembership(body: WebhookBody) {
     } catch (error) {
       log(
         'error',
-        `[Stripe webhook] Failed to give points for invoice ${body.invoiceId}. Rolling back.`
+        `[BTCPay webhook] Failed to give points for invoice ${body.invoiceId}. Rolling back.`
       )
       await prisma.donation.delete({ where: { id: donation.id } })
       throw error
