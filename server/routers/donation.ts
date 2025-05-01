@@ -196,7 +196,7 @@ export const donationRouter = router({
 
       if (input.paymentMethod === 'evm') {
         const charge = await createCoinbaseCharge({
-          amountUsd: 0.1,
+          amountUsd: input.amount,
           fundSlug: input.fundSlug,
           metadata,
         })
