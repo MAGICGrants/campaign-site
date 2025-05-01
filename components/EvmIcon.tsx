@@ -30,37 +30,37 @@ function EvmIcon(props: SVGProps<SVGSVGElement>) {
               <g id="g6">
                 <polygon
                   fill="#343434"
-                  fill-rule="nonzero"
+                  fillRule="nonzero"
                   points="383.5,29.11 383.5,873.74 392.07,882.29 784.13,650.54 392.07,0 "
                   id="polygon1"
                 />
                 <polygon
                   fill="#8c8c8c"
-                  fill-rule="nonzero"
+                  fillRule="nonzero"
                   points="392.07,472.33 392.07,0 0,650.54 392.07,882.29 "
                   id="polygon2"
                 />
                 <polygon
                   fill="#3c3c3b"
-                  fill-rule="nonzero"
+                  fillRule="nonzero"
                   points="387.24,962.41 387.24,1263.28 392.07,1277.38 784.37,724.89 392.07,956.52 "
                   id="polygon3"
                 />
                 <polygon
                   fill="#8c8c8c"
-                  fill-rule="nonzero"
+                  fillRule="nonzero"
                   points="392.07,956.52 0,724.89 392.07,1277.38 "
                   id="polygon4"
                 />
                 <polygon
                   fill="#141414"
-                  fill-rule="nonzero"
+                  fillRule="nonzero"
                   points="784.13,650.54 392.07,472.33 392.07,882.29 "
                   id="polygon5"
                 />
                 <polygon
                   fill="#393939"
-                  fill-rule="nonzero"
+                  fillRule="nonzero"
                   points="392.07,882.29 392.07,472.33 0,650.54 "
                   id="polygon6"
                 />

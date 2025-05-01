@@ -56,38 +56,38 @@ const paymentMethodOptions = [
   { label: 'EVMs', icon: EvmIcon, value: 'evm' },
 ] as const
 
+const schema = z
+  .object({
+    amount: z.coerce.number(),
+    paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
+    term: z.enum(['monthly', 'annually']),
+    taxDeductible: z.enum(['yes', 'no']),
+    recurring: z.enum(['yes', 'no']),
+    givePointsBack: z.enum(['yes', 'no']),
+  })
+  .superRefine((data, ctx) => {
+    if (data.term === 'monthly' && data.amount < MONTHLY_MEMBERSHIP_MIN_PRICE_USD) {
+      ctx.addIssue({
+        path: ['amount'],
+        code: 'custom',
+        message: `Min. amount is $${MONTHLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+      })
+    }
+
+    if (data.term === 'annually' && data.amount < ANNUALLY_MEMBERSHIP_MIN_PRICE_USD) {
+      ctx.addIssue({
+        path: ['amount'],
+        code: 'custom',
+        message: `Min. amount is $${ANNUALLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+      })
+    }
+  })
+
+type FormInputs = z.infer<typeof schema>
+
 function MembershipPage({ fund: fundSlug, project }: Props) {
   const session = useSession()
   const router = useRouter()
-
-  const schema = z
-    .object({
-      amount: z.coerce.number(),
-      paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
-      term: z.enum(['monthly', 'annually']),
-      taxDeductible: z.enum(['yes', 'no']),
-      recurring: z.enum(['yes', 'no']),
-      givePointsBack: z.enum(['yes', 'no']),
-    })
-    .superRefine((data, ctx) => {
-      if (data.term === 'monthly' && data.amount < MONTHLY_MEMBERSHIP_MIN_PRICE_USD) {
-        ctx.addIssue({
-          path: ['amount'],
-          code: 'custom',
-          message: `Min. amount is $${MONTHLY_MEMBERSHIP_MIN_PRICE_USD}.`,
-        })
-      }
-
-      if (data.term === 'annually' && data.amount < ANNUALLY_MEMBERSHIP_MIN_PRICE_USD) {
-        ctx.addIssue({
-          path: ['amount'],
-          code: 'custom',
-          message: `Min. amount is $${ANNUALLY_MEMBERSHIP_MIN_PRICE_USD}.`,
-        })
-      }
-    })
-
-  type FormInputs = z.infer<typeof schema>
 
   const { toast } = useToast()
 
@@ -95,6 +95,7 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
     resolver: zodResolver(schema),
     defaultValues: {
       amount: 10,
+      paymentMethod: 'xmr',
       term: 'monthly',
       taxDeductible: 'no',
       recurring: 'no',
@@ -228,7 +229,7 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
                       <FormMessage />
 
                       {!form.formState.errors.amount?.message && (
-                        <p className="text-xs hidden sm:block">&emsp;</p>
+                        <p className="text-[0.8rem] font-medium text-teal-500">&emsp;</p>
                       )}
                     </FormItem>
                   )}
@@ -252,11 +253,15 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
                         </SelectContent>
                       </Select>
 
-                      {annualTermSavePerc > 0 && (
-                        <span className="font-semibold text-teal-500 text-xs">
-                          Save {annualTermSavePerc}% with <strong>annual</strong>
-                        </span>
-                      )}
+                      <span className="text-[0.8rem] font-medium text-teal-500">
+                        {annualTermSavePerc > 0 ? (
+                          <>
+                            Save {annualTermSavePerc}% with <strong>annual</strong>
+                          </>
+                        ) : (
+                          <>&emsp;</>
+                        )}
+                      </span>
                     </FormItem>
                   )}
                 />
