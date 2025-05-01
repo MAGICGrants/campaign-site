@@ -19,6 +19,7 @@ import { BtcPayCreateInvoiceRes, DonationMetadata } from '../types'
 import { funds, fundSlugs } from '../../utils/funds'
 import { fundSlugToCustomerIdAttr } from '../utils/funds'
 import { getDonationAttestation, getMembershipAttestation } from '../utils/attestation'
+import { createCoinbaseCharge } from '../utils/coinbase-commerce'
 
 export const donationRouter = router({
   donateWithFiat: publicProcedure
@@ -136,6 +137,7 @@ export const donationRouter = router({
   donateWithCrypto: publicProcedure
     .input(
       z.object({
+        paymentMethod: z.enum(['btc', 'xmr', 'ltc', 'evm']),
         name: z.string().trim().min(1).nullable(),
         email: z.string().trim().email().nullable(),
         projectName: z.string().min(1),
@@ -176,14 +178,31 @@ export const donationRouter = router({
         showDonorNameOnLeaderboard: input.showDonorNameOnLeaderboard ? 'true' : 'false',
       }
 
-      const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>(`/invoices`, {
-        amount: input.amount,
-        currency: CURRENCY,
-        metadata,
-        checkout: { redirectURL: `${env.APP_URL}/${input.fundSlug}/thankyou` },
-      })
+      let url = ''
 
-      const url = invoice.checkoutLink.replace(/^(https?:\/\/)([^\/]+)/, env.BTCPAY_EXTERNAL_URL)
+      if (input.paymentMethod !== 'evm') {
+        const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>(`/invoices`, {
+          amount: input.amount,
+          currency: CURRENCY,
+          metadata,
+          checkout: {
+            redirectURL: `${env.APP_URL}/${input.fundSlug}/thankyou`,
+            defaultPaymentMethod: input.paymentMethod.toUpperCase(),
+          },
+        })
+
+        url = invoice.checkoutLink.replace(/^(https?:\/\/)([^\/]+)/, env.BTCPAY_EXTERNAL_URL)
+      }
+
+      if (input.paymentMethod === 'evm') {
+        const charge = await createCoinbaseCharge({
+          amountUsd: 0.1,
+          fundSlug: input.fundSlug,
+          metadata,
+        })
+
+        url = charge.hosted_url
+      }
 
       return { url }
     }),
@@ -329,6 +348,7 @@ export const donationRouter = router({
   payMembershipWithCrypto: protectedProcedure
     .input(
       z.object({
+        paymentMethod: z.enum(['btc', 'xmr', 'ltc', 'evm']),
         fundSlug: z.enum(fundSlugs),
         amount: z.number(),
         term: z.enum(['monthly', 'annually']),
@@ -390,14 +410,33 @@ export const donationRouter = router({
         showDonorNameOnLeaderboard: 'false',
       }
 
-      const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>(`/invoices`, {
-        amount: input.amount,
-        currency: CURRENCY,
-        metadata,
-        checkout: { redirectURL: `${env.APP_URL}/${input.fundSlug}/thankyou` },
-      })
+      let url = ''
 
-      return { url: invoice.checkoutLink }
+      if (input.paymentMethod !== 'evm') {
+        const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>(`/invoices`, {
+          amount: input.amount,
+          currency: CURRENCY,
+          metadata,
+          checkout: {
+            redirectURL: `${env.APP_URL}/${input.fundSlug}/thankyou`,
+            defaultPaymentMethod: input.paymentMethod.toUpperCase(),
+          },
+        })
+
+        url = invoice.checkoutLink.replace(/^(https?:\/\/)([^\/]+)/, env.BTCPAY_EXTERNAL_URL)
+      }
+
+      if (input.paymentMethod === 'evm') {
+        const charge = await createCoinbaseCharge({
+          amountUsd: input.amount,
+          fundSlug: input.fundSlug,
+          metadata,
+        })
+
+        url = charge.hosted_url
+      }
+
+      return { url }
     }),
 
   donationList: protectedProcedure

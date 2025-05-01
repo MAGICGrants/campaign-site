@@ -46,8 +46,6 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
 
   const { slug, title, summary, coverImage, content, nym, website, goal, isFunded } = project
 
-  const PlaceholderImage = placeholderImages[project.fund]
-
   if (!router.isFallback && !slug) {
     return <ErrorPage statusCode={404} />
   }
@@ -56,6 +54,21 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
     fundSlug: fundSlug || 'general',
     projectSlug: project.slug,
   })
+
+  const totalFiatAmount =
+    donationStats.xmr.fiatAmount +
+    donationStats.btc.fiatAmount +
+    donationStats.ltc.fiatAmount +
+    donationStats.evm.fiatAmount +
+    donationStats.usd.fiatAmount
+
+  const totalDonationCount =
+    donationStats.xmr.count +
+    donationStats.btc.count +
+    donationStats.ltc.count +
+    donationStats.evm.count +
+    donationStats.manual.count +
+    donationStats.usd.count
 
   return (
     <>
@@ -87,25 +100,13 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
                 </div>
               )}
 
-              <Progress
-                current={
-                  donationStats.xmr.fiatAmount +
-                  donationStats.btc.fiatAmount +
-                  donationStats.usd.fiatAmount
-                }
-                goal={goal}
-              />
+              <Progress current={totalFiatAmount} goal={goal} />
 
               <ul className="font-semibold">
                 <li className="flex items-center space-x-1">
-                  <span className="text-green-500 text-xl">{`${formatUsd(donationStats.xmr.fiatAmount + donationStats.btc.fiatAmount + donationStats.ltc.fiatAmount + donationStats.manual.fiatAmount + donationStats.usd.fiatAmount)}`}</span>{' '}
+                  <span className="text-green-500 text-xl">{`${formatUsd(totalFiatAmount)}`}</span>{' '}
                   <span className="font-normal text-sm text-gray">
-                    in{' '}
-                    {donationStats.xmr.count +
-                      donationStats.btc.count +
-                      donationStats.manual.count +
-                      donationStats.usd.count}{' '}
-                    donations total
+                    in {totalDonationCount} donations total
                   </span>
                 </li>
                 <li>
@@ -127,7 +128,13 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
                   </span>
                 </li>
                 <li>
-                  {`${formatUsd(donationStats.usd.amount + donationStats.manual.fiatAmount)}`}{' '}
+                  {formatUsd(donationStats.evm.amount)}{' '}
+                  <span className="font-normal text-sm text-gray">
+                    in {donationStats.evm.count} EVM token donations
+                  </span>
+                </li>
+                <li>
+                  {formatUsd(donationStats.usd.amount + donationStats.manual.fiatAmount)}{' '}
                   <span className="font-normal text-sm text-gray">
                     in {donationStats.usd.count + donationStats.manual.count} donations
                   </span>
@@ -206,6 +213,11 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
       amount: project.isFunded ? project.totalDonationsLTC : 0,
       fiatAmount: project.isFunded ? project.totalDonationsLTCInFiat : 0,
     },
+    evm: {
+      count: project.isFunded ? project.numDonationsEVM : 0,
+      amount: project.isFunded ? project.totalDonationsEVM : 0,
+      fiatAmount: project.isFunded ? project.totalDonationsEVMInFiat : 0,
+    },
     manual: {
       count: project.isFunded ? project.numDonationsManual : 0,
       amount: project.isFunded ? project.totalDonationsManual : 0,
@@ -227,16 +239,23 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
       BTC: donationStats.btc,
       XMR: donationStats.xmr,
       LTC: donationStats.ltc,
+      EVM: donationStats.evm,
       MANUAL: donationStats.manual,
     } as const
 
     donations.forEach((donation) => {
       ;(donation.cryptoPayments as DonationCryptoPayments | null)?.forEach((payment) => {
-        const stats = cryptoCodeToStats[payment.cryptoCode]
+        if (payment.cryptoCode in cryptoCodeToStats) {
+          const stats = cryptoCodeToStats[payment.cryptoCode as keyof typeof cryptoCodeToStats]
 
-        stats.count += 1
-        stats.amount += payment.netAmount
-        stats.fiatAmount += payment.netAmount * payment.rate
+          stats.count += 1
+          stats.amount += payment.netAmount
+          stats.fiatAmount += payment.netAmount * payment.rate
+        } else if (donation.coinbaseChargeId) {
+          cryptoCodeToStats.EVM.count += 1
+          cryptoCodeToStats.EVM.amount += payment.netAmount
+          cryptoCodeToStats.EVM.fiatAmount += payment.netAmount * payment.rate
+        }
       })
 
       if (!donation.cryptoPayments) {

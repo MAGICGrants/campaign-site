@@ -2,13 +2,10 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { faMonero } from '@fortawesome/free-brands-svg-icons'
-import { faCreditCard } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { DollarSign } from 'lucide-react'
+import { CreditCardIcon, DollarSign } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { FundSlug } from '@prisma/client'
-import { GetServerSidePropsContext, GetStaticPropsContext } from 'next'
+import { GetStaticPropsContext } from 'next'
 import Image from 'next/image'
 import Head from 'next/head'
 import { z } from 'zod'
@@ -43,9 +40,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select'
+import MoneroLogo from '../../components/MoneroLogo'
+import BitcoinLogo from '../../components/BitcoinLogo'
+import LitecoinLogo from '../../components/LitecoinLogo'
+import EvmIcon from '../../components/EvmIcon'
 
 type QueryParams = { fund: FundSlug; slug: string }
 type Props = { project: ProjectItem } & QueryParams
+
+const paymentMethodOptions = [
+  { label: 'Credit Card', icon: CreditCardIcon, value: 'card' },
+  { label: 'Monero', icon: MoneroLogo, value: 'xmr' },
+  { label: 'Bitcoin', icon: BitcoinLogo, value: 'btc' },
+  { label: 'Litecoin', icon: LitecoinLogo, value: 'ltc' },
+  { label: 'EVMs', icon: EvmIcon, value: 'evm' },
+] as const
 
 function MembershipPage({ fund: fundSlug, project }: Props) {
   const session = useSession()
@@ -54,6 +63,7 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
   const schema = z
     .object({
       amount: z.coerce.number(),
+      paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
       term: z.enum(['monthly', 'annually']),
       taxDeductible: z.enum(['yes', 'no']),
       recurring: z.enum(['yes', 'no']),
@@ -64,7 +74,7 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
         ctx.addIssue({
           path: ['amount'],
           code: 'custom',
-          message: `Min. monthly amount is $${MONTHLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+          message: `Min. amount is $${MONTHLY_MEMBERSHIP_MIN_PRICE_USD}.`,
         })
       }
 
@@ -72,7 +82,7 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
         ctx.addIssue({
           path: ['amount'],
           code: 'custom',
-          message: `Min. anually amount is $${ANNUALLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+          message: `Min. amount is $${ANNUALLY_MEMBERSHIP_MIN_PRICE_USD}.`,
         })
       }
     })
@@ -107,42 +117,34 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
     }
   }, [session.status])
 
-  async function handleBtcPay(data: FormInputs) {
+  async function handleSubmit(data: FormInputs) {
     if (!project) return
     if (!fundSlug) return
 
-    try {
-      const result = await payMembershipWithCryptoMutation.mutateAsync({
-        fundSlug,
-        amount: data.amount,
-        term: data.term,
-        taxDeductible: data.taxDeductible === 'yes',
-        givePointsBack: data.givePointsBack === 'yes',
-      })
-
-      window.location.assign(result.url)
-    } catch (e) {
-      toast({ title: 'Error', description: 'Sorry, something went wrong.', variant: 'destructive' })
+    const args = {
+      fundSlug,
+      amount: data.amount,
+      term: data.term,
+      taxDeductible: data.taxDeductible === 'yes',
+      givePointsBack: data.givePointsBack === 'yes',
     }
-  }
-
-  async function handleFiat(data: FormInputs) {
-    if (!project) return
-    if (!fundSlug) return
 
     try {
-      const result = await payMembershipWithFiatMutation.mutateAsync({
-        fundSlug,
-        amount: data.amount,
-        term: data.term,
-        recurring: data.recurring === 'yes',
-        taxDeductible: data.taxDeductible === 'yes',
-        givePointsBack: data.givePointsBack === 'yes',
-      })
+      if (data.paymentMethod !== 'card') {
+        const result = await payMembershipWithCryptoMutation.mutateAsync({
+          ...args,
+          paymentMethod: data.paymentMethod,
+        })
+        window.location.assign(result.url)
+      }
 
-      if (!result.url) throw new Error()
-
-      window.location.assign(result.url)
+      if (data.paymentMethod === 'card') {
+        const result = await payMembershipWithFiatMutation.mutateAsync({
+          ...args,
+          recurring: data.recurring === 'yes',
+        })
+        window.location.assign(result.url!)
+      }
     } catch (e) {
       toast({ title: 'Error', description: 'Sorry, something went wrong.', variant: 'destructive' })
     }
@@ -161,6 +163,7 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
   }, [session, userHasMembershipQuery.data])
 
   const amount = form.watch('amount')
+  const paymentMethod = form.watch('paymentMethod')
   const term = form.watch('term')
   const annualTermSavePerc =
     amount < 100 && term === 'monthly'
@@ -203,7 +206,7 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
           </div>
 
           <Form {...form}>
-            <form className="flex flex-col gap-6">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-6">
               <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
                 <FormField
                   control={form.control}
@@ -258,6 +261,39 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
                   )}
                 />
               </div>
+
+              <FormField
+                control={form.control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Method</FormLabel>
+                    <FormControl>
+                      <div className="flex flex-row gap-2 items-center flex-wrap ">
+                        {paymentMethodOptions.map((option, index) => {
+                          const Icon = option.icon
+                          return (
+                            <Button
+                              key={`amount-button-${index}`}
+                              variant={option.value === paymentMethod ? 'default' : 'light'}
+                              size="sm"
+                              type="button"
+                              onClick={() =>
+                                form.setValue('paymentMethod', option.value, {
+                                  shouldValidate: true,
+                                })
+                              }
+                            >
+                              <Icon className="w-5 h-5" /> {option.label}
+                            </Button>
+                          )
+                        })}
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
@@ -369,35 +405,13 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
                 )}
               />
 
-              <div className="mt-4 flex flex-col sm:flex-row space-y-2 sm:space-x-2 sm:space-y-0">
-                <Button
-                  type="button"
-                  onClick={form.handleSubmit(handleBtcPay)}
-                  disabled={!form.formState.isValid || form.formState.isSubmitting}
-                  className="grow basis-0"
-                >
-                  {payMembershipWithCryptoMutation.isPending ? (
-                    <Spinner />
-                  ) : (
-                    <FontAwesomeIcon icon={faMonero} className="h-5 w-5" />
-                  )}
-                  Pay with Crypto
-                </Button>
-
-                <Button
-                  type="button"
-                  onClick={form.handleSubmit(handleFiat)}
-                  disabled={!form.formState.isValid || form.formState.isSubmitting}
-                  className="grow basis-0 bg-indigo-500 hover:bg-indigo-700"
-                >
-                  {payMembershipWithFiatMutation.isPending ? (
-                    <Spinner className="fill-indigo-500" />
-                  ) : (
-                    <FontAwesomeIcon icon={faCreditCard} className="h-5 w-5" />
-                  )}
-                  Pay with Card
-                </Button>
-              </div>
+              <Button
+                disabled={!form.formState.isValid || form.formState.isSubmitting}
+                className="grow basis-0"
+              >
+                {payMembershipWithCryptoMutation.isPending && <Spinner />}
+                Get Membership
+              </Button>
             </form>
           </Form>
         </div>
