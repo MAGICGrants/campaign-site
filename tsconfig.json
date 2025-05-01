@@ -9,13 +9,15 @@
     "strict": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": true,
+    "noEmit": false,
+    "outDir": "dist",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "incremental": true
+    "incremental": true,
+    "sourceMap": true
   },
   "include": ["next-env.d.ts", "auth.d.ts", "**/*.ts", "**/*.tsx", "env.mjs"],
   "exclude": ["node_modules"]
