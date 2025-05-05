@@ -24,6 +24,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+ENV SKIP_ENV_VALIDATION 1
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV PRISMA_BINARY_TARGETS='["native", "rhel-openssl-1.0.x"]'
 ENV NEXT_PUBLIC_TURNSTILE_SITEKEY='0x4AAAAAAA11o5rNvbUuAWSJ'
