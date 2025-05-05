@@ -34,6 +34,7 @@ ENV NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT='privacyguidesfund@magicgra
 ENV NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT='info@magicgrants.org'
 ENV NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX='25aa6f5740f2a885b2605672586845af2a7afd01f4c0c69f59acd0c619c1a5c2'
 RUN npx prisma generate
+RUN npx tsc
 
 RUN \
   if [ -f yarn.lock ]; then yarn run build; \
@@ -55,6 +56,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/out ./out
 COPY --from=builder /app/public ./public
 
 # Set the correct permission for prerender cache
@@ -85,4 +87,6 @@ RUN npm cache clean --force
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
-CMD ["/bin/sh", "-c", "prisma migrate deploy && node server.js"]
+CMD ["/bin/sh", "-c", "prisma migrate deploy \
+&& npm run sentry:sourcemaps \
+&& node server.js"]

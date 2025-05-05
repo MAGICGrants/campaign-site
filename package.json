@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && npm run sentry:sourcemaps",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "watch": "npm-watch",
-    "sentry:sourcemaps": "tsc && sentry-cli sourcemaps inject --org magic-grants --project campaign-site ./out && sentry-cli sourcemaps upload --org magic-grants --project campaign-site ./out"
+    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org magic-grants --project campaign-site ./out && sentry-cli sourcemaps upload --org magic-grants --project campaign-site ./out"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.5.2",
