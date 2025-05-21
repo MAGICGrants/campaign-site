@@ -134,7 +134,7 @@ async function handle(
           }
 
           const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>('/invoices', {
-            checkout: { 
+            checkout: {
               monitoringMinutes: 9999999,
               lazyPaymentMethods: false,
             },
@@ -201,7 +201,7 @@ async function handle(
         fund: project.fund,
         date: project.date,
         author: project.nym,
-        url: `${env.APP_URL}/${project.fund}/${project.slug}`,
+        url: `${env.APP_URL}/${project.fund}/projects/${project.slug}`,
         is_funded: !!project.isFunded,
         target_amount_btc: Number(targetAmountBtc.toFixed(8)),
         target_amount_xmr: Number(targetAmountXmr.toFixed(12)),
