@@ -23,7 +23,7 @@ The MAGIC Monero Fund selected Ada Logics after soliciting three quotes from var
 
 Ada Logics will:
 
-* Build C++ fuzzing harnesses for Monero's RPC handlers.
+* Build C++ fuzzing harnesses targeting Monero's RPC handlers within src/rpc.
 * Create an end-to-end testing solution for Monero in OSS-Fuzz.
 * Target at least 75% of Monero's RPC handlers, with a goal of 100% coverage.
 * Submit all code directly to the Monero repository.
