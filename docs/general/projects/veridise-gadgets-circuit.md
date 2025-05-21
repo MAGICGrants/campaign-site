@@ -9,6 +9,10 @@ socialLinks:
   - ''
 date: '2025-03-28'
 goal: 73800
+isFunded: true
+numDonationsXMR: 1
+totalDonationsXMRInFiat: 73800
+totalDonationsXMR: 341.44
 ---
 
 MAGIC Grants has commissioned Veridise to conduct an audit of the Monero FCMP++ gadgets and circuit. This security audit is necessary to ensure that the gadgets, circuits, and implementation are secure.
