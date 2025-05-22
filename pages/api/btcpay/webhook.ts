@@ -70,6 +70,15 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
   const cryptoAmount = Number(body.payment.value)
   const fiatAmount = Number((cryptoAmount * cryptoRate).toFixed(2))
 
+  const cryptoPayments: DonationCryptoPayments = []
+
+  cryptoPayments.push({
+    cryptoCode,
+    grossAmount: cryptoAmount,
+    netAmount: cryptoAmount,
+    rate: cryptoRate,
+  })
+
   await prisma.donation.create({
     data: {
       userId: null,
@@ -79,6 +88,7 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
       fundSlug: body.metadata.fundSlug,
       grossFiatAmount: fiatAmount,
       netFiatAmount: fiatAmount,
+      cryptoPayments,
       showDonorNameOnLeaderboard: body.metadata.showDonorNameOnLeaderboard === 'true',
       donorName: body.metadata.donorName,
     },
