@@ -52,7 +52,7 @@ export type BtcPayGetInvoiceRes = {
 export type BtcPayGetPaymentMethodsRes = {
   rate: string
   amount: string
-  currency: 'BTC' | 'XMR' | 'LTC'
+  currency: 'BTC' | 'XMR'
   paymentMethodPaid: string
   destination: string
 }[]

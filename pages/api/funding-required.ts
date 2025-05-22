@@ -15,7 +15,7 @@ import {
 } from '../../server/types'
 import { fundSlugs } from '../../utils/funds'
 
-const ASSETS = ['BTC', 'XMR', 'LTC', 'USD'] as const
+const ASSETS = ['BTC', 'XMR', 'USD'] as const
 
 type Asset = (typeof ASSETS)[number]
 
@@ -30,15 +30,12 @@ type ResponseBody = {
   contributions: number
   target_amount_btc: number
   target_amount_xmr: number
-  target_amount_ltc: number
   target_amount_usd: number
   remaining_amount_btc: number
   remaining_amount_xmr: number
-  remaining_amount_ltc: number
   remaining_amount_usd: number
   address_btc: string | null
   address_xmr: string | null
-  address_ltc: string | null
 }[]
 
 type ResponseBodySpecificAsset = {
@@ -110,9 +107,8 @@ async function handle(
 
   let responseBody: ResponseBody | ResponseBodySpecificAsset = await Promise.all(
     projects.map(async (project): Promise<ResponseBody[0]> => {
-      let bitcoinAddress = ''
-      let moneroAddress = ''
-      let litecoinAddress = ''
+      let bitcoinAddress: string | null = null
+      let moneroAddress: string | null = null
 
       if (!project.isFunded) {
         const existingAddresses = await prisma.projectAddresses.findUnique({
@@ -158,10 +154,6 @@ async function handle(
             if (paymentMethod.currency === 'XMR') {
               moneroAddress = paymentMethod.destination
             }
-
-            if (paymentMethod.currency === 'LTC') {
-              litecoinAddress = paymentMethod.destination
-            }
           })
 
           if (!bitcoinAddress && process.env.NODE_ENV !== 'development')
@@ -169,14 +161,9 @@ async function handle(
               '[/api/funding-required] Could not get bitcoin address from payment methods.'
             )
 
-          if (!moneroAddress && process.env.NODE_ENV !== 'development')
+          if (!moneroAddress)
             throw new Error(
               '[/api/funding-required] Could not get monero address from payment methods.'
-            )
-
-          if (!litecoinAddress && process.env.NODE_ENV !== 'development')
-            throw new Error(
-              '[/api/funding-required] Could not get litecoin address from payment methods.'
             )
 
           await prisma.projectAddresses.create({
@@ -184,9 +171,8 @@ async function handle(
               projectSlug: project.slug,
               fundSlug: project.fund,
               btcPayInvoiceId: invoice.id,
-              bitcoinAddress,
-              moneroAddress,
-              litecoinAddress,
+              bitcoinAddress: bitcoinAddress || '',
+              moneroAddress: moneroAddress,
             },
           })
         }
@@ -194,13 +180,11 @@ async function handle(
         if (existingAddresses) {
           bitcoinAddress = existingAddresses.bitcoinAddress
           moneroAddress = existingAddresses.moneroAddress
-          litecoinAddress = existingAddresses.litecoinAddress
         }
       }
 
       const targetAmountBtc = project.goal / (rates.BTC || 0)
       const targetAmountXmr = project.goal / (rates.XMR || 0)
-      const targetAmountLtc = project.goal / (rates.LTC || 0)
       const targetAmountUsd = project.goal
 
       const allDonationsSumUsd =
@@ -210,7 +194,6 @@ async function handle(
 
       const remainingAmountBtc = (project.goal - allDonationsSumUsd) / (rates.BTC || 0)
       const remainingAmountXmr = (project.goal - allDonationsSumUsd) / (rates.XMR || 0)
-      const remainingAmountLtc = (project.goal - allDonationsSumUsd) / (rates.LTC || 0)
       const remainingAmountUsd = project.goal - allDonationsSumUsd
 
       return {
@@ -222,15 +205,12 @@ async function handle(
         is_funded: !!project.isFunded,
         target_amount_btc: Number(targetAmountBtc.toFixed(8)),
         target_amount_xmr: Number(targetAmountXmr.toFixed(12)),
-        target_amount_ltc: Number(targetAmountLtc.toFixed(8)),
         target_amount_usd: Number(targetAmountUsd.toFixed(2)),
         remaining_amount_btc: Number((remainingAmountBtc > 0 ? remainingAmountBtc : 0).toFixed(8)),
         remaining_amount_xmr: Number((remainingAmountXmr > 0 ? remainingAmountXmr : 0).toFixed(12)),
-        remaining_amount_ltc: Number((remainingAmountLtc > 0 ? remainingAmountLtc : 0).toFixed(8)),
         remaining_amount_usd: Number((remainingAmountUsd > 0 ? remainingAmountUsd : 0).toFixed(2)),
         address_btc: bitcoinAddress,
         address_xmr: moneroAddress,
-        address_ltc: litecoinAddress,
         raised_amount_percent: Math.floor(
           ((project.totalDonationsBTCInFiat +
             project.totalDonationsXMRInFiat +
@@ -248,21 +228,18 @@ async function handle(
       const targetAmounts: Record<Asset, number> = {
         BTC: project.target_amount_btc,
         XMR: project.target_amount_xmr,
-        LTC: project.target_amount_ltc,
         USD: project.target_amount_usd,
       }
 
       const remainingAmounts: Record<Asset, number> = {
         BTC: project.remaining_amount_btc,
         XMR: project.remaining_amount_xmr,
-        LTC: project.remaining_amount_ltc,
         USD: project.remaining_amount_usd,
       }
 
       const addresses: Record<Asset, string | null> = {
         BTC: project.address_btc,
         XMR: project.address_xmr,
-        LTC: project.address_ltc,
         USD: null,
       }
 
