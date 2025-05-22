@@ -71,9 +71,9 @@ model ProjectAddresses {
   projectSlug     String
   fundSlug        FundSlug
   btcPayInvoiceId String
-  bitcoinAddress  String
-  moneroAddress   String
-  litecoinAddress String
+  bitcoinAddress  String?
+  moneroAddress   String?
+  litecoinAddress String?
 
   @@unique([projectSlug, fundSlug])
 }
