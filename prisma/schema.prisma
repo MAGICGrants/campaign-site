@@ -73,6 +73,7 @@ model ProjectAddresses {
   btcPayInvoiceId String
   bitcoinAddress  String
   moneroAddress   String
+  litecoinAddress String
 
   @@unique([projectSlug, fundSlug])
 }
