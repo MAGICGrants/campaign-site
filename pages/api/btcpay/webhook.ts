@@ -39,7 +39,7 @@ type WebhookBody = Record<string, any> & {
   storeId: string
   invoiceId: string
   metadata?: DonationMetadata
-  paymentMethod: string
+  paymentMethodId: string
 }
 
 async function handleFundingRequiredApiDonation(body: WebhookBody) {
@@ -58,9 +58,9 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
   }
 
   // Handle payment methods like "BTC-LightningNetwork" if added in the future
-  const cryptoCode = body.paymentMethod.includes('-')
-    ? body.paymentMethod.split('-')[0]
-    : body.paymentMethod
+  const cryptoCode = body.paymentMethodId.includes('-')
+    ? body.paymentMethodId.split('-')[0]
+    : body.paymentMethodId
 
   const { data: rates } = await btcpayApi.get<BtcPayGetRatesRes>(
     `/rates?currencyPair=${cryptoCode}_USD`
