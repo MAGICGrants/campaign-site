@@ -110,9 +110,9 @@ async function handle(
 
   let responseBody: ResponseBody | ResponseBodySpecificAsset = await Promise.all(
     projects.map(async (project): Promise<ResponseBody[0]> => {
-      let bitcoinAddress: string | null = null
-      let moneroAddress: string | null = null
-      let litecoinAddress: string | null = null
+      let bitcoinAddress = ''
+      let moneroAddress = ''
+      let litecoinAddress = ''
 
       if (!project.isFunded) {
         const existingAddresses = await prisma.projectAddresses.findUnique({
