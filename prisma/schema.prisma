@@ -37,6 +37,7 @@ model Donation {
 
   userId                     String?
   donorName                  String?
+  donorNameIsProfane         Boolean?        @default(false)
   btcPayInvoiceId            String?         @unique
   stripePaymentIntentId      String?         @unique // For donations and non-recurring memberships
   stripeInvoiceId            String?         @unique // For recurring memberships

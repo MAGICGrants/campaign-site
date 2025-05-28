@@ -16,6 +16,7 @@ export type DonationMetadata = {
   userId: string | null
   donorEmail: string | null
   donorName: string | null
+  donorNameIsProfane: 'true' | 'false'
   projectSlug: string
   projectName: string
   fundSlug: FundSlug
