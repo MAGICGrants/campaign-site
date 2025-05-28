@@ -87,6 +87,8 @@ services:
       COINBASE_COMMERCE_WEBHOOK_SECRET: ${COINBASE_COMMERCE_WEBHOOK_SECRET}
 
       SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN}
+
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
     depends_on:
       - magic-postgres
     networks:
