@@ -77,6 +77,7 @@ async function handleDonationOrNonRecurringMembership(paymentIntent: Stripe.Paym
       membershipTerm: metadata.membershipTerm || null,
       showDonorNameOnLeaderboard: metadata.showDonorNameOnLeaderboard === 'true',
       donorName: metadata.donorName,
+      donorNameIsProfane: metadata.donorNameIsProfane === 'true',
     },
   })
 
@@ -193,6 +194,7 @@ async function handleRecurringMembership(invoice: Stripe.Invoice) {
       membershipTerm: metadata.membershipTerm || null,
       showDonorNameOnLeaderboard: metadata.showDonorNameOnLeaderboard === 'true',
       donorName: metadata.donorName,
+      donorNameIsProfane: metadata.donorNameIsProfane === 'true',
     },
   })
 

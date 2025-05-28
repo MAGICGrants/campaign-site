@@ -65,6 +65,10 @@ const coinbaseCommerceApi = axios.create({
   headers: { 'X-CC-Api-Key': env.COINBASE_COMMERCE_API_KEY },
 })
 
+const geminiApi = axios.create({
+  baseURL: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`,
+})
+
 export {
   prisma,
   keycloak,
@@ -75,4 +79,5 @@ export {
   stripe,
   privacyGuidesDiscourseApi,
   coinbaseCommerceApi,
+  geminiApi,
 }

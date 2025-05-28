@@ -60,5 +60,6 @@ jobs:
             COINBASE_COMMERCE_API_KEY=${{ secrets.COINBASE_COMMERCE_API_KEY }} \
             COINBASE_COMMERCE_WEBHOOK_SECRET=${{ secrets.COINBASE_COMMERCE_WEBHOOK_SECRET }} \
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }} \
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
             docker compose -f docker-compose.prod.yml up -d --build
           EOF

@@ -124,6 +124,7 @@ async function handle(
           const metadata: DonationMetadata = {
             userId: null,
             donorName: null,
+            donorNameIsProfane: 'false',
             donorEmail: null,
             projectSlug: project.slug,
             projectName: project.title,

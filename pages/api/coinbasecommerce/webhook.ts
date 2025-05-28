@@ -121,6 +121,7 @@ async function handleDonationOrMembership(body: WebhookBody) {
       membershipTerm: metadata.membershipTerm || null,
       showDonorNameOnLeaderboard: metadata.showDonorNameOnLeaderboard === 'true',
       donorName: metadata.donorName,
+      donorNameIsProfane: metadata.donorNameIsProfane === 'true',
     },
   })
 

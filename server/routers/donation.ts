@@ -20,6 +20,7 @@ import { funds, fundSlugs } from '../../utils/funds'
 import { fundSlugToCustomerIdAttr } from '../utils/funds'
 import { getDonationAttestation, getMembershipAttestation } from '../utils/attestation'
 import { createCoinbaseCharge } from '../utils/coinbase-commerce'
+import { isNameProfane } from '../utils/profanity'
 
 export const donationRouter = router({
   donateWithFiat: publicProcedure
@@ -62,6 +63,7 @@ export const donationRouter = router({
 
       let email = input.email
       let name = input.name
+      let nameIsProfane = false
       let stripeCustomerId: string | null = null
       let user: UserRepresentation | null = null
 
@@ -70,7 +72,12 @@ export const donationRouter = router({
         user = (await keycloak.users.findOne({ id: userId })!) || null
         email = user?.email!
         name = user?.attributes?.name?.[0]
+        nameIsProfane = user?.attributes?.nameIsProfane?.[0] === 'true'
         stripeCustomerId = user?.attributes?.[fundSlugToCustomerIdAttr[input.fundSlug]]?.[0] || null
+      }
+
+      if (!userId) {
+        nameIsProfane = await isNameProfane(name!)
       }
 
       const stripe = _stripe[input.fundSlug]
@@ -93,6 +100,7 @@ export const donationRouter = router({
         userId,
         donorEmail: email,
         donorName: name,
+        donorNameIsProfane: nameIsProfane ? 'true' : 'false',
         projectSlug: input.projectSlug,
         projectName: input.projectName,
         fundSlug: input.fundSlug,
@@ -153,17 +161,24 @@ export const donationRouter = router({
       let email = input.email
       let name = input.name
       const userId = ctx.session?.user.sub || null
+      let nameIsProfane = false
 
       if (userId) {
         await authenticateKeycloakClient()
         const user = await keycloak.users.findOne({ id: userId })
         email = user?.email!
         name = user?.attributes?.name?.[0] || null
+        nameIsProfane = user?.attributes?.nameIsProfane?.[0] === 'true'
+      }
+
+      if (!userId) {
+        nameIsProfane = await isNameProfane(name!)
       }
 
       const metadata: DonationMetadata = {
         userId,
         donorName: name,
+        donorNameIsProfane: nameIsProfane ? 'true' : 'false',
         donorEmail: email,
         projectSlug: input.projectSlug,
         projectName: input.projectName,
@@ -255,6 +270,7 @@ export const donationRouter = router({
       const user = await keycloak.users.findOne({ id: userId })
       const email = user?.email!
       const name = user?.attributes?.name?.[0]!
+      const nameIsProfane = user?.attributes?.nameIsProfane?.[0] === 'true'
 
       if (!user || !user.id)
         throw new TRPCError({
@@ -279,6 +295,7 @@ export const donationRouter = router({
       const metadata: DonationMetadata = {
         userId,
         donorName: name,
+        donorNameIsProfane: nameIsProfane ? 'true' : 'false',
         donorEmail: email,
         projectSlug: input.fundSlug,
         projectName: funds[input.fundSlug].title,
@@ -392,10 +409,12 @@ export const donationRouter = router({
       const user = await keycloak.users.findOne({ id: userId })
       const email = user?.email!
       const name = user?.attributes?.name?.[0]!
+      const nameIsProfane = user?.attributes?.nameIsProfane?.[0] === 'true'
 
       const metadata: DonationMetadata = {
         userId,
         donorName: name,
+        donorNameIsProfane: nameIsProfane ? 'true' : 'false',
         donorEmail: email,
         projectSlug: input.fundSlug,
         projectName: funds[input.fundSlug].title,

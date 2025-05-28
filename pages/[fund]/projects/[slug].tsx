@@ -1,4 +1,4 @@
-import { SVGProps } from 'react'
+import { SVGProps, useState } from 'react'
 import { FundSlug } from '@prisma/client'
 import { useRouter } from 'next/router'
 import { GetServerSidePropsContext, NextPage } from 'next/types'
@@ -26,6 +26,7 @@ import MagicLogo from '../../../components/MagicLogo'
 import MoneroLogo from '../../../components/MoneroLogo'
 import FiroLogo from '../../../components/FiroLogo'
 import PrivacyGuidesLogo from '../../../components/PrivacyGuidesLogo'
+import { EyeIcon } from 'lucide-react'
 
 type SingleProjectPageProps = {
   project: ProjectItem
@@ -43,6 +44,7 @@ const placeholderImages: Record<FundSlug, (props: SVGProps<SVGSVGElement>) => JS
 const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) => {
   const router = useRouter()
   const fundSlug = useFundSlug()
+  const [leaderboardItemNamesToReveal, setLeaderboardItemNamesToReveal] = useState<number[]>([])
 
   const { slug, title, summary, coverImage, content, nym, website, goal, isFunded } = project
 
@@ -69,6 +71,17 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
     donationStats.evm.count +
     donationStats.manual.count +
     donationStats.usd.count
+
+  const hasProfaneNames = !!leaderboardQuery.data?.find((item) => item.nameIsProfane)
+
+  function toggleLeaderboardItemNameVis(itemIndex: number) {
+    console.log(leaderboardItemNamesToReveal, itemIndex)
+    if (leaderboardItemNamesToReveal.includes(itemIndex)) {
+      setLeaderboardItemNamesToReveal((state) => state.filter((index) => index !== itemIndex))
+    } else {
+      setLeaderboardItemNamesToReveal((state) => [...state, itemIndex])
+    }
+  }
 
   return (
     <>
@@ -144,6 +157,11 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
 
             <div className="w-full max-w-96 min-h-72 space-y-4 p-6 bg-white rounded-lg">
               <h1 className="font-bold">Leaderboard</h1>
+              {hasProfaneNames && (
+                <span className="text-muted-foreground text-sm">
+                  Hidden names are potentially inappropriate
+                </span>
+              )}
 
               {leaderboardQuery.data?.length ? (
                 <Table>
@@ -156,13 +174,37 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
                           <div
                             className={cn(
                               'w-8 h-8 flex font-bold text-primary rounded-full',
-                              1 ? 'bg-primary/15' : ''
+                              index < 3 ? 'bg-primary/15' : ''
                             )}
                           >
                             <span className="m-auto">{index + 1}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="w-full font-medium">{leaderboardItem.name}</TableCell>
+                        <TableCell className="w-full font-medium">
+                          <div className="w-full h-full flex flex-row items-center">
+                            <span
+                              className={
+                                leaderboardItem.nameIsProfane &&
+                                !leaderboardItemNamesToReveal.includes(index)
+                                  ? 'max-w-36 truncate blur-sm'
+                                  : 'max-w-36 truncate'
+                              }
+                            >
+                              Justin Ehrenhofer
+                            </span>
+
+                            {leaderboardItem.nameIsProfane && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="ml-2 text-primary hover:text-primary"
+                                onClick={() => toggleLeaderboardItemNameVis(index)}
+                              >
+                                <EyeIcon size={20} />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="font-bold text-green-500">
                           {formatUsd(leaderboardItem.amount)}
                         </TableCell>
