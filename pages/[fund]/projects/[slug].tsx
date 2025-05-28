@@ -190,7 +190,7 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
                                   : 'max-w-36 truncate'
                               }
                             >
-                              Justin Ehrenhofer
+                              {leaderboardItem.name}
                             </span>
 
                             {leaderboardItem.nameIsProfane && (
