@@ -9,6 +9,15 @@ socialLinks:
   - ''
 date: '2025-05-20'
 goal: 55000
+isFunded: true
+numDonationsXMR: 11
+totalDonationsXMRInFiat: 55000
+totalDonationsXMR: 167.98
+numDonationsBTC: 0
+totalDonationsBTCInFiat: 0
+totalDonationsBTC: 0
+numDonationsFiat: 0
+totalDonationsFiat: 0
 ---
 
 Fuzzing is a process of automated testing that intelligently bombards software with random inputs to discover security vulnerabilities and edge cases. Monero has the significant advantage of access to OSS-Fuzz, Google's powerful free computing platform that continuously tests open-source projects. However, our current testing implementation is severely limited, covering merely 10% of the codebase—with zero coverage of the critical RPC interfaces that allow external communication with Monero nodes.
