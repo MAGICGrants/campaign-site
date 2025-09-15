@@ -9,7 +9,10 @@ socialLinks:
   - ''
 date: '2025-08-07'
 goal: 36250
-isFunded: false
+isFunded: true
+numDonationsXMR: 2
+totalDonationsXMRInFiat: 36250
+totalDonationsXMR: 137.3
 ---
 
 MAGIC Grants has contracted [Veridise](https://veridise.com) to assist with the following:
