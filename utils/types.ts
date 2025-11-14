@@ -7,7 +7,7 @@ export type ProjectItem = {
   content?: string
   title: string
   summary: string
-  coverImage: string
+  coverImage?: string
   website: string
   socialLinks: string[]
   date: string
@@ -16,12 +16,20 @@ export type ProjectItem = {
   isFunded?: boolean
   numDonationsBTC: number
   numDonationsXMR: number
+  numDonationsLTC: number
+  numDonationsEVM: number
   numDonationsFiat: number
+  numDonationsManual: number
   totalDonationsBTC: number
   totalDonationsXMR: number
+  totalDonationsLTC: number
+  totalDonationsEVM: number
   totalDonationsFiat: number
+  totalDonationsManual: number
   totalDonationsBTCInFiat: number
   totalDonationsXMRInFiat: number
+  totalDonationsLTCInFiat: number
+  totalDonationsEVMInFiat: number
 }
 
 export type PayReq = {
@@ -39,6 +47,21 @@ export type ProjectDonationStats = {
     fiatAmount: number
   }
   btc: {
+    count: number
+    amount: number
+    fiatAmount: number
+  }
+  ltc: {
+    count: number
+    amount: number
+    fiatAmount: number
+  }
+  evm: {
+    count: number
+    amount: number
+    fiatAmount: number
+  }
+  manual: {
     count: number
     amount: number
     fiatAmount: number

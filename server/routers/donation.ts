@@ -5,7 +5,13 @@ import { z } from 'zod'
 import UserRepresentation from '@keycloak/keycloak-admin-client/lib/defs/userRepresentation'
 
 import { protectedProcedure, publicProcedure, router } from '../trpc'
-import { CURRENCY, MAX_AMOUNT, MEMBERSHIP_PRICE, MIN_AMOUNT } from '../../config'
+import {
+  CURRENCY,
+  MAX_AMOUNT,
+  ANNUALLY_MEMBERSHIP_MIN_PRICE_USD,
+  MIN_AMOUNT,
+  MONTHLY_MEMBERSHIP_MIN_PRICE_USD,
+} from '../../config'
 import { env } from '../../env.mjs'
 import { btcpayApi, keycloak, prisma, stripe as _stripe } from '../services'
 import { authenticateKeycloakClient } from '../utils/keycloak'
@@ -13,6 +19,8 @@ import { BtcPayCreateInvoiceRes, DonationMetadata } from '../types'
 import { funds, fundSlugs } from '../../utils/funds'
 import { fundSlugToCustomerIdAttr } from '../utils/funds'
 import { getDonationAttestation, getMembershipAttestation } from '../utils/attestation'
+import { createCoinbaseCharge } from '../utils/coinbase-commerce'
+import { isNameProfane } from '../utils/profanity'
 
 export const donationRouter = router({
   donateWithFiat: publicProcedure
@@ -55,6 +63,7 @@ export const donationRouter = router({
 
       let email = input.email
       let name = input.name
+      let nameIsProfane = false
       let stripeCustomerId: string | null = null
       let user: UserRepresentation | null = null
 
@@ -63,7 +72,12 @@ export const donationRouter = router({
         user = (await keycloak.users.findOne({ id: userId })!) || null
         email = user?.email!
         name = user?.attributes?.name?.[0]
+        nameIsProfane = user?.attributes?.nameIsProfane?.[0] === 'true'
         stripeCustomerId = user?.attributes?.[fundSlugToCustomerIdAttr[input.fundSlug]]?.[0] || null
+      }
+
+      if (!userId) {
+        nameIsProfane = await isNameProfane(name!)
       }
 
       const stripe = _stripe[input.fundSlug]
@@ -86,11 +100,13 @@ export const donationRouter = router({
         userId,
         donorEmail: email,
         donorName: name,
+        donorNameIsProfane: nameIsProfane ? 'true' : 'false',
         projectSlug: input.projectSlug,
         projectName: input.projectName,
         fundSlug: input.fundSlug,
         isMembership: 'false',
         isSubscription: 'false',
+        membershipTerm: null,
         isTaxDeductible: input.taxDeductible ? 'true' : 'false',
         staticGeneratedForApi: 'false',
         givePointsBack: input.givePointsBack ? 'true' : 'false',
@@ -129,6 +145,7 @@ export const donationRouter = router({
   donateWithCrypto: publicProcedure
     .input(
       z.object({
+        paymentMethod: z.enum(['btc', 'xmr', 'ltc', 'evm']),
         name: z.string().trim().min(1).nullable(),
         email: z.string().trim().email().nullable(),
         projectName: z.string().min(1),
@@ -144,23 +161,31 @@ export const donationRouter = router({
       let email = input.email
       let name = input.name
       const userId = ctx.session?.user.sub || null
+      let nameIsProfane = false
 
       if (userId) {
         await authenticateKeycloakClient()
         const user = await keycloak.users.findOne({ id: userId })
         email = user?.email!
         name = user?.attributes?.name?.[0] || null
+        nameIsProfane = user?.attributes?.nameIsProfane?.[0] === 'true'
+      }
+
+      if (!userId) {
+        nameIsProfane = await isNameProfane(name!)
       }
 
       const metadata: DonationMetadata = {
         userId,
         donorName: name,
+        donorNameIsProfane: nameIsProfane ? 'true' : 'false',
         donorEmail: email,
         projectSlug: input.projectSlug,
         projectName: input.projectName,
         fundSlug: input.fundSlug,
         itemDesc: `MAGIC ${funds[input.fundSlug].title}`,
         isMembership: 'false',
+        membershipTerm: null,
         isSubscription: 'false',
         isTaxDeductible: input.taxDeductible ? 'true' : 'false',
         staticGeneratedForApi: 'false',
@@ -168,14 +193,31 @@ export const donationRouter = router({
         showDonorNameOnLeaderboard: input.showDonorNameOnLeaderboard ? 'true' : 'false',
       }
 
-      const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>(`/invoices`, {
-        amount: input.amount,
-        currency: CURRENCY,
-        metadata,
-        checkout: { redirectURL: `${env.APP_URL}/${input.fundSlug}/thankyou` },
-      })
+      let url = ''
 
-      const url = invoice.checkoutLink.replace(/^(https?:\/\/)([^\/]+)/, env.BTCPAY_EXTERNAL_URL)
+      if (input.paymentMethod !== 'evm') {
+        const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>(`/invoices`, {
+          amount: input.amount,
+          currency: CURRENCY,
+          metadata,
+          checkout: {
+            redirectURL: `${env.APP_URL}/${input.fundSlug}/thankyou`,
+            defaultPaymentMethod: input.paymentMethod.toUpperCase(),
+          },
+        })
+
+        url = invoice.checkoutLink.replace(/^(https?:\/\/)([^\/]+)/, env.BTCPAY_EXTERNAL_URL)
+      }
+
+      if (input.paymentMethod === 'evm') {
+        const charge = await createCoinbaseCharge({
+          amountUsd: input.amount,
+          fundSlug: input.fundSlug,
+          metadata,
+        })
+
+        url = charge.hosted_url
+      }
 
       return { url }
     }),
@@ -184,6 +226,8 @@ export const donationRouter = router({
     .input(
       z.object({
         fundSlug: z.enum(fundSlugs),
+        amount: z.number(),
+        term: z.enum(['monthly', 'annually']),
         recurring: z.boolean(),
         taxDeductible: z.boolean(),
         givePointsBack: z.boolean(),
@@ -192,6 +236,20 @@ export const donationRouter = router({
     .mutation(async ({ input, ctx }) => {
       const stripe = _stripe[input.fundSlug]
       const userId = ctx.session.user.sub
+
+      if (input.term === 'monthly' && input.amount < MONTHLY_MEMBERSHIP_MIN_PRICE_USD) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Min. monthly amount is $${MONTHLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+        })
+      }
+
+      if (input.term === 'annually' && input.amount < ANNUALLY_MEMBERSHIP_MIN_PRICE_USD) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Min. anually amount is $${ANNUALLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+        })
+      }
 
       const userHasMembership = await prisma.donation.findFirst({
         where: {
@@ -212,6 +270,7 @@ export const donationRouter = router({
       const user = await keycloak.users.findOne({ id: userId })
       const email = user?.email!
       const name = user?.attributes?.name?.[0]!
+      const nameIsProfane = user?.attributes?.nameIsProfane?.[0] === 'true'
 
       if (!user || !user.id)
         throw new TRPCError({
@@ -236,11 +295,13 @@ export const donationRouter = router({
       const metadata: DonationMetadata = {
         userId,
         donorName: name,
+        donorNameIsProfane: nameIsProfane ? 'true' : 'false',
         donorEmail: email,
         projectSlug: input.fundSlug,
         projectName: funds[input.fundSlug].title,
         fundSlug: input.fundSlug,
         isMembership: 'true',
+        membershipTerm: input.term,
         isSubscription: input.recurring ? 'true' : 'false',
         isTaxDeductible: input.taxDeductible ? 'true' : 'false',
         staticGeneratedForApi: 'false',
@@ -258,9 +319,9 @@ export const donationRouter = router({
             price_data: {
               currency: CURRENCY,
               product_data: {
-                name: `MAGIC Grants Annual Membership: ${funds[input.fundSlug].title}`,
+                name: `MAGIC Grants ${input.term === 'annually' ? 'Annual' : 'Monthly'} Membership: ${funds[input.fundSlug].title}`,
               },
-              unit_amount: MEMBERSHIP_PRICE * 100,
+              unit_amount: input.amount * 100,
             },
             quantity: 1,
           },
@@ -280,10 +341,10 @@ export const donationRouter = router({
             price_data: {
               currency: CURRENCY,
               product_data: {
-                name: `MAGIC Grants Annual Membership: ${funds[input.fundSlug].title}`,
+                name: `MAGIC Grants ${input.term === 'annually' ? 'Annual' : 'Monthly'} Membership: ${funds[input.fundSlug].title}`,
               },
-              recurring: { interval: 'year' },
-              unit_amount: MEMBERSHIP_PRICE * 100,
+              recurring: { interval: input.term === 'annually' ? 'year' : 'month' },
+              unit_amount: input.amount * 100,
             },
             quantity: 1,
           },
@@ -304,12 +365,29 @@ export const donationRouter = router({
   payMembershipWithCrypto: protectedProcedure
     .input(
       z.object({
+        paymentMethod: z.enum(['btc', 'xmr', 'ltc', 'evm']),
         fundSlug: z.enum(fundSlugs),
+        amount: z.number(),
+        term: z.enum(['monthly', 'annually']),
         taxDeductible: z.boolean(),
         givePointsBack: z.boolean(),
       })
     )
     .mutation(async ({ input, ctx }) => {
+      if (input.term === 'monthly' && input.amount < MONTHLY_MEMBERSHIP_MIN_PRICE_USD) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Min. monthly amount is $${MONTHLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+        })
+      }
+
+      if (input.term === 'annually' && input.amount < ANNUALLY_MEMBERSHIP_MIN_PRICE_USD) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Min. anually amount is $${ANNUALLY_MEMBERSHIP_MIN_PRICE_USD}.`,
+        })
+      }
+
       const userId = ctx.session.user.sub
 
       const userHasMembership = await prisma.donation.findFirst({
@@ -331,16 +409,19 @@ export const donationRouter = router({
       const user = await keycloak.users.findOne({ id: userId })
       const email = user?.email!
       const name = user?.attributes?.name?.[0]!
+      const nameIsProfane = user?.attributes?.nameIsProfane?.[0] === 'true'
 
       const metadata: DonationMetadata = {
         userId,
         donorName: name,
+        donorNameIsProfane: nameIsProfane ? 'true' : 'false',
         donorEmail: email,
         projectSlug: input.fundSlug,
         projectName: funds[input.fundSlug].title,
         itemDesc: `MAGIC ${funds[input.fundSlug].title}`,
         fundSlug: input.fundSlug,
         isMembership: 'true',
+        membershipTerm: input.term,
         isSubscription: 'false',
         isTaxDeductible: input.taxDeductible ? 'true' : 'false',
         staticGeneratedForApi: 'false',
@@ -348,14 +429,33 @@ export const donationRouter = router({
         showDonorNameOnLeaderboard: 'false',
       }
 
-      const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>(`/invoices`, {
-        amount: MEMBERSHIP_PRICE,
-        currency: CURRENCY,
-        metadata,
-        checkout: { redirectURL: `${env.APP_URL}/${input.fundSlug}/thankyou` },
-      })
+      let url = ''
 
-      return { url: invoice.checkoutLink }
+      if (input.paymentMethod !== 'evm') {
+        const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>(`/invoices`, {
+          amount: input.amount,
+          currency: CURRENCY,
+          metadata,
+          checkout: {
+            redirectURL: `${env.APP_URL}/${input.fundSlug}/thankyou`,
+            defaultPaymentMethod: input.paymentMethod.toUpperCase(),
+          },
+        })
+
+        url = invoice.checkoutLink.replace(/^(https?:\/\/)([^\/]+)/, env.BTCPAY_EXTERNAL_URL)
+      }
+
+      if (input.paymentMethod === 'evm') {
+        const charge = await createCoinbaseCharge({
+          amountUsd: input.amount,
+          fundSlug: input.fundSlug,
+          metadata,
+        })
+
+        url = charge.hosted_url
+      }
+
+      return { url }
     }),
 
   donationList: protectedProcedure
@@ -461,13 +561,7 @@ export const donationRouter = router({
       const { message, signature } = await getDonationAttestation({
         donorName: user.attributes?.name,
         donorEmail: ctx.session.user.email,
-        amount: donation.grossFiatAmount,
-        method: donation.cryptoCode ? donation.cryptoCode : 'Fiat',
-        fundSlug: donation.fundSlug,
-        fundName: funds[donation.fundSlug].title,
-        projectName: donation.projectName,
-        date: donation.createdAt,
-        donationId: donation.id,
+        donation,
       })
 
       return { message, signature }
@@ -514,12 +608,9 @@ export const donationRouter = router({
       const { message, signature } = await getMembershipAttestation({
         donorName: user.attributes?.name,
         donorEmail: ctx.session.user.email,
-        amount: membershipValue,
-        method: donations[0].cryptoCode ? donations[0].cryptoCode : 'Fiat',
-        fundSlug: donations[0].fundSlug,
-        fundName: funds[donations[0].fundSlug].title,
+        donation: donations[0],
         periodStart: membershipStart,
-        periodEnd: membershipEnd,
+        totalAmountToDate: membershipValue,
       })
 
       return { message, signature }

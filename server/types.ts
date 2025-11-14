@@ -1,4 +1,4 @@
-import { FundSlug } from '@prisma/client'
+import { FundSlug, MembershipTerm } from '@prisma/client'
 
 export type KeycloakJwtPayload = {
   sub: string
@@ -16,17 +16,26 @@ export type DonationMetadata = {
   userId: string | null
   donorEmail: string | null
   donorName: string | null
+  donorNameIsProfane: 'true' | 'false'
   projectSlug: string
   projectName: string
   fundSlug: FundSlug
   itemDesc?: string
   isMembership: 'true' | 'false'
+  membershipTerm: MembershipTerm | null
   isSubscription: 'true' | 'false'
   isTaxDeductible: 'true' | 'false'
   staticGeneratedForApi: 'true' | 'false'
   givePointsBack: 'true' | 'false'
   showDonorNameOnLeaderboard: 'true' | 'false'
 }
+
+export type DonationCryptoPayments = {
+  cryptoCode: 'BTC' | 'XMR' | 'LTC' | 'MANUAL' | string
+  grossAmount: number
+  netAmount: number
+  rate: number
+}[]
 
 export type BtcPayGetRatesRes = [
   {
@@ -36,10 +45,15 @@ export type BtcPayGetRatesRes = [
   },
 ]
 
+export type BtcPayGetInvoiceRes = {
+  id: string
+  amount: string
+}
+
 export type BtcPayGetPaymentMethodsRes = {
   rate: string
   amount: string
-  currency: 'BTC' | 'XMR'
+  currency: 'BTC' | 'XMR' | 'LTC'
   paymentMethodPaid: string
   destination: string
 }[]
@@ -122,7 +136,7 @@ export type StrapiGetPerkRes = {
 
 // Strapi Order
 
-type StrapiOrder = {
+export type StrapiOrder = {
   id: number
   documentId: string
   createdAt: string
@@ -338,6 +352,7 @@ export type PrintfulCreateOrderReq = {
 }
 
 export type PrintfulCreateOrderRes = {
+  externalId: string
   costs: {
     currency: 'USD'
     subtotal: string

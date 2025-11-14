@@ -2,12 +2,12 @@ import fs from 'fs'
 import { join } from 'path'
 import matter from 'gray-matter'
 import sanitize from 'sanitize-filename'
-import { FundSlug } from '@prisma/client'
+import { Donation, FundSlug } from '@prisma/client'
 
 import { fundSlugs } from './funds'
 import { ProjectItem } from './types'
 import { prisma } from '../server/services'
-import { env } from '../env.mjs'
+import { DonationCryptoPayments } from '../server/types'
 
 const directories: Record<FundSlug, string> = {
   monero: join(process.cwd(), 'docs/monero/projects'),
@@ -62,12 +62,20 @@ export function getProjectBySlug(slug: string, fundSlug: FundSlug) {
     staticXMRaddress: data.staticXMRaddress || null,
     numDonationsBTC: data.numDonationsBTC || 0,
     numDonationsXMR: data.numDonationsXMR || 0,
+    numDonationsLTC: data.numDonationsLTC || 0,
+    numDonationsEVM: data.numDonationsEVM || 0,
     numDonationsFiat: data.numDonationsFiat || 0,
+    numDonationsManual: data.numDonationsManual || 0,
     totalDonationsBTC: data.totalDonationsBTC || 0,
     totalDonationsXMR: data.totalDonationsXMR || 0,
+    totalDonationsLTC: data.totalDonationsLTC || 0,
+    totalDonationsEVM: data.totalDonationsEVM || 0,
     totalDonationsFiat: data.totalDonationsFiat || 0,
+    totalDonationsManual: data.totalDonationsManual || 0,
     totalDonationsBTCInFiat: data.totalDonationsBTCInFiat || 0,
     totalDonationsXMRInFiat: data.totalDonationsXMRInFiat || 0,
+    totalDonationsLTCInFiat: data.totalDonationsLTCInFiat || 0,
+    totalDonationsEVMInFiat: data.totalDonationsEVMInFiat || 0,
   }
 
   return project
@@ -98,33 +106,51 @@ export async function getProjects(fundSlug?: FundSlug) {
       if (a.isFunded && !b.isFunded) return 1
       return 0
     })
-    .slice(0, 6)
 
   // Get donation stats for active projects
   await Promise.all(
     projects.map(async (project) => {
       if (project.isFunded) return
 
-      const donations = !env.BUILD_MODE
-        ? await prisma.donation.findMany({
-            where: { projectSlug: project.slug, fundSlug: project.fund },
-          })
-        : []
+      let donations: Donation[] = []
+
+      try {
+        donations = await prisma.donation.findMany({
+          where: { projectSlug: project.slug, fundSlug: project.fund },
+        })
+      } catch {
+        console.log(
+          'Could not fetch donations. There is either a problem with Postgres or this is running on build time.'
+        )
+      }
 
       donations.forEach((donation) => {
-        if (donation.cryptoCode === 'XMR') {
-          project.numDonationsXMR += 1
-          project.totalDonationsXMR += donation.netCryptoAmount || 0
-          project.totalDonationsXMRInFiat += donation.netFiatAmount
-        }
+        ;(donation.cryptoPayments as DonationCryptoPayments | null)?.forEach((payment) => {
+          if (payment.cryptoCode === 'XMR') {
+            project.numDonationsXMR += 1
+            project.totalDonationsXMR += payment.netAmount
+            project.totalDonationsXMRInFiat += payment.netAmount * payment.rate
+          }
 
-        if (donation.cryptoCode === 'BTC') {
-          project.numDonationsBTC += 1
-          project.totalDonationsBTC += donation.netCryptoAmount || 0
-          project.totalDonationsBTCInFiat += donation.netFiatAmount
-        }
+          if (payment.cryptoCode === 'BTC') {
+            project.numDonationsBTC += 1
+            project.totalDonationsBTC += payment.netAmount
+            project.totalDonationsBTCInFiat += payment.netAmount * payment.rate
+          }
 
-        if (donation.cryptoCode === null) {
+          if (payment.cryptoCode === 'LTC') {
+            project.numDonationsLTC += 1
+            project.totalDonationsLTC += payment.netAmount
+            project.totalDonationsLTCInFiat += payment.netAmount * payment.rate
+          }
+
+          if (payment.cryptoCode === 'MANUAL') {
+            project.numDonationsManual += 1
+            project.totalDonationsManual += payment.netAmount * payment.rate
+          }
+        })
+
+        if (!donation.cryptoPayments) {
           project.numDonationsFiat += 1
           project.totalDonationsFiat += donation.netFiatAmount
         }

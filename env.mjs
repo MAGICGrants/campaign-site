@@ -8,7 +8,6 @@ export const env = createEnv({
    * Will throw if you access these variables on the client.
    */
   server: {
-    BUILD_MODE: z.boolean(),
     APP_URL: z.string().url(),
     NEXTAUTH_SECRET: z.string().min(32),
     USER_SETTINGS_JWT_SECRET: z.string().min(32),
@@ -54,6 +53,11 @@ export const env = createEnv({
     PRIVACYGUIDES_DISCOURSE_API_USERNAME: z.string(),
     PRIVACYGUIDES_DISCOURSE_MEMBERSHIP_GROUP_ID: z.string(),
     ATTESTATION_PRIVATE_KEY_HEX: z.string().min(1),
+
+    COINBASE_COMMERCE_API_KEY: z.string().min(1),
+    COINBASE_COMMERCE_WEBHOOK_SECRET: z.string().min(1),
+
+    GEMINI_API_KEY: z.string().min(1),
   },
   /*
    * Environment variables available on the client (and server).
@@ -77,7 +81,6 @@ export const env = createEnv({
    * 💡 You'll get type errors if not all variables from `server` & `client` are included here.
    */
   runtimeEnv: {
-    BUILD_MODE: !!process.env.BUILD_MODE,
     APP_URL: process.env.APP_URL,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     USER_SETTINGS_JWT_SECRET: process.env.USER_SETTINGS_JWT_SECRET,
@@ -138,10 +141,15 @@ export const env = createEnv({
 
     ATTESTATION_PRIVATE_KEY_HEX: process.env.ATTESTATION_PRIVATE_KEY_HEX,
     NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX: process.env.NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX,
+
+    COINBASE_COMMERCE_API_KEY: process.env.COINBASE_COMMERCE_API_KEY,
+    COINBASE_COMMERCE_WEBHOOK_SECRET: process.env.COINBASE_COMMERCE_WEBHOOK_SECRET,
+
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
    * useful for Docker builds.
    */
-  skipValidation: !!process.env.BUILD_MODE,
+  skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 })

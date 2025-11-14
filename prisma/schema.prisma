@@ -25,6 +25,11 @@ enum AccountConnectionType {
   privacyGuidesForum
 }
 
+enum MembershipTerm {
+  monthly
+  annually
+}
+
 model Donation {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -32,21 +37,26 @@ model Donation {
 
   userId                     String?
   donorName                  String?
-  btcPayInvoiceId            String?
-  stripePaymentIntentId      String? // For donations and non-recurring memberships
-  stripeInvoiceId            String?   @unique // For recurring memberships
+  donorNameIsProfane         Boolean?        @default(false)
+  btcPayInvoiceId            String?         @unique
+  stripePaymentIntentId      String?         @unique // For donations and non-recurring memberships
+  stripeInvoiceId            String?         @unique // For recurring memberships
   stripeSubscriptionId       String? // For recurring memberships
+  coinbaseChargeId           String?         @unique
   projectSlug                String
   projectName                String
   fundSlug                   FundSlug
-  cryptoCode                 String?
-  grossCryptoAmount          Float?
-  netCryptoAmount            Float?
+  cryptoPayments             Json?
   grossFiatAmount            Float
   netFiatAmount              Float
-  pointsAdded                Int       @default(0)
+  pointsAdded                Int             @default(0)
   membershipExpiresAt        DateTime?
-  showDonorNameOnLeaderboard Boolean?  @default(false)
+  membershipTerm             MembershipTerm?
+  showDonorNameOnLeaderboard Boolean?        @default(false)
+
+  cryptoCode        String?
+  grossCryptoAmount String?
+  netCryptoAmount   String?
 
   @@index([btcPayInvoiceId])
   @@index([stripePaymentIntentId])
@@ -62,8 +72,9 @@ model ProjectAddresses {
   projectSlug     String
   fundSlug        FundSlug
   btcPayInvoiceId String
-  bitcoinAddress  String
-  moneroAddress   String
+  bitcoinAddress  String?
+  moneroAddress   String?
+  litecoinAddress String?
 
   @@unique([projectSlug, fundSlug])
 }

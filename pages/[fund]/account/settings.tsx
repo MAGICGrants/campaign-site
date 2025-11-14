@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, ExternalLinkIcon } from 'lucide-react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Head from 'next/head'
@@ -33,6 +33,7 @@ import {
 } from '../../../components/ui/command'
 import { cn } from '../../../utils/cn'
 import { Label } from '../../../components/ui/label'
+import CustomLink from '../../../components/CustomLink'
 
 const changeProfileFormSchema = z.object({ company: z.string() })
 
@@ -631,11 +632,31 @@ function Settings() {
 
         {fundSlug === 'privacyguides' && (
           <div className="w-full p-6 flex flex-col space-y-6 bg-white rounded-xl">
-            <h1 className="font-bold">Connections</h1>
+            <div>
+              <h1 className="font-bold">Connections</h1>
+              <p className="text-[0.8rem] text-muted-foreground">
+                Optionally connect this account to your account on another platform. Connecting your
+                account may (depending on the features of the connected platform) provider certain
+                perks and recognition, such as a special flair. Click on the name of each account
+                that you wish to link to learn more about the features of that specific connection.
+                Your accounts on these other platforms are subject to their respective Terms of Use
+                and Privacy Policies. You can unlink your account at any time.
+              </p>
+            </div>
 
             <div className="flex flex-row space-x-12">
               <div className="flex flex-col space-y-2">
-                <Label>Privacy Guides Community</Label>
+                <div className="flex flex-row items-center">
+                  <Label>Privacy Guides Community</Label>
+                  <CustomLink
+                    href="https://discuss.privacyguides.net/t/getting-your-member-flair-on-the-forum/25453"
+                    className="h-6"
+                  >
+                    <Button size="icon" variant="link" className="w-6 h-6 p-1">
+                      <ExternalLinkIcon />
+                    </Button>
+                  </CustomLink>
+                </div>
 
                 {!getUserAttributesQuery.data?.privacyGuidesDiscourseUsername && (
                   <span className="text-sm text-red-500">No account linked</span>

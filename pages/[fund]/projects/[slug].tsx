@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
+import { SVGProps, useState } from 'react'
+import { FundSlug } from '@prisma/client'
 import { useRouter } from 'next/router'
 import { GetServerSidePropsContext, NextPage } from 'next/types'
 import Head from 'next/head'
@@ -15,12 +15,18 @@ import PageHeading from '../../../components/PageHeading'
 import Progress from '../../../components/Progress'
 import { prisma } from '../../../server/services'
 import { Button } from '../../../components/ui/button'
-import CustomLink from '../../../components/CustomLink'
 import { trpc } from '../../../utils/trpc'
-import { getFundSlugFromUrlPath } from '../../../utils/funds'
+import { funds, getFundSlugFromUrlPath } from '../../../utils/funds'
 import { useFundSlug } from '../../../utils/use-fund-slug'
 import { Table, TableBody, TableCell, TableRow } from '../../../components/ui/table'
 import { cn } from '../../../utils/cn'
+import { DonationCryptoPayments } from '../../../server/types'
+import { formatBtc, formatUsd } from '../../../utils/money-formating'
+import MagicLogo from '../../../components/MagicLogo'
+import MoneroLogo from '../../../components/MoneroLogo'
+import FiroLogo from '../../../components/FiroLogo'
+import PrivacyGuidesLogo from '../../../components/PrivacyGuidesLogo'
+import { EyeIcon } from 'lucide-react'
 
 type SingleProjectPageProps = {
   project: ProjectItem
@@ -28,33 +34,19 @@ type SingleProjectPageProps = {
   donationStats: ProjectDonationStats
 }
 
+const placeholderImages: Record<FundSlug, (props: SVGProps<SVGSVGElement>) => JSX.Element> = {
+  monero: MoneroLogo,
+  firo: FiroLogo,
+  privacyguides: PrivacyGuidesLogo,
+  general: MagicLogo,
+}
+
 const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) => {
   const router = useRouter()
-  const [registerIsOpen, setRegisterIsOpen] = useState(false)
-  const [loginIsOpen, setLoginIsOpen] = useState(false)
-  const [passwordResetIsOpen, setPasswordResetIsOpen] = useState(false)
-  const session = useSession()
   const fundSlug = useFundSlug()
+  const [leaderboardItemNamesToReveal, setLeaderboardItemNamesToReveal] = useState<number[]>([])
 
   const { slug, title, summary, coverImage, content, nym, website, goal, isFunded } = project
-
-  function formatBtc(bitcoin: number) {
-    if (bitcoin > 0.1) {
-      return `${bitcoin.toFixed(3) || 0.0} BTC`
-    } else {
-      return `${Math.floor(bitcoin * 100000000).toLocaleString()} sats`
-    }
-  }
-
-  function formatUsd(dollars: number): string {
-    if (dollars == 0) {
-      return '$0'
-    } else if (dollars / 1000 > 1) {
-      return `$${Math.round(dollars / 1000)}k+`
-    } else {
-      return `$${dollars.toFixed(0)}`
-    }
-  }
 
   if (!router.isFallback && !slug) {
     return <ErrorPage statusCode={404} />
@@ -65,24 +57,54 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
     projectSlug: project.slug,
   })
 
+  const totalFiatAmount =
+    donationStats.xmr.fiatAmount +
+    donationStats.btc.fiatAmount +
+    donationStats.ltc.fiatAmount +
+    donationStats.evm.fiatAmount +
+    donationStats.usd.fiatAmount
+
+  const totalDonationCount =
+    donationStats.xmr.count +
+    donationStats.btc.count +
+    donationStats.ltc.count +
+    donationStats.evm.count +
+    donationStats.manual.count +
+    donationStats.usd.count
+
+  const hasProfaneNames = !!leaderboardQuery.data?.find((item) => item.nameIsProfane)
+
+  function toggleLeaderboardItemNameVis(itemIndex: number) {
+    console.log(leaderboardItemNamesToReveal, itemIndex)
+    if (leaderboardItemNamesToReveal.includes(itemIndex)) {
+      setLeaderboardItemNamesToReveal((state) => state.filter((index) => index !== itemIndex))
+    } else {
+      setLeaderboardItemNamesToReveal((state) => [...state, itemIndex])
+    }
+  }
+
   return (
     <>
       <Head>
-        <title>Monero Fund | {project.title}</title>
+        <title>
+          {project.title} - {funds[project.fund].title}
+        </title>
       </Head>
 
       <div className="divide-y divide-gray-200">
         <PageHeading project={project}>
-          <div className="w-full flex flex-col items-center gap-4 xl:flex">
-            <Image
-              src={coverImage}
-              alt="avatar"
-              width={700}
-              height={700}
-              className="w-full max-w-[700px] mx-auto object-contain xl:hidden"
-            />
+          <div className="w-full flex flex-col items-center gap-4">
+            {coverImage && (
+              <Image
+                src={coverImage}
+                alt="avatar"
+                width={700}
+                height={700}
+                className="w-full max-w-96 mx-auto object-contain md:hidden"
+              />
+            )}
 
-            <div className="w-full max-w-96 space-y-8 p-6 bg-white rounded-lg">
+            <div className="w-full max-w-96 space-y-6 p-6 bg-white rounded-lg">
               {!project.isFunded && (
                 <div className="w-full">
                   <Link href={`/${fundSlug}/donate/${project.slug}`}>
@@ -91,51 +113,55 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
                 </div>
               )}
 
-              <div className="w-full">
-                <h1 className="mb-4 font-bold">Raised</h1>
+              <Progress current={totalFiatAmount} goal={goal} />
 
-                <Progress
-                  current={
-                    donationStats.xmr.fiatAmount +
-                    donationStats.btc.fiatAmount +
-                    donationStats.usd.fiatAmount
-                  }
-                  goal={goal}
-                />
-
-                <ul className="font-semibold space-y-1">
-                  <li className="flex items-center space-x-1">
-                    <span className="text-green-500 text-xl">{`${formatUsd(donationStats.xmr.fiatAmount + donationStats.btc.fiatAmount + donationStats.usd.fiatAmount)}`}</span>{' '}
-                    <span className="font-normal text-sm text-gray">
-                      in{' '}
-                      {donationStats.xmr.count + donationStats.btc.count + donationStats.usd.count}{' '}
-                      donations total
-                    </span>
-                  </li>
-                  <li>
-                    {donationStats.xmr.amount} XMR{' '}
-                    <span className="font-normal text-sm text-gray">
-                      in {donationStats.xmr.count} donations
-                    </span>
-                  </li>
-                  <li>
-                    {formatBtc(donationStats.btc.amount)}{' '}
-                    <span className="font-normal text-sm text-gray">
-                      in {donationStats.btc.count} donations
-                    </span>
-                  </li>
-                  <li>
-                    {`${formatUsd(donationStats.usd.amount)}`} Fiat{' '}
-                    <span className="font-normal text-sm text-gray">
-                      in {donationStats.usd.count} donations
-                    </span>
-                  </li>
-                </ul>
-              </div>
+              <ul className="font-semibold">
+                <li className="flex items-center space-x-1">
+                  <span className="text-green-500 text-xl">{`${formatUsd(totalFiatAmount)}`}</span>{' '}
+                  <span className="font-normal text-sm text-gray">
+                    in {totalDonationCount} donations total
+                  </span>
+                </li>
+                <li>
+                  {donationStats.xmr.amount.toFixed(2)} XMR{' '}
+                  <span className="font-normal text-sm text-gray">
+                    in {donationStats.xmr.count} donations
+                  </span>
+                </li>
+                <li>
+                  {formatBtc(donationStats.btc.amount)}{' '}
+                  <span className="font-normal text-sm text-gray">
+                    in {donationStats.btc.count} donations
+                  </span>
+                </li>
+                <li>
+                  {donationStats.ltc.amount.toFixed(2)} LTC{' '}
+                  <span className="font-normal text-sm text-gray">
+                    in {donationStats.ltc.count} donations
+                  </span>
+                </li>
+                <li>
+                  {formatUsd(donationStats.evm.amount)}{' '}
+                  <span className="font-normal text-sm text-gray">
+                    in {donationStats.evm.count} EVM token donations
+                  </span>
+                </li>
+                <li>
+                  {formatUsd(donationStats.usd.amount + donationStats.manual.fiatAmount)}{' '}
+                  <span className="font-normal text-sm text-gray">
+                    in {donationStats.usd.count + donationStats.manual.count} donations
+                  </span>
+                </li>
+              </ul>
             </div>
 
             <div className="w-full max-w-96 min-h-72 space-y-4 p-6 bg-white rounded-lg">
               <h1 className="font-bold">Leaderboard</h1>
+              {hasProfaneNames && (
+                <span className="text-muted-foreground text-sm">
+                  Hidden names are potentially inappropriate
+                </span>
+              )}
 
               {leaderboardQuery.data?.length ? (
                 <Table>
@@ -148,13 +174,37 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
                           <div
                             className={cn(
                               'w-8 h-8 flex font-bold text-primary rounded-full',
-                              1 ? 'bg-primary/15' : ''
+                              index < 3 ? 'bg-primary/15' : ''
                             )}
                           >
                             <span className="m-auto">{index + 1}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="w-full font-medium">{leaderboardItem.name}</TableCell>
+                        <TableCell className="w-full font-medium">
+                          <div className="w-full h-full flex flex-row items-center">
+                            <span
+                              className={
+                                leaderboardItem.nameIsProfane &&
+                                !leaderboardItemNamesToReveal.includes(index)
+                                  ? 'max-w-36 truncate blur-sm'
+                                  : 'max-w-36 truncate'
+                              }
+                            >
+                              {leaderboardItem.name}
+                            </span>
+
+                            {leaderboardItem.nameIsProfane && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="ml-2 text-primary hover:text-primary"
+                                onClick={() => toggleLeaderboardItemNameVis(index)}
+                              >
+                                <EyeIcon size={20} />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="font-bold text-green-500">
                           {formatUsd(leaderboardItem.amount)}
                         </TableCell>
@@ -169,7 +219,7 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
           </div>
 
           <article
-            className="prose max-w-none mt-4 p-6 xl:col-span-2 bg-white rounded-lg"
+            className="prose max-w-none mt-4 p-6 col-span-2 bg-white rounded-lg"
             dangerouslySetInnerHTML={{ __html: xss(content || '') }}
           />
         </PageHeading>
@@ -200,6 +250,21 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
       amount: project.isFunded ? project.totalDonationsBTC : 0,
       fiatAmount: project.isFunded ? project.totalDonationsBTCInFiat : 0,
     },
+    ltc: {
+      count: project.isFunded ? project.numDonationsLTC : 0,
+      amount: project.isFunded ? project.totalDonationsLTC : 0,
+      fiatAmount: project.isFunded ? project.totalDonationsLTCInFiat : 0,
+    },
+    evm: {
+      count: project.isFunded ? project.numDonationsEVM : 0,
+      amount: project.isFunded ? project.totalDonationsEVM : 0,
+      fiatAmount: project.isFunded ? project.totalDonationsEVMInFiat : 0,
+    },
+    manual: {
+      count: project.isFunded ? project.numDonationsManual : 0,
+      amount: project.isFunded ? project.totalDonationsManual : 0,
+      fiatAmount: project.isFunded ? project.totalDonationsManual : 0,
+    },
     usd: {
       count: project.isFunded ? project.numDonationsFiat : 0,
       amount: project.isFunded ? project.totalDonationsFiat : 0,
@@ -212,20 +277,30 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
       where: { projectSlug: params.slug as string, fundSlug },
     })
 
+    const cryptoCodeToStats = {
+      BTC: donationStats.btc,
+      XMR: donationStats.xmr,
+      LTC: donationStats.ltc,
+      EVM: donationStats.evm,
+      MANUAL: donationStats.manual,
+    } as const
+
     donations.forEach((donation) => {
-      if (donation.cryptoCode === 'XMR') {
-        donationStats.xmr.count += 1
-        donationStats.xmr.amount += donation.netCryptoAmount || 0
-        donationStats.xmr.fiatAmount += donation.netFiatAmount
-      }
+      ;(donation.cryptoPayments as DonationCryptoPayments | null)?.forEach((payment) => {
+        if (payment.cryptoCode in cryptoCodeToStats) {
+          const stats = cryptoCodeToStats[payment.cryptoCode as keyof typeof cryptoCodeToStats]
 
-      if (donation.cryptoCode === 'BTC') {
-        donationStats.btc.count += 1
-        donationStats.btc.amount += donation.netCryptoAmount || 0
-        donationStats.btc.fiatAmount += donation.netFiatAmount
-      }
+          stats.count += 1
+          stats.amount += payment.netAmount
+          stats.fiatAmount += payment.netAmount * payment.rate
+        } else if (donation.coinbaseChargeId) {
+          cryptoCodeToStats.EVM.count += 1
+          cryptoCodeToStats.EVM.amount += payment.netAmount
+          cryptoCodeToStats.EVM.fiatAmount += payment.netAmount * payment.rate
+        }
+      })
 
-      if (donation.cryptoCode === null) {
+      if (!donation.cryptoPayments) {
         donationStats.usd.count += 1
         donationStats.usd.amount += donation.netFiatAmount
         donationStats.usd.fiatAmount += donation.netFiatAmount
@@ -233,13 +308,5 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
     })
   }
 
-  return {
-    props: {
-      project: {
-        ...project,
-        content,
-      },
-      donationStats,
-    },
-  }
+  return { props: { project: { ...project, content }, donationStats } }
 }

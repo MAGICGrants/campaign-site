@@ -9,6 +9,8 @@ import { env } from '../../env.mjs'
 import { fundSlugs } from '../../utils/funds'
 import { UserSettingsJwtPayload } from '../types'
 import { isTurnstileValid } from '../utils/turnstile'
+import { isNameProfane } from '../utils/profanity'
+import { log } from '../../utils/logging'
 
 export const authRouter = router({
   register: publicProcedure
@@ -102,6 +104,9 @@ export const authRouter = router({
 
       let user: { id: string }
 
+      const name = `${input.firstName} ${input.lastName}`
+      const nameIsProfane = await isNameProfane(name)
+
       try {
         user = await keycloak.users.create({
           realm: env.KEYCLOAK_REALM_NAME,
@@ -109,7 +114,8 @@ export const authRouter = router({
           credentials: [{ type: 'password', value: input.password, temporary: false }],
           requiredActions: ['VERIFY_EMAIL'],
           attributes: {
-            name: `${input.firstName} ${input.lastName}`,
+            name,
+            nameIsProfane,
             passwordResetTokenVersion: 1,
             emailVerifyTokenVersion: 1,
             company: input.company,

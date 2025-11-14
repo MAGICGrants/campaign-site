@@ -70,6 +70,7 @@ function MyMemberships() {
               <TableRow>
                 <TableHead>Project</TableHead>
                 <TableHead>Method</TableHead>
+                <TableHead>Amount</TableHead>
                 <TableHead>Recurring</TableHead>
                 <TableHead>Period Start</TableHead>
                 <TableHead>Period End</TableHead>
@@ -81,6 +82,7 @@ function MyMemberships() {
                 <TableRow key={membership.createdAt.toISOString()}>
                   <TableCell>{membership.projectName}</TableCell>
                   <TableCell>{membership.btcPayInvoiceId ? 'Crypto' : 'Fiat'}</TableCell>
+                  <TableCell>${membership.grossFiatAmount}</TableCell>
                   <TableCell>{membership.stripeSubscriptionId ? 'Yes' : 'No'}</TableCell>
                   <TableCell>{dayjs(membership.createdAt).format('lll')}</TableCell>
                   <TableCell>{dayjs(membership.membershipExpiresAt).format('lll')}</TableCell>

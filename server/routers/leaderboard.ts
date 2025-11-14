@@ -16,7 +16,7 @@ export const leaderboardRouter = router({
       const leaderboardLimit = 10
 
       const withUserDonationSums = await prisma.donation.groupBy({
-        by: ['userId', 'showDonorNameOnLeaderboard', 'donorName'],
+        by: ['userId', 'showDonorNameOnLeaderboard', 'donorName', 'donorNameIsProfane'],
         where: { userId: { not: null }, fundSlug: input.fundSlug, projectSlug: input.projectSlug },
         _sum: { grossFiatAmount: true },
         orderBy: { _sum: { grossFiatAmount: 'desc' } },
@@ -31,6 +31,7 @@ export const leaderboardRouter = router({
 
       type LeaderboardItem = {
         name: string
+        nameIsProfane: boolean
         amount: number
       }
 
@@ -41,6 +42,7 @@ export const leaderboardRouter = router({
           name: donationSum.showDonorNameOnLeaderboard
             ? donationSum.donorName || 'Anonymous'
             : 'Anonymous',
+          nameIsProfane: !!donationSum.donorNameIsProfane,
           amount: donationSum._sum.grossFiatAmount || 0,
         })
       })
@@ -50,6 +52,7 @@ export const leaderboardRouter = router({
           name: donation.showDonorNameOnLeaderboard
             ? donation.donorName || 'Anonymous'
             : 'Anonymous',
+          nameIsProfane: !!donation.donorNameIsProfane,
           amount: donation.grossFiatAmount || 0,
         })
       })

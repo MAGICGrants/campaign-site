@@ -65,7 +65,7 @@ import { trpc } from '../../../utils/trpc'
 import { cn } from '../../../utils/cn'
 import { strapiApi } from '../../../server/services'
 import { GetServerSidePropsContext } from 'next'
-import { getUserPointBalance } from '../../../server/utils/perks'
+import { getPointsBalance } from '../../../server/utils/perks'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../api/auth/[...nextauth]'
 
@@ -75,26 +75,28 @@ const pointFormat = Intl.NumberFormat('en', { notation: 'standard', compactDispl
 
 const schema = z
   .object({
-    shippingAddressLine1: z.string().min(1),
-    shippingAddressLine2: z.string(),
-    shippingCity: z.string().min(1),
-    shippingState: z.string(),
-    shippingCountry: z.string().min(1),
-    shippingZip: z.string().min(1),
-    shippingPhone: z
-      .string()
-      .min(1)
-      .regex(/^\+?\d{6,15}$/, 'Invalid phone number.'),
-    shippingTaxNumber: z.string(),
-    printfulSyncVariantId: z.string().optional(),
     _shippingStateOptionsLength: z.number(),
     _useAccountMailingAddress: z.boolean(),
+    shipping: z.object({
+      addressLine1: z.string().min(1),
+      addressLine2: z.string(),
+      city: z.string().min(1),
+      stateCode: z.string(),
+      countryCode: z.string().min(1),
+      zip: z.string().min(1),
+      phone: z
+        .string()
+        .min(1)
+        .regex(/^\+?\d{6,15}$/, 'Invalid phone number.'),
+      taxNumber: z.string(),
+    }),
+    printfulSyncVariantId: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     const cpfRegex = /(^\d{3}\.\d{3}\.\d{3}\-\d{2}$)|(^\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2}$)/
 
-    if (data.shippingCountry === 'BR') {
-      if (data.shippingTaxNumber.length < 1) {
+    if (data.shipping.countryCode === 'BR') {
+      if (data.shipping.taxNumber.length < 1) {
         ctx.addIssue({
           path: ['shippingTaxNumber'],
           code: 'custom',
@@ -103,7 +105,7 @@ const schema = z
         return
       }
 
-      if (!cpfRegex.test(data.shippingTaxNumber)) {
+      if (!cpfRegex.test(data.shipping.taxNumber)) {
         ctx.addIssue({
           path: ['shippingTaxNumber'],
           code: 'custom',
@@ -114,7 +116,7 @@ const schema = z
     }
   })
   .superRefine((data, ctx) => {
-    if (!data.shippingState && data._shippingStateOptionsLength) {
+    if (!data.shipping.stateCode && data._shippingStateOptionsLength) {
       ctx.addIssue({
         path: ['shippingState'],
         code: 'custom',
@@ -147,14 +149,16 @@ function Perk({ perk, balance }: Props) {
     defaultValues: {
       _shippingStateOptionsLength: 0,
       _useAccountMailingAddress: false,
-      shippingAddressLine1: '',
-      shippingAddressLine2: '',
-      shippingCity: '',
-      shippingState: '',
-      shippingCountry: '',
-      shippingZip: '',
-      shippingPhone: '',
-      shippingTaxNumber: '',
+      shipping: {
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        stateCode: '',
+        countryCode: '',
+        zip: '',
+        phone: '',
+        taxNumber: '',
+      },
     },
     shouldFocusError: false,
   })
@@ -170,8 +174,8 @@ function Perk({ perk, balance }: Props) {
     value: country.code,
   }))
 
-  const shippingCountry = form.watch('shippingCountry')
-  const shippingState = form.watch('shippingState')
+  const shippingCountry = form.watch('shipping.countryCode')
+  const shippingState = form.watch('shipping.stateCode')
   const printfulSyncVariantId = form.watch('printfulSyncVariantId')
   const useAccountMailingAddress = form.watch('_useAccountMailingAddress')
 
@@ -190,8 +194,8 @@ function Perk({ perk, balance }: Props) {
   }, [shippingCountry])
 
   useEffect(() => {
-    form.setValue('shippingState', '')
-    form.setValue('shippingTaxNumber', '')
+    form.setValue('shipping.stateCode', '')
+    form.setValue('shipping.taxNumber', '')
   }, [shippingCountry])
 
   useEffect(() => {
@@ -202,19 +206,22 @@ function Perk({ perk, balance }: Props) {
     if (!getUserAttributesQuery.data) return
 
     if (useAccountMailingAddress) {
-      form.setValue('shippingAddressLine1', getUserAttributesQuery.data.addressLine1)
-      form.setValue('shippingAddressLine2', getUserAttributesQuery.data.addressLine2)
-      form.setValue('shippingCountry', getUserAttributesQuery.data.addressCountry)
-      form.setValue('shippingCity', getUserAttributesQuery.data.addressCity)
-      form.setValue('shippingZip', getUserAttributesQuery.data.addressZip)
-      setTimeout(() => form.setValue('shippingState', getUserAttributesQuery.data.addressState), 20)
+      form.setValue('shipping.addressLine1', getUserAttributesQuery.data.addressLine1)
+      form.setValue('shipping.addressLine2', getUserAttributesQuery.data.addressLine2)
+      form.setValue('shipping.countryCode', getUserAttributesQuery.data.addressCountry)
+      form.setValue('shipping.city', getUserAttributesQuery.data.addressCity)
+      form.setValue('shipping.zip', getUserAttributesQuery.data.addressZip)
+      setTimeout(
+        () => form.setValue('shipping.stateCode', getUserAttributesQuery.data.addressState),
+        100
+      )
     } else {
-      form.setValue('shippingAddressLine1', '')
-      form.setValue('shippingAddressLine2', '')
-      form.setValue('shippingCountry', '')
-      form.setValue('shippingState', '')
-      form.setValue('shippingCity', '')
-      form.setValue('shippingZip', '')
+      form.setValue('shipping.addressLine1', '')
+      form.setValue('shipping.addressLine2', '')
+      form.setValue('shipping.countryCode', '')
+      form.setValue('shipping.stateCode', '')
+      form.setValue('shipping.city', '')
+      form.setValue('shipping.zip', '')
     }
   }, [useAccountMailingAddress])
 
@@ -226,7 +233,6 @@ function Perk({ perk, balance }: Props) {
       try {
         const _costEstimate = await estimatePrintfulOrderCosts.mutateAsync({
           ...data,
-
           printfulSyncVariantId: Number(data.printfulSyncVariantId),
         })
 
@@ -424,7 +430,7 @@ function Perk({ perk, balance }: Props) {
 
                   <FormField
                     control={form.control}
-                    name="shippingAddressLine1"
+                    name="shipping.addressLine1"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Address line 1 *</FormLabel>
@@ -438,7 +444,7 @@ function Perk({ perk, balance }: Props) {
 
                   <FormField
                     control={form.control}
-                    name="shippingAddressLine2"
+                    name="shipping.addressLine2"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Address line 2</FormLabel>
@@ -452,7 +458,7 @@ function Perk({ perk, balance }: Props) {
 
                   <FormField
                     control={form.control}
-                    name="shippingCountry"
+                    name="shipping.countryCode"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Country *</FormLabel>
@@ -493,7 +499,7 @@ function Perk({ perk, balance }: Props) {
                                       value={country.label}
                                       key={country.value}
                                       onSelect={() => (
-                                        form.setValue('shippingCountry', country.value, {
+                                        form.setValue('shipping.countryCode', country.value, {
                                           shouldValidate: true,
                                         }),
                                         setCountrySelectOpen(false)
@@ -523,7 +529,7 @@ function Perk({ perk, balance }: Props) {
                   {!!shippingStateOptions.length && (
                     <FormField
                       control={form.control}
-                      name="shippingState"
+                      name="shipping.stateCode"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
                           <FormLabel>State *</FormLabel>
@@ -560,7 +566,7 @@ function Perk({ perk, balance }: Props) {
                                         value={state.label}
                                         key={state.value}
                                         onSelect={() => (
-                                          form.setValue('shippingState', state.value, {
+                                          form.setValue('shipping.stateCode', state.value, {
                                             shouldValidate: true,
                                           }),
                                           setStateSelectOpen(false)
@@ -590,7 +596,7 @@ function Perk({ perk, balance }: Props) {
 
                   <FormField
                     control={form.control}
-                    name="shippingCity"
+                    name="shipping.city"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>City *</FormLabel>
@@ -604,7 +610,7 @@ function Perk({ perk, balance }: Props) {
 
                   <FormField
                     control={form.control}
-                    name="shippingZip"
+                    name="shipping.zip"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Postal code *</FormLabel>
@@ -618,7 +624,7 @@ function Perk({ perk, balance }: Props) {
 
                   <FormField
                     control={form.control}
-                    name="shippingPhone"
+                    name="shipping.phone"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Phone number *</FormLabel>
@@ -633,7 +639,7 @@ function Perk({ perk, balance }: Props) {
                   {shippingCountry === 'BR' && (
                     <FormField
                       control={form.control}
-                      name="shippingTaxNumber"
+                      name="shipping.taxNumber"
                       render={({ field }) => (
                         <FormItem className="space-y-0">
                           <FormLabel>Tax number (Brazilian CPF/CNPJ) *</FormLabel>
@@ -746,7 +752,7 @@ export async function getServerSideProps({ params, req, res }: GetServerSideProp
         data: { data: perk },
       },
     ] = await Promise.all([
-      getUserPointBalance(session.user.sub),
+      getPointsBalance(session.user.sub),
       strapiApi.get<StrapiGetPerkPopulatedRes>(
         `/perks/${params?.id!}?populate[images][fields]=formats`
       ),

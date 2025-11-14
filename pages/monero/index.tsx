@@ -31,7 +31,7 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
     <>
       <Head>
         <title>{fund.title}</title>
-        <meta name="description" content="TKTK" />
+        <meta name="description" content="Donate to the MAGIC Monero Fund" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
@@ -57,13 +57,13 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
                 {session.status === 'authenticated' ? (
                   <Link href={`/${fund.slug}/membership`}>
                     <Button variant="light" size="lg">
-                      Get Annual Membership
+                      Get Membership
                     </Button>
                   </Link>
                 ) : (
                   <Link href={`/${fund.slug}/register?nextAction=membership`}>
                     <Button variant="light" size="lg">
-                      Get Annual Membership
+                      Get Membership
                     </Button>
                   </Link>
                 )}

@@ -1,44 +1,33 @@
 import * as ed from '@noble/ed25519'
-import { FundSlug } from '@prisma/client'
+import { Donation, FundSlug, MembershipTerm } from '@prisma/client'
 import dayjs from 'dayjs'
 
 import { env } from '../../env.mjs'
+import { funds } from '../../utils/funds'
 
 type GetDonationAttestationParams = {
   donorName: string
   donorEmail: string
-  donationId: string
-  amount: number
-  method: string
-  fundSlug: FundSlug
-  fundName: string
-  projectName: string
-  date: Date
+  donation: Donation
 }
 
 export async function getDonationAttestation({
   donorName,
   donorEmail,
-  donationId,
-  amount,
-  method,
-  fundSlug,
-  fundName,
-  projectName,
-  date,
+  donation,
 }: GetDonationAttestationParams) {
   const message = `MAGIC Grants Donation Attestation
 
 Name: ${donorName}
 Email: ${donorEmail}
-Donation ID: ${donationId}
-Amount: $${amount.toFixed(2)}
-Method: ${method}
-Fund: ${fundName}
-Project: ${projectName}
-Date: ${dayjs(date).format('YYYY-M-D')}
+Donation ID: ${donation.id}
+Amount: $${donation.grossFiatAmount.toFixed(2)}
+Method: ${donation.cryptoPayments ? 'Crypto' : 'Fiat'}
+Fund: ${funds[donation.fundSlug].title}
+Project: ${donation.projectName}
+Date: ${dayjs(donation.createdAt).format('YYYY-M-D')}
 
-Verify this attestation at donate.magicgrants.org/${fundSlug}/verify-attestation`
+Verify this attestation at donate.magicgrants.org/${donation.fundSlug}/verify-attestation`
 
   const signature = await ed.signAsync(
     Buffer.from(message, 'utf-8').toString('hex'),
@@ -53,35 +42,30 @@ Verify this attestation at donate.magicgrants.org/${fundSlug}/verify-attestation
 type GetMembershipAttestation = {
   donorName: string
   donorEmail: string
-  amount: number
-  method: string
-  fundName: string
-  fundSlug: FundSlug
-  periodStart: Date
-  periodEnd: Date
+  donation: Donation
+  totalAmountToDate?: number
+  periodStart?: Date
 }
 
 export async function getMembershipAttestation({
   donorName,
   donorEmail,
-  amount,
-  method,
-  fundName,
-  fundSlug,
+  totalAmountToDate,
+  donation,
   periodStart,
-  periodEnd,
 }: GetMembershipAttestation) {
   const message = `MAGIC Grants Membership Attestation
 
 Name: ${donorName}
 Email: ${donorEmail}
-Total amount to date: $${amount.toFixed(2)}
-Method: ${method}
-Fund: ${fundName}
-Period start: ${dayjs(periodStart).format('YYYY-M-D')}
-Period end: ${dayjs(periodEnd).format('YYYY-M-D')}
+Term: ${donation.membershipTerm!.charAt(0).toUpperCase() + donation.membershipTerm!.slice(1)}
+Total amount to date: $${(totalAmountToDate || donation.grossFiatAmount).toFixed(2)}
+Method: ${donation.cryptoPayments ? 'Crypto' : 'Fiat'}
+Fund: ${funds[donation.fundSlug].title}
+Period start: ${dayjs(periodStart || donation.createdAt).format('YYYY-M-D')}
+Period end: ${dayjs(donation.membershipExpiresAt).format('YYYY-M-D')}
 
-Verify this attestation at donate.magicgrants.org/${fundSlug}/verify-attestation`
+Verify this attestation at donate.magicgrants.org/${donation.fundSlug}/verify-attestation`
 
   const signature = await ed.signAsync(
     Buffer.from(message, 'utf-8').toString('hex'),

@@ -1,6 +1,10 @@
-type ProgressProps = { current: number; goal: number }
+import { formatUsd } from '../utils/money-formating'
 
-const Progress = ({ current, goal }: ProgressProps) => {
+type ProgressProps = { current: number; goal: number; percentOnly?: boolean }
+
+const numberFormat = Intl.NumberFormat('en', { notation: 'compact', compactDisplay: 'short' })
+
+const Progress = ({ current, goal, percentOnly }: ProgressProps) => {
   const percent = Math.floor((current / goal) * 100)
 
   return (
@@ -12,7 +16,14 @@ const Progress = ({ current, goal }: ProgressProps) => {
         />
       </div>
 
-      <span className="text-sm font-semibold">{percent < 100 ? percent : 100}%</span>
+      <span className="text-sm">
+        Raised <strong>{percent < 100 ? percent : 100}%</strong>{' '}
+        {!percentOnly && (
+          <>
+            of <strong className="text-green-500">${numberFormat.format(goal)}</strong> Goal
+          </>
+        )}
+      </span>
     </div>
   )
 }

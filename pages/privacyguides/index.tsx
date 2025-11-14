@@ -31,8 +31,9 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
     <>
       <Head>
         <title>{fund.title}</title>
-        <meta name="description" content="TKTK" />
+        <meta name="description" content="Donate to the MAGIC Privacy Guides Fund" />
         <link rel="icon" href="/favicon.ico" />
+        <link rel="me" href="https://mastodon.neat.computer/@privacyguides" />
       </Head>
 
       <div className="divide-y divide-gray-200">
@@ -58,13 +59,13 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
                 {session.status === 'authenticated' ? (
                   <Link href={`/${fund.slug}/membership`}>
                     <Button variant="light" size="lg">
-                      Get Annual Membership
+                      Get Membership
                     </Button>
                   </Link>
                 ) : (
                   <Link href={`/${fund.slug}/register?nextAction=membership`}>
                     <Button variant="light" size="lg">
-                      Get Annual Membership
+                      Get Membership
                     </Button>
                   </Link>
                 )}
@@ -100,22 +101,24 @@ const Home: NextPage<{ projects: any }> = ({ projects }) => {
         </div>
       </div>
 
-      <div className="divide-y divide-gray-200">
-        <div className="xl:pt-18 space-y-2 pt-8 md:space-y-5">
-          <h1 className="text-3xl font-extrabold leading-9 tracking-tight text-gray-900 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14">
-            Explore Projects
-          </h1>
-          <p className="pt-2 text-lg leading-7 text-gray-500">
-            Browse through a showcase of projects supported by us.
-          </p>
-          <ProjectList projects={projects} />
-          <div className="flex justify-end pt-4 text-base font-medium leading-6">
-            <CustomLink href={`/${fund.slug}/projects`} aria-label="View All Projects">
-              View Projects &rarr;
-            </CustomLink>
+      {!!projects.length && (
+        <div className="divide-y divide-gray-200">
+          <div className="xl:pt-18 space-y-2 pt-8 md:space-y-5">
+            <h1 className="text-3xl font-extrabold leading-9 tracking-tight text-gray-900 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14">
+              Explore Projects
+            </h1>
+            <p className="pt-2 text-lg leading-7 text-gray-500">
+              Browse through a showcase of projects supported by us.
+            </p>
+            <ProjectList projects={projects} />
+            <div className="flex justify-end pt-4 text-base font-medium leading-6">
+              <CustomLink href={`/${fund.slug}/projects`} aria-label="View All Projects">
+                View Projects &rarr;
+              </CustomLink>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </>
   )
 }

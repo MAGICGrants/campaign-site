@@ -1,29 +1,47 @@
 import { networkFor, SocialIcon } from 'react-social-icons'
-import { ReactNode } from 'react'
+import { ReactNode, SVGProps } from 'react'
+import { FundSlug } from '@prisma/client'
 import Image from 'next/image'
 
 import { ProjectItem } from '../utils/types'
 import CustomLink from './CustomLink'
 import WebIcon from './WebIcon'
+import MagicLogo from './MagicLogo'
+import MoneroLogo from './MoneroLogo'
+import FiroLogo from './FiroLogo'
+import PrivacyGuidesLogo from './PrivacyGuidesLogo'
 
 interface Props {
   project: ProjectItem
   children: ReactNode
 }
 
+const placeholderImages: Record<FundSlug, (props: SVGProps<SVGSVGElement>) => JSX.Element> = {
+  monero: MoneroLogo,
+  firo: FiroLogo,
+  privacyguides: PrivacyGuidesLogo,
+  general: MagicLogo,
+}
+
 export default function PageHeading({ project, children }: Props) {
+  const PlaceholderImage = placeholderImages[project.fund]
+
   return (
     <div className="divide-y divide-gray-200">
-      <div className="items-start space-y-2 pb-8 pt-6 md:space-y-5 xl:grid xl:grid-cols-3 xl:gap-x-8">
-        <Image
-          src={project.coverImage}
-          alt="avatar"
-          width={300}
-          height={300}
-          className="h-60 w-60 mx-auto my-auto object-contain row-span-3 hidden xl:block"
-        />
+      <div className="items-start pb-8 pt-6 md:space-y-5 md:grid md:grid-cols-3 md:gap-x-10">
+        {project.coverImage ? (
+          <Image
+            src={project.coverImage}
+            alt="avatar"
+            width={300}
+            height={300}
+            className="w-full mx-auto my-auto object-contain row-span-3 hidden md:block"
+          />
+        ) : (
+          <PlaceholderImage className="w-60 h-60 mx-auto my-auto object-contain row-span-3 hidden md:block" />
+        )}
 
-        <h1 className="text-3xl font-extrabold leading-9 tracking-tight text-gray-900 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14 xl:col-span-2">
+        <h1 className="text-3xl font-extrabold leading-9 tracking-tight text-gray-900 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14 md:col-span-2">
           {!!project.website && (
             <CustomLink
               className="text-inherit hover:text-inherit hover:underline"
@@ -69,7 +87,7 @@ export default function PageHeading({ project, children }: Props) {
         </div>
       </div>
 
-      <div className="pt-4 items-start space-y-2 xl:grid xl:grid-cols-3 xl:gap-x-4 xl:space-y-0">
+      <div className="pt-4 items-start space-y-4 md:grid md:grid-cols-3 md:space-x-4 md:space-y-0">
         {children}
       </div>
     </div>

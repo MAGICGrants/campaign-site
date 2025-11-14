@@ -1,18 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
-import { GetStaticProps, GetStaticPropsContext } from 'next'
+import { SVGProps, useEffect, useRef, useState } from 'react'
+import { GetStaticPropsContext } from 'next'
+import Link from 'next/link'
+import Head from 'next/head'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { faMonero } from '@fortawesome/free-brands-svg-icons'
-import { faCreditCard } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { DollarSign, Info } from 'lucide-react'
+import { CreditCardIcon, DollarSign, Info } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { FundSlug } from '@prisma/client'
 import { z } from 'zod'
 import Image from 'next/image'
 
 import { MAX_AMOUNT } from '../../../config'
-import { useFundSlug } from '../../../utils/use-fund-slug'
 import { trpc } from '../../../utils/trpc'
 import Spinner from '../../../components/Spinner'
 import { useToast } from '../../../components/ui/use-toast'
@@ -32,31 +30,51 @@ import CustomLink from '../../../components/CustomLink'
 import { getProjectBySlug, getProjects } from '../../../utils/md'
 import { funds, fundSlugs } from '../../../utils/funds'
 import { ProjectItem } from '../../../utils/types'
-import Link from 'next/link'
-import Head from 'next/head'
+import MoneroLogo from '../../../components/MoneroLogo'
+import FiroLogo from '../../../components/FiroLogo'
+import PrivacyGuidesLogo from '../../../components/PrivacyGuidesLogo'
+import MagicLogo from '../../../components/MagicLogo'
+import LitecoinLogo from '../../../components/LitecoinLogo'
+import BitcoinLogo from '../../../components/BitcoinLogo'
+import EvmIcon from '../../../components/EvmIcon'
 
-type QueryParams = { fund: FundSlug; slug: string }
-type Props = { project: ProjectItem } & QueryParams
+type QueryParams = { fund?: FundSlug; slug?: string }
+type Props = { project?: ProjectItem } & QueryParams
 
-function DonationPage({ fund: fundSlug, slug, project }: Props) {
+const placeholderImages: Record<FundSlug, (props: SVGProps<SVGSVGElement>) => JSX.Element> = {
+  monero: MoneroLogo,
+  firo: FiroLogo,
+  privacyguides: PrivacyGuidesLogo,
+  general: MagicLogo,
+}
+
+const paymentMethodOptions = [
+  { label: 'Credit Card', icon: CreditCardIcon, value: 'card' },
+  { label: 'Monero', icon: MoneroLogo, value: 'xmr' },
+  { label: 'Bitcoin', icon: BitcoinLogo, value: 'btc' },
+  { label: 'Litecoin', icon: LitecoinLogo, value: 'ltc' },
+  { label: 'EVMs', icon: EvmIcon, value: 'evm' },
+] as const
+
+function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
   const session = useSession()
   const isAuthed = session.status === 'authenticated'
+
+  let PlaceholderImage = project ? placeholderImages[project.fund] : placeholderImages.general
 
   const schema = z
     .object({
       name: z.string().optional(),
       email: z.string().email().optional(),
       amount: z.coerce.number().min(1).max(MAX_AMOUNT),
+      paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
       taxDeductible: z.enum(['yes', 'no']),
       givePointsBack: z.enum(['yes', 'no']),
       showDonorNameOnLeaderboard: z.enum(['yes', 'no']),
     })
     .refine(
       (data) => (!isAuthed && data.showDonorNameOnLeaderboard === 'yes' ? !!data.name : true),
-      {
-        message: 'Name is required when you want it to be on the leaderboard.',
-        path: ['name'],
-      }
+      { message: 'Name is required when you want it to be on the leaderboard.', path: ['name'] }
     )
     .refine((data) => (!isAuthed && data.taxDeductible === 'yes' ? !!data.name : true), {
       message: 'Name is required when the donation is tax deductible.',
@@ -84,55 +102,42 @@ function DonationPage({ fund: fundSlug, slug, project }: Props) {
   })
 
   const amount = form.watch('amount')
+  const paymentMethod = form.watch('paymentMethod')
   const taxDeductible = form.watch('taxDeductible')
   const showDonorNameOnLeaderboard = form.watch('showDonorNameOnLeaderboard')
 
   const donateWithFiatMutation = trpc.donation.donateWithFiat.useMutation()
   const donateWithCryptoMutation = trpc.donation.donateWithCrypto.useMutation()
 
-  async function handleBtcPay(data: FormInputs) {
+  async function handleSubmit(data: FormInputs) {
     if (!project) return
     if (!fundSlug) return
 
-    try {
-      const result = await donateWithCryptoMutation.mutateAsync({
-        email: data.email || null,
-        name: data.name || null,
-        amount: data.amount,
-        projectSlug: project.slug,
-        projectName: project.title,
-        fundSlug,
-        taxDeductible: data.taxDeductible === 'yes',
-        givePointsBack: data.givePointsBack === 'yes',
-        showDonorNameOnLeaderboard: data.showDonorNameOnLeaderboard === 'yes',
-      })
-
-      window.location.assign(result.url)
-    } catch (e) {
-      toast({ title: 'Error', description: 'Sorry, something went wrong.', variant: 'destructive' })
+    const args = {
+      email: data.email || null,
+      name: data.name || null,
+      amount: data.amount,
+      projectSlug: project.slug,
+      projectName: project.title,
+      fundSlug,
+      taxDeductible: data.taxDeductible === 'yes',
+      givePointsBack: data.givePointsBack === 'yes',
+      showDonorNameOnLeaderboard: data.showDonorNameOnLeaderboard === 'yes',
     }
-  }
-
-  async function handleFiat(data: FormInputs) {
-    if (!project) return
-    if (!fundSlug) return
 
     try {
-      const result = await donateWithFiatMutation.mutateAsync({
-        email: data.email || null,
-        name: data.name || null,
-        amount: data.amount,
-        projectSlug: project.slug,
-        projectName: project.title,
-        fundSlug,
-        taxDeductible: data.taxDeductible === 'yes',
-        givePointsBack: data.givePointsBack === 'yes',
-        showDonorNameOnLeaderboard: data.showDonorNameOnLeaderboard === 'yes',
-      })
+      if (data.paymentMethod !== 'card') {
+        const result = await donateWithCryptoMutation.mutateAsync({
+          ...args,
+          paymentMethod: data.paymentMethod,
+        })
+        window.location.assign(result.url)
+      }
 
-      if (!result.url) throw Error()
-
-      window.location.assign(result.url)
+      if (data.paymentMethod === 'card') {
+        const result = await donateWithFiatMutation.mutateAsync({ ...args })
+        window.location.assign(result.url!)
+      }
     } catch (e) {
       toast({ title: 'Error', description: 'Sorry, something went wrong.', variant: 'destructive' })
     }
@@ -153,14 +158,21 @@ function DonationPage({ fund: fundSlug, slug, project }: Props) {
       <div className="max-w-[540px] mx-auto p-6 space-y-6 rounded-lg bg-white">
         <div className="py-4 flex flex-col space-y-6">
           <div className="flex flex-col items-center sm:space-x-4 sm:flex-row">
-            <Image
-              alt={project.title}
-              src={project.coverImage}
-              width={200}
-              height={96}
-              objectFit="cover"
-              className="w-36 rounded-lg"
-            />
+            {project.coverImage ? (
+              <Image
+                alt={project.title}
+                src={project.coverImage}
+                width={200}
+                height={96}
+                objectFit="cover"
+                className="w-36 rounded-lg"
+              />
+            ) : (
+              <div className="w-52">
+                <PlaceholderImage className="w-20 h-20 m-auto" />
+              </div>
+            )}
+
             <div className="flex flex-col justify-center">
               <h2 className="text-center sm:text-left font-semibold">Donate to {project.title}</h2>
               <h3 className="text-gray-500">Pledge your support</h3>
@@ -229,15 +241,42 @@ function DonationPage({ fund: fundSlug, slug, project }: Props) {
                           variant="light"
                           size="sm"
                           type="button"
-                          onClick={() =>
-                            form.setValue('amount', value, {
-                              shouldValidate: true,
-                            })
-                          }
+                          onClick={() => form.setValue('amount', value, { shouldValidate: true })}
                         >
                           ${value}
                         </Button>
                       ))}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="paymentMethod"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Payment Method</FormLabel>
+                  <FormControl>
+                    <div className="flex flex-row gap-2 items-center flex-wrap ">
+                      {paymentMethodOptions.map((option, index) => {
+                        const Icon = option.icon
+                        return (
+                          <Button
+                            key={`amount-button-${index}`}
+                            variant={option.value === paymentMethod ? 'default' : 'light'}
+                            size="sm"
+                            type="button"
+                            onClick={() =>
+                              form.setValue('paymentMethod', option.value, { shouldValidate: true })
+                            }
+                          >
+                            <Icon className="w-5 h-5" /> {option.label}
+                          </Button>
+                        )
+                      })}
                     </div>
                   </FormControl>
                   <FormMessage />
@@ -371,35 +410,15 @@ function DonationPage({ fund: fundSlug, slug, project }: Props) {
               </Alert>
             )}
 
-            <div className="mt-4 flex flex-col sm:flex-row space-y-2 sm:space-x-2 sm:space-y-0">
-              <Button
-                type="button"
-                onClick={form.handleSubmit(handleBtcPay)}
-                disabled={!form.formState.isValid || form.formState.isSubmitting}
-                className="grow basis-0"
-              >
-                {donateWithCryptoMutation.isPending ? (
-                  <Spinner />
-                ) : (
-                  <FontAwesomeIcon icon={faMonero} className="h-5 w-5" />
-                )}
-                Donate with Crypto
-              </Button>
-
-              <Button
-                type="button"
-                onClick={form.handleSubmit(handleFiat)}
-                disabled={!form.formState.isValid || form.formState.isSubmitting}
-                className="grow basis-0 bg-indigo-500 hover:bg-indigo-700"
-              >
-                {donateWithFiatMutation.isPending ? (
-                  <Spinner className="fill-indigo-500" />
-                ) : (
-                  <FontAwesomeIcon icon={faCreditCard} className="h-5 w-5" />
-                )}
-                Donate with Card
-              </Button>
-            </div>
+            <Button
+              type="button"
+              onClick={form.handleSubmit(handleSubmit)}
+              disabled={!form.formState.isValid || form.formState.isSubmitting}
+              className="grow basis-0"
+            >
+              {donateWithCryptoMutation.isPending && <Spinner />}
+              Donate
+            </Button>
           </form>
         </Form>
 
@@ -409,7 +428,7 @@ function DonationPage({ fund: fundSlug, slug, project }: Props) {
           <div className="flex flex-col items-center">
             <p className="text-sm">Want to support more projects and receive optional perks?</p>
 
-            <Link href={`/${encodeURIComponent(fundSlug)}/register`}>
+            <Link href={`/${encodeURIComponent(fundSlug!)}/register`}>
               <Button type="button" size="lg" variant="link">
                 Create an account
               </Button>

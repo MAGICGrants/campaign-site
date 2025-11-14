@@ -3,55 +3,32 @@ import { SVGProps } from 'react'
 function MoneroLogo(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
-      width="85.086304mm"
-      height="85.084808mm"
-      viewBox="0 0 85.086304 85.084808"
-      id="svg1"
+      id="Layer_1"
+      data-name="Layer 1"
       xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 3756.09 3756.49"
       {...props}
     >
-      <defs id="defs1">
-        <clipPath clipPathUnits="userSpaceOnUse" id="clipPath2">
-          <path
-            d="M 0,841.889 H 595.275 V 0 H 0 Z"
-            transform="translate(-193.3003,-554.52051)"
-            id="path2"
-          />
-        </clipPath>
-        <clipPath clipPathUnits="userSpaceOnUse" id="clipPath4">
-          <path
-            d="M 0,841.889 H 595.275 V 0 H 0 Z"
-            transform="translate(-187.7847,-507.50881)"
-            id="path4"
-          />
-        </clipPath>
-      </defs>
-      <g id="layer1">
-        <path
-          id="path1"
-          d="m 0,0 c -20.377,0 -36.903,-16.524 -36.903,-36.902 0,-4.074 0.66,-7.992 1.88,-11.657 h 11.036 V -17.51 L 0,-41.497 23.987,-17.51 v -31.049 h 11.037 c 1.22,3.665 1.88,7.583 1.88,11.657 C 36.904,-16.524 20.378,0 0,0"
-          style={{
-            fill: '#ff6600',
-            fillOpacity: 1,
-            fillRule: 'nonzero',
-            stroke: 'none',
-          }}
-          transform="matrix(1.1528216,0,0,-1.1528216,42.542576,0)"
-          clipPath="url(#clipPath2)"
-        />
-        <path
-          id="path3"
-          d="M 0,0 -10.468,10.469 V -9.068 h -4.002 -4.002 -7.546 c 6.478,-10.628 18.178,-17.726 31.533,-17.726 13.355,0 25.056,7.098 31.533,17.726 H 29.501 22.344 21.499 V 10.469 L 11.03,0 5.515,-5.515 Z"
-          style={{
-            fill: '#4c4c4c',
-            fillOpacity: 1,
-            fillRule: 'nonzero',
-            stroke: 'none',
-          }}
-          transform="matrix(1.1528216,0,0,-1.1528216,36.184075,54.196107)"
-          clipPath="url(#clipPath4)"
-        />
-      </g>
+      <title>monero</title>
+      <path
+        d="M4128,2249.81C4128,3287,3287.26,4127.86,2250,4127.86S372,3287,372,2249.81,1212.76,371.75,2250,371.75,4128,1212.54,4128,2249.81Z"
+        transform="translate(-371.96 -371.75)"
+        style={{ fill: '#fff' }}
+      />
+      <path
+        id="_149931032"
+        data-name=" 149931032"
+        d="M2250,371.75c-1036.89,0-1879.12,842.06-1877.8,1878,0.26,207.26,33.31,406.63,95.34,593.12h561.88V1263L2250,2483.57,3470.52,1263v1579.9h562c62.12-186.48,95-385.85,95.37-593.12C4129.66,1212.76,3287,372,2250,372Z"
+        transform="translate(-371.96 -371.75)"
+        style={{ fill: '#f26822' }}
+      />
+      <path
+        id="_149931160"
+        data-name=" 149931160"
+        d="M1969.3,2764.17l-532.67-532.7v994.14H1029.38l-384.29.07c329.63,540.8,925.35,902.56,1604.91,902.56S3525.31,3766.4,3855,3225.6H3063.25V2231.47l-532.7,532.7-280.61,280.61-280.62-280.61h0Z"
+        transform="translate(-371.96 -371.75)"
+        style={{ fill: '#4d4d4d' }}
+      />
     </svg>
   )
 }

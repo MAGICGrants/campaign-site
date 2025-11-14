@@ -11,7 +11,7 @@ import {
   StrapiGetPointsPopulatedRes,
 } from '../types'
 import { TRPCError } from '@trpc/server'
-import { estimatePrintfulOrderCost, getUserPointBalance } from '../utils/perks'
+import { estimatePrintfulOrderCost, getPointsBalance } from '../utils/perks'
 import { POINTS_REDEEM_PRICE_USD } from '../../config'
 import { authenticateKeycloakClient } from '../utils/keycloak'
 import { perkPurchaseQueue } from '../queues'
@@ -20,7 +20,7 @@ import { redisConnection } from '../../config/redis'
 export const perkRouter = router({
   getBalance: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.sub
-    const balance = getUserPointBalance(userId)
+    const balance = getPointsBalance(userId)
     return balance
   }),
 
@@ -71,14 +71,16 @@ export const perkRouter = router({
     .input(
       z.object({
         printfulSyncVariantId: z.number(),
-        shippingAddressLine1: z.string().min(1),
-        shippingAddressLine2: z.string(),
-        shippingCity: z.string().min(1),
-        shippingState: z.string(),
-        shippingCountry: z.string().min(1),
-        shippingZip: z.string().min(1),
-        shippingPhone: z.string().min(1),
-        shippingTaxNumber: z.string(),
+        shipping: z.object({
+          addressLine1: z.string().min(1),
+          addressLine2: z.string().optional(),
+          city: z.string().min(1),
+          stateCode: z.string().min(1),
+          countryCode: z.string().min(1),
+          zip: z.string().min(1),
+          phone: z.string().min(1),
+          taxNumber: z.string().optional(),
+        }),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -94,16 +96,9 @@ export const perkRouter = router({
         })
 
       const costEstimate = await estimatePrintfulOrderCost({
-        address1: input.shippingAddressLine1!,
-        address2: input.shippingAddressLine2 || '',
-        city: input.shippingCity!,
-        stateCode: input.shippingState!,
-        countryCode: input.shippingCountry!,
-        zip: input.shippingZip!,
-        name: user.attributes?.name?.[0],
-        phone: input.shippingPhone!,
+        shipping: input.shipping,
         email: user.email,
-        tax_number: input.shippingTaxNumber,
+        name: user.attributes?.name?.[0],
         printfulSyncVariantId: input.printfulSyncVariantId,
       })
 
@@ -121,14 +116,18 @@ export const perkRouter = router({
         perkId: z.string(),
         perkPrintfulSyncVariantId: z.number().optional(),
         fundSlug: z.enum(fundSlugs),
-        shippingAddressLine1: z.string().optional(),
-        shippingAddressLine2: z.string().optional(),
-        shippingCity: z.string().optional(),
-        shippingState: z.string().optional(),
-        shippingCountry: z.string().optional(),
-        shippingZip: z.string().optional(),
-        shippingPhone: z.string().optional(),
-        shippingTaxNumber: z.string().optional(),
+        shipping: z
+          .object({
+            addressLine1: z.string().min(1),
+            addressLine2: z.string().optional(),
+            city: z.string().min(1),
+            stateCode: z.string().min(1),
+            countryCode: z.string().min(1),
+            zip: z.string().min(1),
+            phone: z.string().min(1),
+            taxNumber: z.string().optional(),
+          })
+          .optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -150,20 +149,8 @@ export const perkRouter = router({
       if (!perk) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Perk not found.' })
 
       // Check if shipping data is present if required
-      if (perk.needsShippingAddress) {
-        const shippingDataIsMissing =
-          [
-            input.shippingAddressLine1,
-            input.shippingCity,
-            input.shippingState,
-            input.shippingCountry,
-            input.shippingZip,
-            input.shippingPhone,
-          ].filter((data) => !data).length > 0
-
-        if (shippingDataIsMissing) {
-          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Shipping data is missing.' })
-        }
+      if (perk.needsShippingAddress && !input.shipping) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Shipping data is missing.' })
       }
 
       // Check if perk is available in the fund
@@ -176,16 +163,9 @@ export const perkRouter = router({
 
       if (perk.printfulProductId && input.perkPrintfulSyncVariantId) {
         const printfulCostEstimate = await estimatePrintfulOrderCost({
-          address1: input.shippingAddressLine1!,
-          address2: input.shippingAddressLine2 || '',
-          city: input.shippingCity!,
-          stateCode: input.shippingState!,
-          countryCode: input.shippingCountry!,
-          zip: input.shippingZip!,
-          name: user.attributes?.name?.[0],
-          phone: input.shippingPhone!,
+          shipping: input.shipping!,
           email: user.email,
-          tax_number: input.shippingTaxNumber,
+          name: user.attributes?.name?.[0],
           printfulSyncVariantId: input.perkPrintfulSyncVariantId,
         })
 
@@ -194,7 +174,7 @@ export const perkRouter = router({
         deductionAmount = perk.price
       }
 
-      const currentBalance = await getUserPointBalance(userId)
+      const currentBalance = await getPointsBalance(userId)
       const balanceAfterPurchase = currentBalance - deductionAmount
 
       if (balanceAfterPurchase < 0) {
@@ -204,14 +184,7 @@ export const perkRouter = router({
       const purchaseJob = await perkPurchaseQueue.add('purchase', {
         perk,
         perkPrintfulSyncVariantId: input.perkPrintfulSyncVariantId,
-        shippingAddressLine1: input.shippingAddressLine1,
-        shippingAddressLine2: input.shippingAddressLine2,
-        shippingCountry: input.shippingCountry,
-        shippingState: input.shippingState,
-        shippingCity: input.shippingCity,
-        shippingZip: input.shippingZip,
-        shippingPhone: input.shippingPhone,
-        shippingTaxNumber: input.shippingTaxNumber,
+        shipping: input.shipping,
         userId: user.id,
         userEmail: user.email,
         userFullname: user?.attributes?.name?.[0],
