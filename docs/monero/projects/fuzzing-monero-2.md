@@ -1,6 +1,6 @@
 ---
 fund: monero
-title: 'Monnero Fuzzing Round 2: Wallet, P2P, and FCMP++'
+title: 'Monero Fuzzing Round 2: Wallet, P2P, and FCMP++'
 summary: 'This second fuzzing project will help protect the Monero network'
 nym: 'MAGIC Monero Fund Committee'
 coverImage: ''
