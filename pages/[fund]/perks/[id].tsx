@@ -745,6 +745,12 @@ export async function getServerSideProps({ params, req, res }: GetServerSideProp
     return { redirect: { destination: `/${params?.fund!}` } }
   }
 
+  const idRegex = /^[0-9a-z]{24}$/
+  
+  if (!idRegex.test(`${params?.id!}`)) {
+    return { redirect: { destination: `/${params?.fund!}/perks` } }
+  }
+
   try {
     const [
       balance,
