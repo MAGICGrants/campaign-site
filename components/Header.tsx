@@ -55,7 +55,7 @@ const Header = () => {
           fundHeaderNavLinks[fund.slug].map((link) => (
             <CustomLink
               key={link.title}
-              href={`/${fundSlug}/${link.href}`}
+              href={link.href.startsWith('https://') ? link.href : `/${fundSlug}/${link.href}`}
               className={
                 link.isButton
                   ? 'rounded border border-primary bg-transparent px-4 py-2 font-semibold text-primary hover:border-transparent hover:bg-primary hover:text-white'
