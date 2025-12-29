@@ -3,6 +3,7 @@ fund: general
 title: 'Substrate and Serai Review'
 summary: 'This audit will support efforts to audit critical substrate-related components of the Serai codebase'
 nym: 'Justin Ehrenhofer'
+coverImage: ''
 website: ''
 socialLinks:
   - ''
