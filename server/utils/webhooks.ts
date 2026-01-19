@@ -25,6 +25,8 @@ async function handleDonationOrNonRecurringMembership(paymentIntent: Stripe.Paym
   if (!metadata) return
   if (JSON.stringify(metadata) === '{}') return
   if (metadata.isSubscription === 'true') return
+  // If none of these are set, this donation didn't come from a campaign site user
+  if (!metadata.projectSlug || !metadata.fundSlug) return
 
   const existingDonation = await prisma.donation.findFirst({
     where: { stripePaymentIntentId: paymentIntent.id },
@@ -147,6 +149,11 @@ async function handleRecurringMembership(invoice: Stripe.Invoice) {
   if (!invoice.subscription) return
 
   const metadata = invoice.subscription_details?.metadata as DonationMetadata
+  if (!metadata) return
+  if (JSON.stringify(metadata) === '{}') return
+  // If none of these are set, this donation didn't come from a campaign site user
+  if (!metadata.projectSlug || !metadata.fundSlug) return
+
   const invoiceLine = invoice.lines.data.find((line) => line.invoice === invoice.id)
 
   if (!invoiceLine) {
