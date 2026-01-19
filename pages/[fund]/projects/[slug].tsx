@@ -236,7 +236,22 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
   if (!params?.slug) return {}
   if (!fundSlug) return {}
 
-  const project = getProjectBySlug(params.slug as string, fundSlug)
+  if (!/^[a-zA-Z0-9-_]+$/.test(params.slug as string)) {
+    return { notFound: true }
+  }
+
+  let project: ProjectItem
+
+  try {
+    project = getProjectBySlug(params.slug as string, fundSlug)
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('ENOENT')) {
+      return { notFound: true }
+    }
+
+    throw error
+  }
+
   const content = await markdownToHtml(project.content || '')
 
   const donationStats = {
