@@ -235,11 +235,14 @@ async function handle(
         raised_amount_percent: Math.floor(
           ((project.totalDonationsBTCInFiat +
             project.totalDonationsXMRInFiat +
+            project.totalDonationsLTCInFiat +
+            project.totalDonationsEVMInFiat +
+            project.totalDonationsManual +
             project.totalDonationsFiat) /
             project.goal) *
             100
         ),
-        contributions: project.numDonationsBTC + project.numDonationsXMR + project.numDonationsFiat,
+        contributions: project.numDonationsBTC+ project.numDonationsXMR + project.numDonationsLTC + project.numDonationsEVM + project.numDonationsManual + project.numDonationsFiat,
       }
     })
   )
