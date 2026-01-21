@@ -44,6 +44,8 @@ type WebhookBody = Record<string, any> & {
 
 async function handleFundingRequiredApiDonation(body: WebhookBody) {
   if (!body.metadata || JSON.stringify(body.metadata) === '{}') return
+  // If none of these are set, this donation didn't come from a campaign site user
+  if (!body.metadata.projectSlug || !body.metadata.fundSlug) return
 
   const existingDonation = await prisma.donation.findFirst({
     where: { btcPayInvoiceId: body.invoiceId },
@@ -100,6 +102,8 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
 // This handles both donations and memberships.
 async function handleDonationOrMembership(body: WebhookBody) {
   if (!body.metadata || JSON.stringify(body.metadata) === '{}') return
+  // If none of these are set, this donation didn't come from a campaign site user
+  if (!body.metadata.projectSlug || !body.metadata.fundSlug) return
 
   const existingDonation = await prisma.donation.findFirst({
     where: { btcPayInvoiceId: body.invoiceId },

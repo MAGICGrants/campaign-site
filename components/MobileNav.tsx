@@ -73,7 +73,7 @@ const MobileNav = () => {
             fundHeaderNavLinks[fund.slug].map((link) => (
               <div key={link.title} className="px-12 py-4">
                 <CustomLink
-                  href={`/${fundSlug}/${link.href}`}
+                  href={link.href.startsWith('https://') ? link.href : `/${fundSlug}/${link.href}`}
                   className="text-2xl font-bold tracking-tight text-gray-900"
                   onClick={onToggleNav}
                 >

@@ -8,6 +8,7 @@ export const fundHeaderNavLinks: Record<
     { title: 'Apply', href: 'apply', isButton: false },
     { title: 'FAQs', href: 'faq', isButton: false },
     { title: 'About', href: 'about', isButton: false },
+    { title: 'Shop', href: 'https://shop.monerofund.org', isButton: false },
   ],
   firo: [{ title: 'About', href: 'about', isButton: false }],
   privacyguides: [
