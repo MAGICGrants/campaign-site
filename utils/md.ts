@@ -125,7 +125,15 @@ export async function getProjects(fundSlug?: FundSlug) {
       }
 
       donations.forEach((donation) => {
+        if (donation.coinbaseChargeId) {
+          project.numDonationsEVM += 1
+          project.totalDonationsEVM += donation.netFiatAmount
+          project.totalDonationsEVMInFiat += donation.netFiatAmount
+        }
+
         ;(donation.cryptoPayments as DonationCryptoPayments | null)?.forEach((payment) => {
+          if (donation.coinbaseChargeId) return
+          
           if (payment.cryptoCode === 'XMR') {
             project.numDonationsXMR += 1
             project.totalDonationsXMR += payment.netAmount
@@ -160,6 +168,9 @@ export async function getProjects(fundSlug?: FundSlug) {
       const donationsSum =
         ((project.totalDonationsXMRInFiat +
           project.totalDonationsBTCInFiat +
+          project.totalDonationsLTCInFiat +
+          project.totalDonationsEVMInFiat +
+          project.totalDonationsManual +
           project.totalDonationsFiat) /
           project.goal) *
         100
