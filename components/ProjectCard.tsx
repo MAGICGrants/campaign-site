@@ -73,6 +73,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, customImageStyles })
             current={
               project.totalDonationsBTCInFiat +
               project.totalDonationsXMRInFiat +
+              project.totalDonationsLTCInFiat +
+              project.totalDonationsEVMInFiat +
+              project.totalDonationsManual +
               project.totalDonationsFiat
             }
             goal={project.goal}
