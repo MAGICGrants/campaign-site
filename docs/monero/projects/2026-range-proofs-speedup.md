@@ -14,7 +14,7 @@ isFunded: false
 
 Monero currently uses Bulletproofs+ to prove that transaction amounts are valid without revealing the amount. While Bulletproofs+ provides compact proofs ideal for blockchain storage constraints, computational costs remain a bottleneck. Prover time affects user experience when sending transactions, and verifier time impacts node scalability during block verification and chain synchronization.
 
-Developing more efficient zero-knowledge range proofs will be valuable for future upgrades. This project targets an speedup for both prover and verifier by reducing the number of expensive group exponentiations, while maintaining the current proof size. This project is research-oriented, with bulletproof improvements expected to benefit the Monero community.
+Developing more efficient zero-knowledge range proofs will be valuable for future upgrades. This project targets a speedup for both prover and verifier by reducing the number of expensive group exponentiations, while maintaining the current proof size. This project is research-oriented, with bulletproof improvements expected to benefit the Monero community.
 
 A copy of the project proposal with more technical information [can be found here](https://magicgrants.org/files/2026-01-28-range-proof-proposal.pdf).
 
