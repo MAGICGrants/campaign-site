@@ -62,6 +62,7 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
     donationStats.btc.fiatAmount +
     donationStats.ltc.fiatAmount +
     donationStats.evm.fiatAmount +
+    donationStats.manual.fiatAmount +
     donationStats.usd.fiatAmount
 
   const totalDonationCount =
