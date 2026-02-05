@@ -40,6 +40,10 @@ type WebhookBody = Record<string, any> & {
   invoiceId: string
   metadata?: DonationMetadata
   paymentMethodId: string
+  payment: {
+    id: string
+    value: string
+  }
 }
 
 async function handleFundingRequiredApiDonation(body: WebhookBody) {
@@ -47,16 +51,23 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
   // If none of these are set, this donation didn't come from a campaign site user
   if (!body.metadata.projectSlug || !body.metadata.fundSlug) return
 
-  const existingDonation = await prisma.donation.findFirst({
+  const existingDonationsForInvoice = await prisma.donation.findMany({
     where: { btcPayInvoiceId: body.invoiceId },
   })
 
-  if (existingDonation) {
-    log(
-      'warn',
-      `[BTCPay webhook] Attempted to process already processed invoice ${body.invoiceId}.`
-    )
-    return
+  const txId = body.payment.id
+
+  if (existingDonationsForInvoice.length > 0) {
+    // Check if this txid has already been processed
+    const txIdAlreadyProcessed = existingDonationsForInvoice.find((donation) => (donation.cryptoPayments as DonationCryptoPayments)?.find((payment) => payment.txId === txId))
+
+    if (txIdAlreadyProcessed) {
+      log(
+        'warn',
+        `[BTCPay webhook] Attempted to process already processed txid ${txId} for funding API invoice ${body.invoiceId}.`
+      )
+      return
+    }
   }
 
   // Handle payment methods like "BTC-LightningNetwork" if added in the future
@@ -79,6 +90,7 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
     grossAmount: cryptoAmount,
     netAmount: cryptoAmount,
     rate: cryptoRate,
+    txId,
   })
 
   await prisma.donation.create({

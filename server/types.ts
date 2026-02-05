@@ -35,6 +35,7 @@ export type DonationCryptoPayments = {
   grossAmount: number
   netAmount: number
   rate: number
+  txId?: string
 }[]
 
 export type BtcPayGetRatesRes = [
