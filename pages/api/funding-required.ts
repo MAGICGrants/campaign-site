@@ -207,6 +207,9 @@ async function handle(
       const allDonationsSumUsd =
         project.totalDonationsBTCInFiat +
         project.totalDonationsXMRInFiat +
+        project.totalDonationsLTCInFiat +
+        project.totalDonationsEVMInFiat +
+        project.totalDonationsManual +
         project.totalDonationsFiat
 
       const remainingAmountBtc = (project.goal - allDonationsSumUsd) / (rates.BTC || 0)
