@@ -45,7 +45,7 @@
     "@trpc/react-query": "^11.0.0-rc.390",
     "@trpc/server": "^11.0.0-rc.390",
     "@types/escape-html": "^1.0.4",
-    "axios": "^1.7.4",
+    "axios": "^1.13.5",
     "base-64": "^1.0.0",
     "bullmq": "^5.25.6",
     "class-variance-authority": "^0.7.0",
