@@ -50,7 +50,7 @@ export function getStaticPaths() {
   }
 }
 
-export async function getStaticProps({ params, ...asd }: { params: any }) {
+export async function getStaticProps({ params }: { params: any }) {
   const projects = await getProjects(params.fund)
 
   return {

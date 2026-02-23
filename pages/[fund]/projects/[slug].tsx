@@ -2,6 +2,7 @@ import { SVGProps, useState } from 'react'
 import { FundSlug } from '@prisma/client'
 import { useRouter } from 'next/router'
 import { GetServerSidePropsContext, NextPage } from 'next/types'
+import { EyeIcon } from 'lucide-react'
 import Head from 'next/head'
 import ErrorPage from 'next/error'
 import Link from 'next/link'
@@ -13,20 +14,17 @@ import { getProjectBySlug } from '../../../utils/md'
 import markdownToHtml from '../../../utils/markdownToHtml'
 import PageHeading from '../../../components/PageHeading'
 import Progress from '../../../components/Progress'
-import { prisma } from '../../../server/services'
 import { Button } from '../../../components/ui/button'
 import { trpc } from '../../../utils/trpc'
 import { funds, getFundSlugFromUrlPath } from '../../../utils/funds'
 import { useFundSlug } from '../../../utils/use-fund-slug'
 import { Table, TableBody, TableCell, TableRow } from '../../../components/ui/table'
 import { cn } from '../../../utils/cn'
-import { DonationCryptoPayments } from '../../../server/types'
 import { formatBtc, formatUsd } from '../../../utils/money-formating'
 import MagicLogo from '../../../components/MagicLogo'
 import MoneroLogo from '../../../components/MoneroLogo'
 import FiroLogo from '../../../components/FiroLogo'
 import PrivacyGuidesLogo from '../../../components/PrivacyGuidesLogo'
-import { EyeIcon } from 'lucide-react'
 
 type SingleProjectPageProps = {
   project: ProjectItem
@@ -244,7 +242,7 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
   let project: ProjectItem
 
   try {
-    project = getProjectBySlug(params.slug as string, fundSlug)
+    project = await getProjectBySlug(params.slug as string, fundSlug)
   } catch (error) {
     if (error instanceof Error && error.message.includes('ENOENT')) {
       return { notFound: true }
@@ -257,71 +255,35 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
 
   const donationStats = {
     xmr: {
-      count: project.isFunded ? project.numDonationsXMR : 0,
-      amount: project.isFunded ? project.totalDonationsXMR : 0,
-      fiatAmount: project.isFunded ? project.totalDonationsXMRInFiat : 0,
+      count: project.numDonationsXMR,
+      amount: project.totalDonationsXMR,
+      fiatAmount: project.totalDonationsXMRInFiat,
     },
     btc: {
-      count: project.isFunded ? project.numDonationsBTC : 0,
-      amount: project.isFunded ? project.totalDonationsBTC : 0,
-      fiatAmount: project.isFunded ? project.totalDonationsBTCInFiat : 0,
+      count: project.numDonationsBTC,
+      amount: project.totalDonationsBTC,
+      fiatAmount: project.totalDonationsBTCInFiat,
     },
     ltc: {
-      count: project.isFunded ? project.numDonationsLTC : 0,
-      amount: project.isFunded ? project.totalDonationsLTC : 0,
-      fiatAmount: project.isFunded ? project.totalDonationsLTCInFiat : 0,
+      count: project.numDonationsLTC,
+      amount: project.totalDonationsLTC,
+      fiatAmount: project.totalDonationsLTCInFiat,
     },
     evm: {
-      count: project.isFunded ? project.numDonationsEVM : 0,
-      amount: project.isFunded ? project.totalDonationsEVM : 0,
-      fiatAmount: project.isFunded ? project.totalDonationsEVMInFiat : 0,
+      count: project.numDonationsEVM,
+      amount: project.totalDonationsEVM,
+      fiatAmount: project.totalDonationsEVMInFiat,
     },
     manual: {
-      count: project.isFunded ? project.numDonationsManual : 0,
-      amount: project.isFunded ? project.totalDonationsManual : 0,
-      fiatAmount: project.isFunded ? project.totalDonationsManual : 0,
+      count: project.numDonationsManual,
+      amount: project.totalDonationsManual,
+      fiatAmount: project.totalDonationsManual,
     },
     usd: {
-      count: project.isFunded ? project.numDonationsFiat : 0,
-      amount: project.isFunded ? project.totalDonationsFiat : 0,
-      fiatAmount: project.isFunded ? project.totalDonationsFiat : 0,
+      count: project.numDonationsFiat,
+      amount: project.totalDonationsFiat,
+      fiatAmount: project.totalDonationsFiat,
     },
-  }
-
-  if (!project.isFunded) {
-    const donations = await prisma.donation.findMany({
-      where: { projectSlug: params.slug as string, fundSlug },
-    })
-
-    const cryptoCodeToStats = {
-      BTC: donationStats.btc,
-      XMR: donationStats.xmr,
-      LTC: donationStats.ltc,
-      EVM: donationStats.evm,
-      MANUAL: donationStats.manual,
-    } as const
-
-    donations.forEach((donation) => {
-      ;(donation.cryptoPayments as DonationCryptoPayments | null)?.forEach((payment) => {
-        if (payment.cryptoCode in cryptoCodeToStats) {
-          const stats = cryptoCodeToStats[payment.cryptoCode as keyof typeof cryptoCodeToStats]
-
-          stats.count += 1
-          stats.amount += payment.netAmount
-          stats.fiatAmount += payment.netAmount * payment.rate
-        } else if (donation.coinbaseChargeId) {
-          cryptoCodeToStats.EVM.count += 1
-          cryptoCodeToStats.EVM.amount += payment.netAmount
-          cryptoCodeToStats.EVM.fiatAmount += payment.netAmount * payment.rate
-        }
-      })
-
-      if (!donation.cryptoPayments) {
-        donationStats.usd.count += 1
-        donationStats.usd.amount += donation.netFiatAmount
-        donationStats.usd.fiatAmount += donation.netFiatAmount
-      }
-    })
   }
 
   return { props: { project: { ...project, content }, donationStats } }
