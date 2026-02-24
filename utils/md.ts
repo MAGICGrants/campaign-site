@@ -40,7 +40,10 @@ export function fileExists(path: string) {
   }
 }
 
-export function getProjectBySlug(slug: string, fundSlug: FundSlug) {
+export async function getProjectBySlug(
+  slug: string,
+  fundSlug: FundSlug,
+) {
   const realSlug = slug.replace(/\.md$/, '')
   const fullPath = join(directories[fundSlug], `${sanitize(realSlug)}.md`)
   const fileContents = fs.readFileSync(fullPath, 'utf8')
@@ -78,108 +81,97 @@ export function getProjectBySlug(slug: string, fundSlug: FundSlug) {
     totalDonationsEVMInFiat: data.totalDonationsEVMInFiat || 0,
   }
 
+  if (!project.isFunded) {
+    let donations: Donation[] = []
+
+    try {
+      donations = await prisma.donation.findMany({
+        where: { projectSlug: project.slug, fundSlug: project.fund },
+      })
+    } catch {
+      console.log(
+        'Could not fetch donations. There is either a problem with Postgres or this is running on build time.'
+      )
+    }
+
+    donations.forEach((donation) => {
+      if (donation.coinbaseChargeId) {
+        project.numDonationsEVM += 1
+        project.totalDonationsEVM += donation.netFiatAmount
+        project.totalDonationsEVMInFiat += donation.netFiatAmount
+      }
+
+      ;(donation.cryptoPayments as DonationCryptoPayments | null)?.forEach((payment) => {
+        if (donation.coinbaseChargeId) return
+
+        if (payment.cryptoCode === 'XMR') {
+          project.numDonationsXMR += 1
+          project.totalDonationsXMR += payment.netAmount
+          project.totalDonationsXMRInFiat += payment.netAmount * payment.rate
+        }
+
+        if (payment.cryptoCode === 'BTC') {
+          project.numDonationsBTC += 1
+          project.totalDonationsBTC += payment.netAmount
+          project.totalDonationsBTCInFiat += payment.netAmount * payment.rate
+        }
+
+        if (payment.cryptoCode === 'LTC') {
+          project.numDonationsLTC += 1
+          project.totalDonationsLTC += payment.netAmount
+          project.totalDonationsLTCInFiat += payment.netAmount * payment.rate
+        }
+
+        if (payment.cryptoCode === 'MANUAL') {
+          project.numDonationsManual += 1
+          project.totalDonationsManual += payment.netAmount * payment.rate
+        }
+      })
+
+      if (!donation.cryptoPayments) {
+        project.numDonationsFiat += 1
+        project.totalDonationsFiat += donation.netFiatAmount
+      }
+    })
+
+    const donationsSum =
+      ((project.totalDonationsXMRInFiat +
+        project.totalDonationsBTCInFiat +
+        project.totalDonationsLTCInFiat +
+        project.totalDonationsEVMInFiat +
+        project.totalDonationsManual +
+        project.totalDonationsFiat) /
+        project.goal) *
+      100
+
+    if (donationsSum >= project.goal) {
+      project.isFunded = true
+    }
+  }
+
   return project
 }
 
-export async function getProjects(fundSlug?: FundSlug) {
+export async function getProjects(fundSlug?: FundSlug,) {
   let projects: ProjectItem[]
 
   if (fundSlug) {
     const slugs = projectSlugsByFund[fundSlug]
-    projects = slugs.map((slug) => getProjectBySlug(slug, fundSlug))
+    projects = await Promise.all(slugs.map((slug) => getProjectBySlug(slug, fundSlug)))
   } else {
-    projects = fundSlugs
-      .map((_fundSlug) =>
-        projectSlugsByFund[_fundSlug].map(
-          (slug) => getProjectBySlug(slug, _fundSlug) as ProjectItem
-        )
-      )
-      .flat()
+    const projectPromises = fundSlugs.flatMap((_fundSlug) =>
+      projectSlugsByFund[_fundSlug].map((slug) => getProjectBySlug(slug, _fundSlug))
+    )
+    projects = await Promise.all(projectPromises)
   }
 
-  // Sort projects
   projects = projects
     .sort(() => 0.5 - Math.random())
     .sort((a, b) => {
-      // Make active projects always come first
       if (!a.isFunded && b.isFunded) return -1
       if (a.isFunded && !b.isFunded) return 1
       return 0
     })
-
-  // Get donation stats for active projects
-  await Promise.all(
-    projects.map(async (project) => {
-      if (project.isFunded) return
-
-      let donations: Donation[] = []
-
-      try {
-        donations = await prisma.donation.findMany({
-          where: { projectSlug: project.slug, fundSlug: project.fund },
-        })
-      } catch {
-        console.log(
-          'Could not fetch donations. There is either a problem with Postgres or this is running on build time.'
-        )
-      }
-
-      donations.forEach((donation) => {
-        if (donation.coinbaseChargeId) {
-          project.numDonationsEVM += 1
-          project.totalDonationsEVM += donation.netFiatAmount
-          project.totalDonationsEVMInFiat += donation.netFiatAmount
-        }
-
-        ;(donation.cryptoPayments as DonationCryptoPayments | null)?.forEach((payment) => {
-          if (donation.coinbaseChargeId) return
-          
-          if (payment.cryptoCode === 'XMR') {
-            project.numDonationsXMR += 1
-            project.totalDonationsXMR += payment.netAmount
-            project.totalDonationsXMRInFiat += payment.netAmount * payment.rate
-          }
-
-          if (payment.cryptoCode === 'BTC') {
-            project.numDonationsBTC += 1
-            project.totalDonationsBTC += payment.netAmount
-            project.totalDonationsBTCInFiat += payment.netAmount * payment.rate
-          }
-
-          if (payment.cryptoCode === 'LTC') {
-            project.numDonationsLTC += 1
-            project.totalDonationsLTC += payment.netAmount
-            project.totalDonationsLTCInFiat += payment.netAmount * payment.rate
-          }
-
-          if (payment.cryptoCode === 'MANUAL') {
-            project.numDonationsManual += 1
-            project.totalDonationsManual += payment.netAmount * payment.rate
-          }
-        })
-
-        if (!donation.cryptoPayments) {
-          project.numDonationsFiat += 1
-          project.totalDonationsFiat += donation.netFiatAmount
-        }
-      })
-
-      // Make isFunded true if goal has been reached
-      const donationsSum =
-        ((project.totalDonationsXMRInFiat +
-          project.totalDonationsBTCInFiat +
-          project.totalDonationsLTCInFiat +
-          project.totalDonationsEVMInFiat +
-          project.totalDonationsManual +
-          project.totalDonationsFiat) /
-          project.goal) *
-        100
-
-      if (donationsSum >= project.goal) {
-        project.isFunded = true
-      }
-    })
-  )
 
   return projects
 }

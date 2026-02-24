@@ -454,12 +454,12 @@ export async function getStaticPaths() {
   }
 }
 
-export function getStaticProps({ params }: GetStaticPropsContext<QueryParams>) {
+export async function getStaticProps({ params }: GetStaticPropsContext<QueryParams>) {
   if (params?.fund === params?.slug && params?.fund) {
     return { props: { ...params, project: funds[params.fund] } }
   }
 
-  const project = getProjectBySlug(params?.slug!, params?.fund!)
+  const project = await getProjectBySlug(params?.slug!, params?.fund!)
 
   return { props: { ...params, project } }
 }

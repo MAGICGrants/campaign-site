@@ -60,7 +60,7 @@ type WebhookBody = {
   }
 }
 
-async function handleDonationOrMembership(body: WebhookBody) {
+async function handleDonationOrMembership(body: WebhookBody, res: NextApiResponse) {
   if (!body.event.data.metadata || JSON.stringify(body.event.data.metadata) === '{}') return
 
   const metadata: DonationMetadata = body.event.data.metadata
@@ -193,6 +193,17 @@ async function handleDonationOrMembership(body: WebhookBody) {
     }
   }
 
+  try {
+    await Promise.all([
+      res.revalidate('/'),
+      res.revalidate(`/${metadata.fundSlug}/projects`),
+      res.revalidate(`/${metadata.fundSlug}`),
+      res.revalidate(`/${metadata.fundSlug}/projects/${metadata.projectSlug}`),
+    ])
+  } catch (err) {
+    log('warn', `[Coinbase webhook] Failed to revalidate pages for charge ${chargeId}.`)
+  }
+
   log('info', `[Coinbase webhook] Successfully processed charge ${chargeId}!`)
 }
 
@@ -225,7 +236,7 @@ async function handleCoinbaseCommerceWebhook(req: NextApiRequest, res: NextApiRe
   }
 
   if (body.event.type === 'charge:confirmed') {
-    await handleDonationOrMembership(body)
+    await handleDonationOrMembership(body, res)
   }
 
   res.status(200).json({ success: true })
