@@ -14,10 +14,19 @@ import {
   DonationMetadata,
 } from '../../server/types'
 import { fundSlugs } from '../../utils/funds'
+import { ProjectItem } from '../../utils/types'
 
 const ASSETS = ['BTC', 'XMR', 'LTC', 'USD'] as const
+const CRYPTO_CURRENCIES = ['BTC', 'XMR', 'LTC'] as const
 
 type Asset = (typeof ASSETS)[number]
+type CryptoCurrency = (typeof CRYPTO_CURRENCIES)[number]
+
+type ProjectAddresses = {
+  btc: string | null
+  xmr: string | null
+  ltc: string | null
+}
 
 type ResponseBody = {
   title: string
@@ -61,6 +70,95 @@ const cachedResponses: Record<
   string,
   { data: ResponseBody | ResponseBodySpecificAsset; expiresAt: Date } | undefined
 > = {}
+
+async function getProjectAddresses(project: ProjectItem): Promise<ProjectAddresses | null> {
+  const existing = await prisma.projectAddresses.findUnique({
+    where: { projectSlug_fundSlug: { projectSlug: project.slug, fundSlug: project.fund } },
+  })
+
+  if (!existing) return null
+
+  return {
+    btc: existing.bitcoinAddress,
+    xmr: existing.moneroAddress,
+    ltc: existing.litecoinAddress,
+  }
+}
+
+function extractAddressesFromPaymentMethods(
+  paymentMethods: BtcPayGetPaymentMethodsRes
+): ProjectAddresses {
+  const currencyToKey: Record<CryptoCurrency, keyof ProjectAddresses> = {
+    BTC: 'btc',
+    XMR: 'xmr',
+    LTC: 'ltc',
+  }
+
+  const addresses: ProjectAddresses = { btc: null, xmr: null, ltc: null }
+
+  paymentMethods.forEach((pm) => {
+    const key = currencyToKey[pm.currency as CryptoCurrency]
+    if (key) addresses[key] = pm.destination
+  })
+
+  if (process.env.NODE_ENV !== 'development') {
+    const missing = CRYPTO_CURRENCIES.filter((c) => !addresses[currencyToKey[c]])
+    if (missing.length > 0) {
+      throw new Error(
+        `[/api/funding-required] Could not get ${missing.join(', ')} address(es) from payment methods.`
+      )
+    }
+  }
+
+  return addresses
+}
+
+async function createProjectAddresses(project: ProjectItem): Promise<ProjectAddresses> {
+  const metadata: DonationMetadata = {
+    userId: null,
+    donorName: null,
+    donorNameIsProfane: 'false',
+    donorEmail: null,
+    projectSlug: project.slug,
+    projectName: project.title,
+    fundSlug: project.fund as FundSlug,
+    isMembership: 'false',
+    membershipTerm: null,
+    isSubscription: 'false',
+    isTaxDeductible: 'false',
+    staticGeneratedForApi: 'true',
+    givePointsBack: 'false',
+    showDonorNameOnLeaderboard: 'false',
+  }
+
+  const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>('/invoices', {
+    checkout: {
+      monitoringMinutes: 9999999,
+      lazyPaymentMethods: false,
+    },
+    currency: CURRENCY,
+    metadata,
+  })
+
+  const { data: paymentMethods } = await btcpayApi.get<BtcPayGetPaymentMethodsRes>(
+    `/invoices/${invoice.id}/payment-methods`
+  )
+
+  const addresses = extractAddressesFromPaymentMethods(paymentMethods)
+
+  await prisma.projectAddresses.create({
+    data: {
+      projectSlug: project.slug,
+      fundSlug: project.fund,
+      btcPayInvoiceId: invoice.id,
+      bitcoinAddress: addresses.btc,
+      moneroAddress: addresses.xmr,
+      litecoinAddress: addresses.ltc,
+    },
+  })
+
+  return addresses
+}
 
 const querySchema = z.object({
   fund: z.enum(fundSlugs).optional(),
@@ -110,94 +208,9 @@ async function handle(
 
   let responseBody: ResponseBody | ResponseBodySpecificAsset = await Promise.all(
     projects.map(async (project): Promise<ResponseBody[0]> => {
-      let bitcoinAddress: string | null = null
-      let moneroAddress: string | null = null
-      let litecoinAddress: string | null = null
-
-      if (!project.isFunded) {
-        const existingAddresses = await prisma.projectAddresses.findUnique({
-          where: { projectSlug_fundSlug: { projectSlug: project.slug, fundSlug: project.fund } },
-        })
-
-        // Create invoice if there's no existing address
-        if (!existingAddresses) {
-          const metadata: DonationMetadata = {
-            userId: null,
-            donorName: null,
-            donorNameIsProfane: 'false',
-            donorEmail: null,
-            projectSlug: project.slug,
-            projectName: project.title,
-            fundSlug: project.fund as FundSlug,
-            isMembership: 'false',
-            membershipTerm: null,
-            isSubscription: 'false',
-            isTaxDeductible: 'false',
-            staticGeneratedForApi: 'true',
-            givePointsBack: 'false',
-            showDonorNameOnLeaderboard: 'false',
-          }
-
-          const { data: invoice } = await btcpayApi.post<BtcPayCreateInvoiceRes>('/invoices', {
-            checkout: {
-              monitoringMinutes: 9999999,
-              lazyPaymentMethods: false,
-            },
-            currency: CURRENCY,
-            metadata,
-          })
-
-          const { data: paymentMethods } = await btcpayApi.get<BtcPayGetPaymentMethodsRes>(
-            `/invoices/${invoice.id}/payment-methods`
-          )
-
-          paymentMethods.forEach((paymentMethod) => {
-            if (paymentMethod.currency === 'BTC') {
-              bitcoinAddress = paymentMethod.destination
-            }
-
-            if (paymentMethod.currency === 'XMR') {
-              moneroAddress = paymentMethod.destination
-            }
-
-            if (paymentMethod.currency === 'LTC') {
-              litecoinAddress = paymentMethod.destination
-            }
-          })
-
-          if (!bitcoinAddress && process.env.NODE_ENV !== 'development')
-            throw new Error(
-              '[/api/funding-required] Could not get bitcoin address from payment methods.'
-            )
-
-          if (!moneroAddress && process.env.NODE_ENV !== 'development')
-            throw new Error(
-              '[/api/funding-required] Could not get monero address from payment methods.'
-            )
-
-          if (!litecoinAddress && process.env.NODE_ENV !== 'development')
-            throw new Error(
-              '[/api/funding-required] Could not get litecoin address from payment methods.'
-            )
-
-          await prisma.projectAddresses.create({
-            data: {
-              projectSlug: project.slug,
-              fundSlug: project.fund,
-              btcPayInvoiceId: invoice.id,
-              bitcoinAddress,
-              moneroAddress,
-              litecoinAddress,
-            },
-          })
-        }
-
-        if (existingAddresses) {
-          bitcoinAddress = existingAddresses.bitcoinAddress
-          moneroAddress = existingAddresses.moneroAddress
-          litecoinAddress = existingAddresses.litecoinAddress
-        }
-      }
+      const addresses: ProjectAddresses = project.isFunded
+        ? { btc: null, xmr: null, ltc: null }
+        : (await getProjectAddresses(project)) ?? (await createProjectAddresses(project))
 
       const targetAmountBtc = project.goal / (rates.BTC || 0)
       const targetAmountXmr = project.goal / (rates.XMR || 0)
@@ -217,6 +230,14 @@ async function handle(
       const remainingAmountLtc = (project.goal - allDonationsSumUsd) / (rates.LTC || 0)
       const remainingAmountUsd = project.goal - allDonationsSumUsd
 
+      const contributions =
+        project.numDonationsBTC +
+        project.numDonationsXMR +
+        project.numDonationsLTC +
+        project.numDonationsEVM +
+        project.numDonationsManual +
+        project.numDonationsFiat
+
       return {
         title: project.title,
         fund: project.fund,
@@ -232,20 +253,11 @@ async function handle(
         remaining_amount_xmr: Number((remainingAmountXmr > 0 ? remainingAmountXmr : 0).toFixed(12)),
         remaining_amount_ltc: Number((remainingAmountLtc > 0 ? remainingAmountLtc : 0).toFixed(8)),
         remaining_amount_usd: Number((remainingAmountUsd > 0 ? remainingAmountUsd : 0).toFixed(2)),
-        address_btc: bitcoinAddress,
-        address_xmr: moneroAddress,
-        address_ltc: litecoinAddress,
-        raised_amount_percent: Math.floor(
-          ((project.totalDonationsBTCInFiat +
-            project.totalDonationsXMRInFiat +
-            project.totalDonationsLTCInFiat +
-            project.totalDonationsEVMInFiat +
-            project.totalDonationsManual +
-            project.totalDonationsFiat) /
-            project.goal) *
-            100
-        ),
-        contributions: project.numDonationsBTC+ project.numDonationsXMR + project.numDonationsLTC + project.numDonationsEVM + project.numDonationsManual + project.numDonationsFiat,
+        address_btc: addresses.btc,
+        address_xmr: addresses.xmr,
+        address_ltc: addresses.ltc,
+        raised_amount_percent: Math.floor((allDonationsSumUsd / project.goal) * 100),
+        contributions,
       }
     })
   )
