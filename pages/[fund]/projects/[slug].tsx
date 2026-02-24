@@ -1,7 +1,7 @@
 import { SVGProps, useState } from 'react'
 import { FundSlug } from '@prisma/client'
 import { useRouter } from 'next/router'
-import { GetServerSidePropsContext, NextPage } from 'next/types'
+import { GetStaticPropsContext, NextPage } from 'next/types'
 import { EyeIcon } from 'lucide-react'
 import Head from 'next/head'
 import ErrorPage from 'next/error'
@@ -16,27 +16,16 @@ import PageHeading from '../../../components/PageHeading'
 import Progress from '../../../components/Progress'
 import { Button } from '../../../components/ui/button'
 import { trpc } from '../../../utils/trpc'
-import { funds, getFundSlugFromUrlPath } from '../../../utils/funds'
+import { funds, fundSlugs } from '../../../utils/funds'
 import { useFundSlug } from '../../../utils/use-fund-slug'
 import { Table, TableBody, TableCell, TableRow } from '../../../components/ui/table'
 import { cn } from '../../../utils/cn'
 import { formatBtc, formatUsd } from '../../../utils/money-formating'
-import MagicLogo from '../../../components/MagicLogo'
-import MoneroLogo from '../../../components/MoneroLogo'
-import FiroLogo from '../../../components/FiroLogo'
-import PrivacyGuidesLogo from '../../../components/PrivacyGuidesLogo'
 
 type SingleProjectPageProps = {
   project: ProjectItem
   projects: ProjectItem[]
   donationStats: ProjectDonationStats
-}
-
-const placeholderImages: Record<FundSlug, (props: SVGProps<SVGSVGElement>) => JSX.Element> = {
-  monero: MoneroLogo,
-  firo: FiroLogo,
-  privacyguides: PrivacyGuidesLogo,
-  general: MagicLogo,
 }
 
 const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) => {
@@ -229,20 +218,38 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
 
 export default Project
 
-export async function getServerSideProps({ params, resolvedUrl }: GetServerSidePropsContext) {
-  const fundSlug = getFundSlugFromUrlPath(resolvedUrl)
+export async function getStaticPaths() {
+  return {
+    paths: [],
+    fallback: 'blocking',
+  }
+}
 
-  if (!params?.slug) return {}
-  if (!fundSlug) return {}
+type StaticPropsParams = {
+  fund: FundSlug
+  slug: string
+}
 
-  if (!/^[a-zA-Z0-9-_]+$/.test(params.slug as string)) {
+export async function getStaticProps({ params }: GetStaticPropsContext<StaticPropsParams>) {
+  const fundSlug = params?.fund
+  const slug = params?.slug
+
+  if (!slug || !fundSlug) {
+    return { notFound: true }
+  }
+
+  if (!fundSlugs.includes(fundSlug)) {
+    return { notFound: true }
+  }
+
+  if (!/^[a-zA-Z0-9-_]+$/.test(slug)) {
     return { notFound: true }
   }
 
   let project: ProjectItem
 
   try {
-    project = await getProjectBySlug(params.slug as string, fundSlug)
+    project = await getProjectBySlug(slug, fundSlug)
   } catch (error) {
     if (error instanceof Error && error.message.includes('ENOENT')) {
       return { notFound: true }
@@ -286,5 +293,8 @@ export async function getServerSideProps({ params, resolvedUrl }: GetServerSideP
     },
   }
 
-  return { props: { project: { ...project, content }, donationStats } }
+  return {
+    props: { project: { ...project, content }, donationStats },
+    revalidate: 120,
+  }
 }

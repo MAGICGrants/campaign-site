@@ -43,7 +43,6 @@ export function fileExists(path: string) {
 export async function getProjectBySlug(
   slug: string,
   fundSlug: FundSlug,
-  fetchDonations: boolean = true
 ) {
   const realSlug = slug.replace(/\.md$/, '')
   const fullPath = join(directories[fundSlug], `${sanitize(realSlug)}.md`)
@@ -82,7 +81,7 @@ export async function getProjectBySlug(
     totalDonationsEVMInFiat: data.totalDonationsEVMInFiat || 0,
   }
 
-  if (fetchDonations && !project.isFunded) {
+  if (!project.isFunded) {
     let donations: Donation[] = []
 
     try {

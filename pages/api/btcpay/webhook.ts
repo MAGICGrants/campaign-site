@@ -46,7 +46,7 @@ type WebhookBody = Record<string, any> & {
   }
 }
 
-async function handleFundingRequiredApiDonation(body: WebhookBody) {
+async function handleFundingRequiredApiDonation(body: WebhookBody, res: NextApiResponse) {
   if (!body.metadata || JSON.stringify(body.metadata) === '{}') return
   // If none of these are set, this donation didn't come from a campaign site user
   if (!body.metadata.projectSlug || !body.metadata.fundSlug) return
@@ -108,11 +108,24 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
     },
   })
 
+  try {
+    const fundSlug = body.metadata.fundSlug
+    const projectSlug = body.metadata.projectSlug
+    await Promise.all([
+      res.revalidate('/'),
+      res.revalidate(`/${fundSlug}/projects`),
+      res.revalidate(`/${fundSlug}`),
+      res.revalidate(`/${fundSlug}/projects/${projectSlug}`),
+    ])
+  } catch (err) {
+    log('warn', `[BTCPay webhook] Failed to revalidate pages for invoice ${body.invoiceId}.`)
+  }
+
   log('info', `[BTCPay webhook] Successfully processed invoice ${body.invoiceId}!`)
 }
 
 // This handles both donations and memberships.
-async function handleDonationOrMembership(body: WebhookBody) {
+async function handleDonationOrMembership(body: WebhookBody, res: NextApiResponse) {
   if (!body.metadata || JSON.stringify(body.metadata) === '{}') return
   // If none of these are set, this donation didn't come from a campaign site user
   if (!body.metadata.projectSlug || !body.metadata.fundSlug) return
@@ -297,6 +310,19 @@ async function handleDonationOrMembership(body: WebhookBody) {
     }
   }
 
+  try {
+    const fundSlug = body.metadata.fundSlug
+    const projectSlug = body.metadata.projectSlug
+    await Promise.all([
+      res.revalidate('/'),
+      res.revalidate(`/${fundSlug}/projects`),
+      res.revalidate(`/${fundSlug}`),
+      res.revalidate(`/${fundSlug}/projects/${projectSlug}`),
+    ])
+  } catch (err) {
+    log('warn', `[BTCPay webhook] Failed to revalidate pages for invoice ${body.invoiceId}.`)
+  }
+
   log('info', `[BTCPay webhook] Successfully processed invoice ${body.invoiceId}!`)
 }
 
@@ -338,7 +364,7 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ success: true })
     }
 
-    await handleFundingRequiredApiDonation(body)
+    await handleFundingRequiredApiDonation(body, res)
   }
 
   if (body.type === 'InvoiceSettled') {
@@ -347,7 +373,7 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ success: true })
     }
 
-    await handleDonationOrMembership(body)
+    await handleDonationOrMembership(body, res)
   }
 
   res.status(200).json({ success: true })

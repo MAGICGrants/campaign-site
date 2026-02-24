@@ -459,7 +459,7 @@ export async function getStaticProps({ params }: GetStaticPropsContext<QueryPara
     return { props: { ...params, project: funds[params.fund] } }
   }
 
-  const project = await getProjectBySlug(params?.slug!, params?.fund!, false)
+  const project = await getProjectBySlug(params?.slug!, params?.fund!)
 
   return { props: { ...params, project } }
 }

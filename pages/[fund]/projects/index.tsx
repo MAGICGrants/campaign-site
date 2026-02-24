@@ -45,8 +45,8 @@ export default AllProjects
 
 export function getStaticPaths() {
   return {
-    paths: fundSlugs.map((fundSlug) => `/${fundSlug}/projects`),
-    fallback: false,
+    paths: [],
+    fallback: 'blocking',
   }
 }
 
