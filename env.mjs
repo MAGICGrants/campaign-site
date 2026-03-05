@@ -58,6 +58,9 @@ export const env = createEnv({
     COINBASE_COMMERCE_WEBHOOK_SECRET: z.string().min(1),
 
     GEMINI_API_KEY: z.string().min(1),
+
+    KRAKEN_API_KEY: z.string().min(1).optional(),
+    KRAKEN_API_SECRET: z.string().min(1).optional(),
   },
   /*
    * Environment variables available on the client (and server).
@@ -146,6 +149,9 @@ export const env = createEnv({
     COINBASE_COMMERCE_WEBHOOK_SECRET: process.env.COINBASE_COMMERCE_WEBHOOK_SECRET,
 
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+
+    KRAKEN_API_KEY: process.env.KRAKEN_API_KEY,
+    KRAKEN_API_SECRET: process.env.KRAKEN_API_SECRET,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

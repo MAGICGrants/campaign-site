@@ -96,13 +96,13 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
 
   const pointsToGive = shouldGivePointsBack ? Math.floor(grossFiatAmount / POINTS_PER_USD) : 0
 
+  const settlementAmount = Number(body.event.data.pricing.settlement.amount)
   const cryptoPayments: DonationCryptoPayments = [
     {
       cryptoCode: body.event.data.pricing.settlement.currency,
-      grossAmount: Number(body.event.data.pricing.settlement.amount),
-      netAmount:
-        Number(body.event.data.pricing.settlement.amount) * NET_DONATION_AMOUNT_WITH_POINTS_RATE,
-      rate: Number(body.event.data.pricing.settlement.amount) / grossFiatAmount,
+      grossAmount: body.event.data.pricing.settlement.amount,
+      netAmount: String(settlementAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE),
+      rate: String(settlementAmount / grossFiatAmount),
     },
   ]
 

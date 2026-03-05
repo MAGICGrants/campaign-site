@@ -106,25 +106,25 @@ export async function getProjectBySlug(
 
         if (payment.cryptoCode === 'XMR') {
           project.numDonationsXMR += 1
-          project.totalDonationsXMR += payment.netAmount
-          project.totalDonationsXMRInFiat += payment.netAmount * payment.rate
+          project.totalDonationsXMR += Number(payment.netAmount)
+          project.totalDonationsXMRInFiat += Number(payment.netAmount) * Number(payment.rate)
         }
 
         if (payment.cryptoCode === 'BTC') {
           project.numDonationsBTC += 1
-          project.totalDonationsBTC += payment.netAmount
-          project.totalDonationsBTCInFiat += payment.netAmount * payment.rate
+          project.totalDonationsBTC += Number(payment.netAmount)
+          project.totalDonationsBTCInFiat += Number(payment.netAmount) * Number(payment.rate)
         }
 
         if (payment.cryptoCode === 'LTC') {
           project.numDonationsLTC += 1
-          project.totalDonationsLTC += payment.netAmount
-          project.totalDonationsLTCInFiat += payment.netAmount * payment.rate
+          project.totalDonationsLTC += Number(payment.netAmount)
+          project.totalDonationsLTCInFiat += Number(payment.netAmount) * Number(payment.rate)
         }
 
         if (payment.cryptoCode === 'MANUAL') {
           project.numDonationsManual += 1
-          project.totalDonationsManual += payment.netAmount * payment.rate
+          project.totalDonationsManual += Number(payment.netAmount) * Number(payment.rate)
         }
       })
 

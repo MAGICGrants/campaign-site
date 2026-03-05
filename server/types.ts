@@ -32,9 +32,9 @@ export type DonationMetadata = {
 
 export type DonationCryptoPayments = {
   cryptoCode: 'BTC' | 'XMR' | 'LTC' | 'MANUAL' | string
-  grossAmount: number
-  netAmount: number
-  rate: number
+  grossAmount: string
+  netAmount: string
+  rate: string
   txId?: string
 }[]
 
@@ -57,6 +57,14 @@ export type BtcPayGetPaymentMethodsRes = {
   currency: 'BTC' | 'XMR' | 'LTC'
   paymentMethodPaid: string
   destination: string
+  payments: {
+    id: string
+    receivedDate: number
+    value: string
+    fee: string
+    status: string
+    destination: string
+  }[]
 }[]
 
 export type BtcPayCreateInvoiceBody = {
@@ -83,6 +91,8 @@ export type BtcPayCreateInvoiceRes = {
   availableStatusesForManualMarking: any
   archived: boolean
 }
+
+export type BtcPayListInvoiceItem = BtcPayCreateInvoiceRes
 
 // Strapi Perk
 
