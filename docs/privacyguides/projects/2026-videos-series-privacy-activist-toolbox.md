@@ -18,3 +18,7 @@ This is a lower priority video that we want to produce, but it is a very importa
 This collection of resources is very extensive, and adapting them to video format will require a significant amount of time and effort, which would set back the production of other videos in our queue.
 
 However, reaching this goal will allow us to prioritize the creation of this series, and ensure that we can produce it with the quality and attention to detail that it deserves.
+
+---
+
+Contributions towards this goal are non-refundable donations to the non-profit *Privacy Guides* program fiscally hosted by MAGIC Grants (a 501(c)(3) organization), not a purchase of a product or service. If this goal is not reached, we will do our best to use the funds raised towards this project, towards other video projects, or towards our general funds to support our work.
