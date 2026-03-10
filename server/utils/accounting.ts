@@ -1,4 +1,4 @@
-import { DonationAccounting } from '@prisma/client'
+import { DonationAccounting, DonationSource, FundSlug } from '@prisma/client'
 import { prisma } from '../services'
 import { BtcPayListInvoiceItem, DonationCryptoPayments } from '../types'
 import { getDeposits, getClosedSellOrders, KrakenDeposit, KrakenSellOrder } from './kraken'
@@ -14,6 +14,9 @@ type PaymentItem = {
   cryptoAmountRaw: string
   rate: string
   fiatAmount: number
+  projectSlug: string
+  projectName: string
+  fundSlug: FundSlug
 }
 
 type MatchedDeposit = {
@@ -49,6 +52,9 @@ type PaymentMatch = {
   deposits: MatchedDeposit[]
   orders: MatchedOrder[]
   totalRealizedUsd: number
+  projectSlug: string
+  projectName: string
+  fundSlug: FundSlug
 }
 
 const EPSILON = 1e-8
@@ -84,6 +90,8 @@ async function extractPaymentItems(invoices: BtcPayListInvoiceItem[]): Promise<P
   }
 
   for (const invoice of invoices) {
+    if (!invoice.metadata?.fundSlug) continue
+
     let paymentMethods
     try {
       paymentMethods = await getBtcPayInvoicePaymentMethods(invoice.id)
@@ -127,6 +135,9 @@ async function extractPaymentItems(invoices: BtcPayListInvoiceItem[]): Promise<P
           cryptoAmountRaw: payment.value,
           rate,
           fiatAmount: Number((cryptoAmount * Number(rate)).toFixed(2)),
+          projectSlug: invoice.metadata.projectSlug,
+          projectName: invoice.metadata.projectName,
+          fundSlug: invoice.metadata.fundSlug,
         })
       }
     }
@@ -395,6 +406,9 @@ function rollUpMatches(
       deposits,
       orders: aggregatedOrders,
       totalRealizedUsd: Math.round(totalRealizedUsd * 100) / 100,
+      projectSlug: payment.projectSlug,
+      projectName: payment.projectName,
+      fundSlug: payment.fundSlug,
     })
   }
 
@@ -480,6 +494,7 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
     await prisma.donationAccounting.upsert({
       where: { paymentId: match.paymentId },
       create: {
+        source: DonationSource.btcpayserver,
         invoiceId: match.invoiceId,
         paymentId: match.paymentId,
         paymentReceivedAt: match.receivedAt,
@@ -490,6 +505,9 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
         krakenDeposits: match.deposits,
         krakenOrders: match.orders,
         totalRealizedUsd: match.totalRealizedUsd,
+        projectSlug: match.projectSlug,
+        projectName: match.projectName,
+        fundSlug: match.fundSlug,
       },
       update: {
         krakenDeposits: match.deposits,

@@ -21,6 +21,12 @@ enum FundSlug {
   general
 }
 
+enum DonationSource {
+  btcpayserver
+  coinbase
+  stripe
+}
+
 enum AccountConnectionType {
   privacyGuidesForum
 }
@@ -84,8 +90,9 @@ model DonationAccounting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  source            DonationSource
   invoiceId         String
-  paymentId         String   @unique
+  paymentId         String?        @unique
   paymentReceivedAt DateTime
   cryptoCode        String
   cryptoAmount      String
@@ -94,6 +101,12 @@ model DonationAccounting {
   krakenDeposits    Json
   krakenOrders      Json
   totalRealizedUsd  Float
+  projectSlug       String
+  projectName       String
+  fundSlug          FundSlug
+
+  @@index([projectSlug])
+  @@index([fundSlug])
 }
 
 model AccountConnection {
