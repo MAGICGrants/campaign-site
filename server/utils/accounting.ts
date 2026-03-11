@@ -4,6 +4,8 @@ import { BtcPayListInvoiceItem, DonationCryptoPayments } from '../types'
 import { getDeposits, getClosedSellOrders, KrakenDeposit, KrakenSellOrder } from './kraken'
 import { getNetworkFee } from './blockexplorers'
 import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from './btcpayserver'
+import { getCoinbaseCdpInvoices, CoinbaseCdpInvoice } from './coinbase-cdp'
+import { loadCoinbaseExportCsv } from './coinbase-export-csv'
 
 type PaymentItem = {
   paymentId: string
@@ -17,6 +19,7 @@ type PaymentItem = {
   projectSlug: string
   projectName: string
   fundSlug: FundSlug
+  source: DonationSource
 }
 
 type MatchedDeposit = {
@@ -55,6 +58,7 @@ type PaymentMatch = {
   projectSlug: string
   projectName: string
   fundSlug: FundSlug
+  source: DonationSource
 }
 
 const EPSILON = 1e-8
@@ -64,7 +68,9 @@ const IGNORED_DEPOSIT_TXIDS: string[] = []
 const IGNORED_ORDER_IDS: string[] = []
 const IGNORED_PAYMENT_IDS: string[] = []
 
-async function extractPaymentItems(invoices: BtcPayListInvoiceItem[]): Promise<PaymentItem[]> {
+async function extractBtcPayPaymentItems(
+  invoices: BtcPayListInvoiceItem[]
+): Promise<PaymentItem[]> {
   const items: PaymentItem[] = []
 
   // Pre-fetch DB donations for funding API invoices (need rates from cryptoPayments)
@@ -138,9 +144,75 @@ async function extractPaymentItems(invoices: BtcPayListInvoiceItem[]): Promise<P
           projectSlug: invoice.metadata.projectSlug,
           projectName: invoice.metadata.projectName,
           fundSlug: invoice.metadata.fundSlug,
+          source: DonationSource.btcpayserver,
         })
       }
     }
+  }
+
+  items.sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime())
+  return items
+}
+
+function parseMetadataFromCoinbaseMemo(memo: string | undefined): {
+  projectSlug: string
+  projectName: string
+  fundSlug: FundSlug
+} | null {
+  if (!memo) return null
+  try {
+    const parsed = JSON.parse(memo) as Record<string, string>
+    const fundSlug = parsed.fundSlug as FundSlug
+    if (fundSlug && Object.values(FundSlug).includes(fundSlug)) {
+      return {
+        projectSlug: parsed.projectSlug ?? 'general',
+        projectName: parsed.projectName ?? 'General',
+        fundSlug,
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null
+}
+
+async function extractCoinbasePaymentItems(invoices: CoinbaseCdpInvoice[]): Promise<PaymentItem[]> {
+  const items: PaymentItem[] = []
+
+  for (const invoice of invoices) {
+    const currency = invoice.totalAmountDue?.currency
+    if (!currency || currency !== 'USDC') continue
+
+    const cryptoAmount = Number(invoice.totalAmountDue.value)
+    if (cryptoAmount <= 0) continue
+
+    if (IGNORED_PAYMENT_IDS.includes(invoice.uuid)) continue
+
+    const metadata = parseMetadataFromCoinbaseMemo(invoice.memo) ??
+      parseMetadataFromCoinbaseMemo(invoice.privateNotes) ?? {
+        projectSlug: 'general',
+        projectName: 'General',
+        fundSlug: 'general' as FundSlug,
+      }
+
+    const receivedAt = new Date(invoice.updatedAt)
+    const rate = '1'
+    const fiatAmount = cryptoAmount
+
+    items.push({
+      paymentId: invoice.uuid,
+      invoiceId: invoice.uuid,
+      receivedAt,
+      cryptoCode: 'USDC',
+      cryptoAmount,
+      cryptoAmountRaw: invoice.totalAmountDue.value,
+      rate,
+      fiatAmount,
+      projectSlug: metadata.projectSlug,
+      projectName: metadata.projectName,
+      fundSlug: metadata.fundSlug,
+      source: DonationSource.coinbase,
+    })
   }
 
   items.sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime())
@@ -409,6 +481,7 @@ function rollUpMatches(
       projectSlug: payment.projectSlug,
       projectName: payment.projectName,
       fundSlug: payment.fundSlug,
+      source: payment.source,
     })
   }
 
@@ -418,25 +491,39 @@ function rollUpMatches(
 export async function generateAccountingRecords(): Promise<DonationAccounting[]> {
   console.log('[accounting] Starting accounting record generation...')
 
-  const [invoices, existingRecords] = await Promise.all([
+  const [btcPayInvoices, coinbaseInvoices, existingRecords] = await Promise.all([
     getBtcPayInvoices(),
+    getCoinbaseCdpInvoices(),
     prisma.donationAccounting.findMany({ orderBy: { paymentReceivedAt: 'asc' } }),
   ])
 
-  console.log(`[accounting] Found ${invoices.length} BTCPay invoices with payments`)
+  console.log(
+    `[accounting] Found ${btcPayInvoices.length} BTCPay invoices, ${coinbaseInvoices.length} Coinbase invoices`
+  )
 
-  if (invoices.length === 0) {
-    return existingRecords
-  }
+  const [btcPayItems, coinbaseCdpItems, coinbaseCsvItems] = await Promise.all([
+    extractBtcPayPaymentItems(btcPayInvoices),
+    extractCoinbasePaymentItems(coinbaseInvoices),
+    Promise.resolve(loadCoinbaseExportCsv()),
+  ])
 
-  const paymentItems = await extractPaymentItems(invoices)
-  console.log(`[accounting] Extracted ${paymentItems.length} individual payments`)
+  const coinbaseCsvPaymentItems = coinbaseCsvItems.map((row) => ({
+    ...row,
+    source: DonationSource.coinbase,
+  }))
+
+  const paymentItems = [...btcPayItems, ...coinbaseCdpItems, ...coinbaseCsvPaymentItems].sort(
+    (a, b) => a.receivedAt.getTime() - b.receivedAt.getTime()
+  )
+  console.log(
+    `[accounting] Extracted ${paymentItems.length} individual payments (${btcPayItems.length} BTCPay, ${coinbaseCdpItems.length} Coinbase CDP, ${coinbaseCsvItems.length} Coinbase CSV)`
+  )
 
   if (paymentItems.length === 0) {
     return existingRecords
   }
 
-  const existingIds = new Set(existingRecords.map((r) => r.paymentId))
+  const existingIds = new Set(existingRecords.map((r) => r.paymentId).filter(Boolean))
   const newPayments = paymentItems.filter((p) => !existingIds.has(p.paymentId))
 
   if (newPayments.length === 0) {
@@ -494,7 +581,7 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
     await prisma.donationAccounting.upsert({
       where: { paymentId: match.paymentId },
       create: {
-        source: DonationSource.btcpayserver,
+        source: match.source,
         invoiceId: match.invoiceId,
         paymentId: match.paymentId,
         paymentReceivedAt: match.receivedAt,

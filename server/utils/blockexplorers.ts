@@ -56,6 +56,8 @@ export async function getNetworkFee(txid: string, cryptoCode: string): Promise<n
       return getLtcNetworkFee(txid)
     case 'XMR':
       return getXmrNetworkFee(txid)
+    case 'USDC':
+      return 0
     default:
       throw new Error(`Unsupported crypto code for network fee lookup: ${cryptoCode}`)
   }

@@ -11,6 +11,7 @@
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org magic-grants --project campaign-site ./out && sentry-cli sourcemaps upload --org magic-grants --project campaign-site ./out"
   },
   "dependencies": {
+    "@coinbase/cdp-sdk": "^1.45.0",
     "@fortawesome/fontawesome-svg-core": "^6.5.2",
     "@fortawesome/free-brands-svg-icons": "^6.5.2",
     "@fortawesome/free-solid-svg-icons": "^6.5.2",

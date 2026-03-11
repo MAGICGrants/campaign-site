@@ -56,6 +56,8 @@ export const env = createEnv({
 
     COINBASE_COMMERCE_API_KEY: z.string().min(1),
     COINBASE_COMMERCE_WEBHOOK_SECRET: z.string().min(1),
+    COINBASE_CDP_API_KEY_ID: z.string().min(1),
+    COINBASE_CDP_API_KEY_PRIVATE_KEY: z.string().min(1),
 
     GEMINI_API_KEY: z.string().min(1),
 
@@ -147,6 +149,8 @@ export const env = createEnv({
 
     COINBASE_COMMERCE_API_KEY: process.env.COINBASE_COMMERCE_API_KEY,
     COINBASE_COMMERCE_WEBHOOK_SECRET: process.env.COINBASE_COMMERCE_WEBHOOK_SECRET,
+    COINBASE_CDP_API_KEY_NAME: process.env.COINBASE_CDP_API_KEY_NAME,
+    COINBASE_CDP_API_KEY_PRIVATE_KEY: process.env.COINBASE_CDP_API_KEY_PRIVATE_KEY,
 
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 

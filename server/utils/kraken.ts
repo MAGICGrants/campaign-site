@@ -131,6 +131,7 @@ const KRAKEN_ASSET_TO_CRYPTO: Record<string, string> = {
   XXMR: 'XMR',
   LTC: 'LTC',
   XLTC: 'LTC',
+  USDC: 'USDC',
 }
 
 const KRAKEN_PAIR_TO_CRYPTO: Record<string, string> = {
@@ -140,6 +141,8 @@ const KRAKEN_PAIR_TO_CRYPTO: Record<string, string> = {
   XMRUSD: 'XMR',
   XLTCZUSD: 'LTC',
   LTCUSD: 'LTC',
+  USDCUSD: 'USDC',
+  USDCZUSD: 'USDC',
 }
 
 function generateNonce(): string {
