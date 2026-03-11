@@ -55,6 +55,7 @@ type KrakenClosedOrdersResponse = {
 }
 
 export type KrakenDeposit = {
+  refid: string
   asset: string
   cryptoCode: string
   txid: string
@@ -337,6 +338,7 @@ export async function getDeposits(start: Date): Promise<KrakenDeposit[]> {
       if (!cryptoCode) continue
 
       allDeposits.push({
+        refid: deposit.refid,
         asset: deposit.asset,
         cryptoCode,
         txid: deposit.txid,
