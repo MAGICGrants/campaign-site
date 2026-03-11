@@ -14,17 +14,29 @@ export async function getBtcPayInvoice(id: string) {
 
 const VALID_EXPIRED_ADDITIONAL_STATUSES = new Set(['PaidPartial', 'PaidOver', 'PaidLate'])
 
-export async function getBtcPayInvoices(): Promise<BtcPayListInvoiceItem[]> {
+export async function getBtcPayInvoices(options?: {
+  startDate?: number
+  endDate?: number
+}): Promise<BtcPayListInvoiceItem[]> {
   const PAGE_SIZE = 100
   const allInvoices: BtcPayListInvoiceItem[] = []
   let skip = 0
 
-  log('info', '[accounting] Fetching BTCPay invoices...')
+  log('info', options ? `[btcpayserver] Fetching invoices for ${options.startDate}-${options.endDate}...` : '[accounting] Fetching BTCPay invoices...')
 
   while (true) {
     try {
+      const params = new URLSearchParams({
+        take: String(PAGE_SIZE),
+        skip: String(skip),
+      })
+      if (options?.startDate != null) params.set('startDate', String(options.startDate))
+      if (options?.endDate != null) params.set('endDate', String(options.endDate))
+      params.append('status', 'Settled')
+      params.append('status', 'Expired')
+
       const { data: page } = await btcpayApi.get<BtcPayListInvoiceItem[]>(
-        `/invoices?take=${PAGE_SIZE}&skip=${skip}`
+        `/invoices?${params.toString()}`
       )
 
       if (page.length === 0) break

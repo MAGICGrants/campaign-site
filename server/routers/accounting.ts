@@ -2,8 +2,32 @@ import { z } from 'zod'
 import { DonationSource, Prisma } from '@prisma/client'
 import { publicProcedure, router } from '../trpc'
 import { prisma } from '../services'
+import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from '../utils/btcpayserver'
+import type { BtcPayPaymentItem } from '../types'
 
 const donationSourceSchema = z.enum(['btcpayserver', 'coinbase', 'stripe'])
+
+const AMOUNT_TOLERANCE = 1e-6
+
+function findFundingApiRate(
+  donations: { cryptoPayments: unknown }[],
+  cryptoCode: string,
+  paymentAmount: number
+): string | null {
+  for (const donation of donations) {
+    const payments = donation.cryptoPayments as
+      | { cryptoCode: string; grossAmount: string; rate: string }[]
+      | null
+    if (!payments) continue
+    for (const cp of payments) {
+      if (cp.cryptoCode !== cryptoCode) continue
+      if (Math.abs(Number(cp.grossAmount) - paymentAmount) < AMOUNT_TOLERANCE) {
+        return cp.rate
+      }
+    }
+  }
+  return null
+}
 
 export const accountingRouter = router({
   listByMonth: publicProcedure
@@ -69,4 +93,107 @@ export const accountingRouter = router({
 
     return Array.from(months.values()).sort((a, b) => a.year - b.year || a.month - b.month)
   }),
+
+  listBtcPayPaymentsByMonth: publicProcedure
+    .input(
+      z.object({
+        year: z.number().int().min(2000).max(2100),
+        month: z.number().int().min(1).max(12),
+      })
+    )
+    .query(async ({ input }): Promise<BtcPayPaymentItem[]> => {
+      const startOfMonth = new Date(input.year, input.month - 1, 1)
+      const startOfNextMonth = new Date(input.year, input.month, 1)
+      const invoices = await getBtcPayInvoices({
+        startDate: Math.floor(startOfMonth.getTime() / 1000),
+        endDate: Math.floor(startOfNextMonth.getTime() / 1000),
+      })
+      const items: BtcPayPaymentItem[] = []
+
+      const fundingApiInvoiceIds = invoices
+        .filter(
+          (inv) =>
+            (inv.metadata as { staticGeneratedForApi?: string })?.staticGeneratedForApi === 'true'
+        )
+        .map((inv) => inv.id)
+
+      const fundingDonations =
+        fundingApiInvoiceIds.length > 0
+          ? await prisma.donation.findMany({
+              where: { btcPayInvoiceId: { in: fundingApiInvoiceIds } },
+              select: { btcPayInvoiceId: true, cryptoPayments: true },
+            })
+          : []
+
+      const fundingDonationsByInvoice = new Map<string, typeof fundingDonations>()
+      for (const d of fundingDonations) {
+        if (!d.btcPayInvoiceId) continue
+        const group = fundingDonationsByInvoice.get(d.btcPayInvoiceId) || []
+        group.push(d)
+        fundingDonationsByInvoice.set(d.btcPayInvoiceId, group)
+      }
+
+      for (const invoice of invoices) {
+        const meta = invoice.metadata as
+          | {
+              fundSlug?: string
+              projectSlug?: string
+              projectName?: string
+              staticGeneratedForApi?: string
+            }
+          | undefined
+        if (!meta?.fundSlug) continue
+
+        const staticAddress = meta.staticGeneratedForApi === 'true'
+
+        let paymentMethods
+        try {
+          paymentMethods = await getBtcPayInvoicePaymentMethods(invoice.id)
+        } catch {
+          continue
+        }
+
+        for (const pm of paymentMethods) {
+          const cryptoCode = pm.currency
+          if (!['BTC', 'LTC', 'XMR'].includes(cryptoCode)) continue
+
+          for (const payment of pm.payments) {
+            if (payment.status !== 'Settled') continue
+            const cryptoAmount = Number(payment.value)
+            if (cryptoAmount <= 0) continue
+
+            let rate: string
+            if (staticAddress) {
+              rate =
+                findFundingApiRate(
+                  fundingDonationsByInvoice.get(invoice.id) || [],
+                  cryptoCode,
+                  cryptoAmount
+                ) ?? pm.rate
+            } else {
+              rate = pm.rate
+            }
+            const fiatAmount = Number((cryptoAmount * Number(rate)).toFixed(2))
+
+            items.push({
+              paymentId: payment.id,
+              invoiceId: invoice.id,
+              receivedAt: new Date(payment.receivedDate * 1000),
+              cryptoCode,
+              cryptoAmount,
+              cryptoAmountRaw: payment.value,
+              rate,
+              fiatAmount,
+              projectSlug: meta.projectSlug ?? 'general',
+              projectName: meta.projectName ?? 'General',
+              fundSlug: meta.fundSlug,
+              isStaticGenerated: staticAddress,
+            })
+          }
+        }
+      }
+
+      items.sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime())
+      return items
+    }),
 })

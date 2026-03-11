@@ -94,6 +94,21 @@ export type BtcPayCreateInvoiceRes = {
 
 export type BtcPayListInvoiceItem = BtcPayCreateInvoiceRes
 
+export type BtcPayPaymentItem = {
+  paymentId: string
+  invoiceId: string
+  receivedAt: Date
+  cryptoCode: string
+  cryptoAmount: number
+  cryptoAmountRaw: string
+  rate: string
+  fiatAmount: number
+  projectSlug: string
+  projectName: string
+  fundSlug: string
+  isStaticGenerated: boolean
+}
+
 // Strapi Perk
 
 export type StrapiPerk = {
