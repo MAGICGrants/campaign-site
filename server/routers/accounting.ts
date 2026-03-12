@@ -1,10 +1,28 @@
 import { z } from 'zod'
-import { DonationSource, Prisma } from '@prisma/client'
+import { DonationSource, FundSlug, Prisma } from '@prisma/client'
 import { publicProcedure, router } from '../trpc'
-import { prisma } from '../services'
+import { prisma, stripe } from '../services'
 import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from '../utils/btcpayserver'
 import { getDeposits, getClosedSellOrders } from '../utils/kraken'
-import type { BtcPayPaymentItem } from '../types'
+import type { BtcPayPaymentItem, StripeInvoiceItem } from '../types'
+
+const FUND_SLUGS: FundSlug[] = ['monero', 'firo', 'privacyguides', 'general']
+
+function balanceTransactionToUsd(
+  bt: { currency: string; fee?: number; net?: number; exchange_rate?: number | null },
+  grossCents: number
+): { fee: number; net: number } {
+  if (!bt) return { fee: 0, net: grossCents / 100 }
+  const feeInt = bt.fee ?? 0
+  const netInt = bt.net ?? grossCents
+  const currency = (bt.currency ?? 'usd').toLowerCase()
+  const rate = currency === 'usd' ? 1 : (bt.exchange_rate ?? 0)
+  if (rate <= 0 && currency !== 'usd') return { fee: 0, net: grossCents / 100 }
+  return {
+    fee: feeInt / rate / 100,
+    net: netInt / rate / 100,
+  }
+}
 
 const donationSourceSchema = z.enum(['btcpayserver', 'coinbase', 'stripe'])
 
@@ -224,5 +242,107 @@ export const accountingRouter = router({
       const startOfNextMonth = new Date(input.year, input.month, 1)
       const allOrders = await getClosedSellOrders(startOfMonth)
       return allOrders.filter((o) => o.closedAt >= startOfMonth && o.closedAt < startOfNextMonth)
+    }),
+
+  listStripeInvoicesByMonth: publicProcedure
+    .input(
+      z.object({
+        year: z.number().int().min(2000).max(2100),
+        month: z.number().int().min(1).max(12),
+      })
+    )
+    .query(async ({ input }): Promise<StripeInvoiceItem[]> => {
+      const startOfMonth = new Date(input.year, input.month - 1, 1)
+      const startOfNextMonth = new Date(input.year, input.month, 1)
+      const startTs = Math.floor(startOfMonth.getTime() / 1000)
+      const endTs = Math.floor(startOfNextMonth.getTime() / 1000)
+
+      const items: StripeInvoiceItem[] = []
+
+      for (const fundSlug of FUND_SLUGS) {
+        const stripeClient = stripe[fundSlug]
+        if (!stripeClient) continue
+
+        try {
+          // Fetch paid invoices (recurring / subscription)
+          for await (const inv of stripeClient.invoices.list({
+            created: { gte: startTs, lt: endTs },
+            status: 'paid',
+            limit: 100,
+            expand: ['data.subscription_details', 'data.charge.balance_transaction'],
+          })) {
+            console.log(inv)
+            const meta =
+              (inv.subscription_details as { metadata?: Record<string, string> } | null)
+                ?.metadata ?? (inv.metadata as Record<string, string> | null)
+            if (!meta?.projectSlug || !meta?.fundSlug || meta.fundSlug !== fundSlug) continue
+            const grossCents = inv.amount_paid ?? inv.total ?? 0
+            const grossFiatAmount = grossCents / 100
+            const bt =
+              inv.charge && typeof inv.charge === 'object' ? inv.charge.balance_transaction : null
+            const btObj = bt && typeof bt === 'object' ? bt : null
+            const { fee, net: netFiatAmount } = btObj
+              ? balanceTransactionToUsd(btObj, grossCents)
+              : { fee: 0, net: grossFiatAmount }
+            items.push({
+              id: inv.id,
+              createdAt: new Date(inv.created * 1000),
+              paymentId:
+                typeof inv.payment_intent === 'string'
+                  ? inv.payment_intent
+                  : (inv.payment_intent?.id ?? inv.id),
+              invoiceId: inv.id,
+              projectSlug: meta.projectSlug,
+              projectName: meta.projectName ?? 'General',
+              fundSlug: meta.fundSlug as FundSlug,
+              grossFiatAmount,
+              fee,
+              netFiatAmount,
+              isRecurring: !!inv.subscription,
+            })
+          }
+
+          // Fetch succeeded payment intents (one-time)
+          const paymentIntents = await stripeClient.paymentIntents.list({
+            created: { gte: startTs, lt: endTs },
+            limit: 100,
+            expand: ['data.latest_charge.balance_transaction'],
+          })
+
+          for (const pi of paymentIntents.data) {
+            if (pi.status !== 'succeeded' || !pi.amount_received || pi.amount_received <= 0)
+              continue
+            const meta = pi.metadata as Record<string, string> | null
+            if (!meta?.projectSlug || !meta?.fundSlug || meta.fundSlug !== fundSlug) continue
+            if (meta.isSubscription === 'true') continue
+            const grossCents = pi.amount_received
+            const grossFiatAmount = grossCents / 100
+            const charge = pi.latest_charge
+            const bt = charge && typeof charge === 'object' ? charge.balance_transaction : null
+            const btObj = bt && typeof bt === 'object' ? bt : null
+            const { fee, net: netFiatAmount } = btObj
+              ? balanceTransactionToUsd(btObj, grossCents)
+              : { fee: 0, net: grossFiatAmount }
+            items.push({
+              id: pi.id,
+              createdAt: new Date(pi.created * 1000),
+              paymentId: pi.id,
+              invoiceId: null,
+              projectSlug: meta.projectSlug,
+              projectName: meta.projectName ?? 'General',
+              fundSlug: meta.fundSlug as FundSlug,
+              grossFiatAmount,
+              fee,
+              netFiatAmount,
+              isRecurring: false,
+            })
+          }
+        } catch (err) {
+          console.error(`[Stripe] Failed to fetch from ${fundSlug}:`, err)
+        }
+      }
+
+      items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      return items
     }),
 })

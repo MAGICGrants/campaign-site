@@ -109,6 +109,20 @@ export type BtcPayPaymentItem = {
   isStaticGenerated: boolean
 }
 
+export type StripeInvoiceItem = {
+  id: string
+  createdAt: Date
+  paymentId: string
+  invoiceId: string | null
+  projectSlug: string
+  projectName: string
+  fundSlug: string
+  grossFiatAmount: number
+  fee: number
+  netFiatAmount: number
+  isRecurring: boolean
+}
+
 // Strapi Perk
 
 export type StrapiPerk = {
