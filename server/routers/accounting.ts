@@ -3,7 +3,7 @@ import { DonationSource, Prisma } from '@prisma/client'
 import { publicProcedure, router } from '../trpc'
 import { prisma } from '../services'
 import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from '../utils/btcpayserver'
-import { getDeposits } from '../utils/kraken'
+import { getDeposits, getClosedSellOrders } from '../utils/kraken'
 import type { BtcPayPaymentItem } from '../types'
 
 const donationSourceSchema = z.enum(['btcpayserver', 'coinbase', 'stripe'])
@@ -209,8 +209,20 @@ export const accountingRouter = router({
       const startOfMonth = new Date(input.year, input.month - 1, 1)
       const startOfNextMonth = new Date(input.year, input.month, 1)
       const allDeposits = await getDeposits(startOfMonth)
-      return allDeposits.filter(
-        (d) => d.time >= startOfMonth && d.time < startOfNextMonth
-      )
+      return allDeposits.filter((d) => d.time >= startOfMonth && d.time < startOfNextMonth)
+    }),
+
+  listKrakenSellOrdersByMonth: publicProcedure
+    .input(
+      z.object({
+        year: z.number().int().min(2000).max(2100),
+        month: z.number().int().min(1).max(12),
+      })
+    )
+    .query(async ({ input }) => {
+      const startOfMonth = new Date(input.year, input.month - 1, 1)
+      const startOfNextMonth = new Date(input.year, input.month, 1)
+      const allOrders = await getClosedSellOrders(startOfMonth)
+      return allOrders.filter((o) => o.closedAt >= startOfMonth && o.closedAt < startOfNextMonth)
     }),
 })

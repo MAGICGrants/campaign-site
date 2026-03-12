@@ -6,6 +6,7 @@ export type KrakenSellOrder = {
   orderId: string
   pair: string
   cryptoCode: string
+  vol: number
   volExec: number
   cost: number
   fee: number
@@ -280,6 +281,7 @@ export async function getClosedSellOrders(start: Date): Promise<KrakenSellOrder[
         orderId,
         pair: order.descr.pair,
         cryptoCode,
+        vol: Number(order.vol),
         volExec: Number(order.vol_exec),
         cost,
         fee,
