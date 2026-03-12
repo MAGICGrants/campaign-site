@@ -317,7 +317,7 @@ export default function BtcPayPaymentsPage() {
                   </TableRow>
                 ) : (
                   filteredPayments.map((record) => {
-                    const cryptoFormatted = `${record.cryptoAmount.toFixed(3)} ${record.cryptoCode}`
+                    const cryptoFormatted = `${record.cryptoAmount} ${record.cryptoCode}`
                     const fundTitle =
                       funds[record.fundSlug as keyof typeof funds]?.title?.replace(' Fund', '') ??
                       record.fundSlug
