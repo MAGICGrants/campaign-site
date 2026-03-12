@@ -26,7 +26,7 @@ import { Button } from '../../components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
 import { cn } from '../../utils/cn'
 import { trpc } from '../../utils/trpc'
-import { DonationAccounting, DonationSource } from '@prisma/client'
+import { DonationSource } from '@prisma/client'
 import { funds } from '../../utils/funds'
 
 dayjs.extend(localizedFormat)
@@ -94,7 +94,25 @@ function escapeCsvValue(value: string | number): string {
   return str
 }
 
-function exportToCsv(records: DonationAccounting[]) {
+type AccountingRecord = {
+  id: string
+  paymentReceivedAt: Date
+  source: string
+  fundSlug: string
+  projectSlug: string
+  projectName: string
+  invoiceId: string
+  cryptoAmount: string
+  cryptoCode: string
+  rate: string
+  fiatAmount: number
+  fee: number | null
+  krakenDeposits: MatchedDeposit[] | null
+  krakenOrders: MatchedOrder[] | null
+  totalRealizedUsd: number
+}
+
+function exportToCsv(records: (Omit<AccountingRecord, 'krakenDeposits' | 'krakenOrders'> & { krakenDeposits?: unknown; krakenOrders?: unknown })[]) {
   const headers = [
     'time',
     'source',
@@ -104,6 +122,7 @@ function exportToCsv(records: DonationAccounting[]) {
     'amount',
     'asset',
     'amountUsd',
+    'fee',
     'depositIds',
     'orderIds',
     'realizedUsd',
@@ -111,20 +130,22 @@ function exportToCsv(records: DonationAccounting[]) {
   const rows = records.map((record) => {
     const deposits = (record.krakenDeposits as MatchedDeposit[] | null) ?? []
     const orders = (record.krakenOrders as MatchedOrder[] | null) ?? []
-    const cryptoAmountNum = Number(record.cryptoAmount)
-    const rateNum = Number(record.rate)
-    const amountUsd = cryptoAmountNum * rateNum
+    const amountUsd =
+      record.source === 'stripe' ? record.fiatAmount : Number(record.cryptoAmount) * Number(record.rate)
+    const feeStr =
+      record.source === 'stripe' && record.fee != null ? record.fee.toFixed(2) : '-'
     return [
       dayjs.utc(record.paymentReceivedAt).format('YYYY-MM-DD HH:mm:ss') + ' GMT',
       record.source,
-      funds[record.fundSlug].title.replace(' Fund', ''),
+      funds[record.fundSlug as keyof typeof funds].title.replace(' Fund', ''),
       record.projectName,
       record.invoiceId,
       record.cryptoAmount,
       record.cryptoCode,
       amountUsd.toFixed(2),
-      deposits.map((d) => d.txid).join(';'),
-      orders.map((o) => o.orderId).join(';'),
+      feeStr,
+      record.source === 'stripe' ? '-' : deposits.map((d) => d.txid).join(';'),
+      record.source === 'stripe' ? '-' : orders.map((o) => o.orderId).join(';'),
       record.totalRealizedUsd.toFixed(2),
     ]
   })
@@ -358,7 +379,8 @@ export default function AccountingPage() {
     for (const record of records) {
       const fundSlug = record.fundSlug
       const fundTitle = funds[fundSlug].title.replace(' Fund', '')
-      const amountUsd = Number(record.cryptoAmount) * Number(record.rate)
+      const amountUsd =
+        record.source === 'stripe' ? record.fiatAmount : Number(record.cryptoAmount) * Number(record.rate)
       const existing = byFund.get(fundSlug)
       if (existing) {
         existing.invoiceSum += amountUsd
@@ -526,6 +548,7 @@ export default function AccountingPage() {
                   <TableHead className="text-foreground">Invoice ID</TableHead>
                   <TableHead className="text-foreground">Amount</TableHead>
                   <TableHead className="text-foreground">Amount USD</TableHead>
+                  <TableHead className="text-foreground">Fee</TableHead>
                   <TableHead className="text-foreground">Deposits</TableHead>
                   <TableHead className="text-foreground">Orders</TableHead>
                   <TableHead className="text-foreground">Realized</TableHead>
@@ -534,24 +557,29 @@ export default function AccountingPage() {
               <TableBody>
                 {listByMonthQuery.isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : records.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       No records for this month
                     </TableCell>
                   </TableRow>
                 ) : (
-                  records.map((record: DonationAccounting) => {
+                  records.map((record) => {
                     const deposits = (record.krakenDeposits as MatchedDeposit[] | null) ?? []
                     const orders = (record.krakenOrders as MatchedOrder[] | null) ?? []
-                    const cryptoAmountNum = Number(record.cryptoAmount)
-                    const rateNum = Number(record.rate)
-                    const amountUsd = cryptoAmountNum * rateNum
-                    const cryptoFormatted = `${cryptoAmountNum.toFixed(3)} ${record.cryptoCode}`
+                    const amountUsd =
+                      record.source === 'stripe'
+                        ? record.fiatAmount
+                        : Number(record.cryptoAmount) * Number(record.rate)
+                    const cryptoFormatted =
+                      record.source === 'stripe'
+                        ? '-'
+                        : `${Number(record.cryptoAmount).toFixed(3)} ${record.cryptoCode}`
+                    const isStripe = record.source === 'stripe'
                     return (
                       <TableRow key={record.id}>
                         <TableCell>{dayjs(record.paymentReceivedAt).format('lll')}</TableCell>
@@ -559,7 +587,9 @@ export default function AccountingPage() {
                           {SOURCE_OPTIONS.find((o) => o.value === record.source)?.label ??
                             record.source}
                         </TableCell>
-                        <TableCell>{funds[record.fundSlug].title.replace(' Fund', '')}</TableCell>
+                        <TableCell>
+                          {funds[record.fundSlug as keyof typeof funds].title.replace(' Fund', '')}
+                        </TableCell>
                         <TableCell title={record.projectName}>
                           {record.projectName.length > 20
                             ? `${record.projectName.slice(0, 20)}…`
@@ -571,38 +601,51 @@ export default function AccountingPage() {
                         <TableCell>{cryptoFormatted}</TableCell>
                         <TableCell>{usdFormat.format(amountUsd)}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span>
-                              {deposits.length} deposit{deposits.length !== 1 ? 's' : ''}
-                            </span>
-                            {deposits.length > 0 && (
-                              <Button
-                                size="icon"
-                                variant="light"
-                                className="h-7 w-7 shrink-0"
-                                onClick={() => setDepositsDialog({ open: true, deposits })}
-                              >
-                                <TableIcon size={14} />
-                              </Button>
-                            )}
-                          </div>
+                          {isStripe && record.fee != null
+                            ? usdFormat.format(record.fee)
+                            : '-'}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span>
-                              {orders.length} order{orders.length !== 1 ? 's' : ''}
-                            </span>
-                            {orders.length > 0 && (
-                              <Button
-                                size="icon"
-                                variant="light"
-                                className="h-7 w-7 shrink-0"
-                                onClick={() => setOrdersDialog({ open: true, orders })}
-                              >
-                                <TableIcon size={14} />
-                              </Button>
-                            )}
-                          </div>
+                          {isStripe ? (
+                            '-'
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span>
+                                {deposits.length} deposit{deposits.length !== 1 ? 's' : ''}
+                              </span>
+                              {deposits.length > 0 && (
+                                <Button
+                                  size="icon"
+                                  variant="light"
+                                  className="h-7 w-7 shrink-0"
+                                  onClick={() => setDepositsDialog({ open: true, deposits })}
+                                >
+                                  <TableIcon size={14} />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isStripe ? (
+                            '-'
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span>
+                                {orders.length} order{orders.length !== 1 ? 's' : ''}
+                              </span>
+                              {orders.length > 0 && (
+                                <Button
+                                  size="icon"
+                                  variant="light"
+                                  className="h-7 w-7 shrink-0"
+                                  onClick={() => setOrdersDialog({ open: true, orders })}
+                                >
+                                  <TableIcon size={14} />
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>{usdFormat.format(record.totalRealizedUsd)}</TableCell>
                       </TableRow>

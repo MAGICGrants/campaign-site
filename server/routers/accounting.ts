@@ -62,28 +62,161 @@ export const accountingRouter = router({
     .query(async ({ input }) => {
       const startOfMonth = new Date(input.year, input.month - 1, 1)
       const startOfNextMonth = new Date(input.year, input.month, 1)
+      const startTs = Math.floor(startOfMonth.getTime() / 1000)
+      const endTs = Math.floor(startOfNextMonth.getTime() / 1000)
 
-      const where: Prisma.DonationAccountingWhereInput = {
-        paymentReceivedAt: {
-          gte: startOfMonth,
-          lt: startOfNextMonth,
-        },
+      const includeStripe =
+        !input.sources || input.sources.length === 0 || input.sources.includes('stripe')
+      const dbSources: DonationSource[] =
+        input.sources && input.sources.length > 0
+          ? input.sources.filter((s): s is DonationSource => s !== 'stripe')
+          : ['btcpayserver', 'coinbase']
+
+      const records: {
+        id: string
+        paymentReceivedAt: Date
+        source: DonationSource
+        fundSlug: FundSlug
+        projectSlug: string
+        projectName: string
+        invoiceId: string
+        cryptoAmount: string
+        cryptoCode: string
+        rate: string
+        fiatAmount: number
+        fee: number | null
+        krakenDeposits: unknown
+        krakenOrders: unknown
+        totalRealizedUsd: number
+      }[] = []
+
+      if (dbSources.length > 0) {
+        const where: Prisma.DonationAccountingWhereInput = {
+          paymentReceivedAt: { gte: startOfMonth, lt: startOfNextMonth },
+          source: { in: dbSources },
+        }
+        if (input.projectSlug) where.projectSlug = input.projectSlug
+        if (input.fundSlug) where.fundSlug = input.fundSlug as FundSlug
+
+        const dbRecords = await prisma.donationAccounting.findMany({
+          where,
+          orderBy: { paymentReceivedAt: 'asc' },
+        })
+        records.push(
+          ...dbRecords.map((r) => ({
+            id: r.id,
+            paymentReceivedAt: r.paymentReceivedAt,
+            source: r.source,
+            fundSlug: r.fundSlug,
+            projectSlug: r.projectSlug,
+            projectName: r.projectName,
+            invoiceId: r.invoiceId,
+            cryptoAmount: r.cryptoAmount,
+            cryptoCode: r.cryptoCode,
+            rate: r.rate,
+            fiatAmount: r.fiatAmount,
+            fee: null as number | null,
+            krakenDeposits: r.krakenDeposits,
+            krakenOrders: r.krakenOrders,
+            totalRealizedUsd: r.totalRealizedUsd,
+          }))
+        )
       }
 
-      if (input.projectSlug) {
-        where.projectSlug = input.projectSlug
-      }
-      if (input.fundSlug) {
-        where.fundSlug = input.fundSlug as any
-      }
-      if (input.sources && input.sources.length > 0) {
-        where.source = { in: input.sources as DonationSource[] }
+      if (includeStripe) {
+        for (const fundSlug of FUND_SLUGS) {
+          if (input.fundSlug && input.fundSlug !== fundSlug) continue
+          const stripeClient = stripe[fundSlug]
+          if (!stripeClient) continue
+
+          try {
+            for await (const inv of stripeClient.invoices.list({
+              created: { gte: startTs, lt: endTs },
+              status: 'paid',
+              limit: 100,
+              expand: ['data.subscription_details', 'data.charge.balance_transaction'],
+            })) {
+              const meta =
+                (inv.subscription_details as { metadata?: Record<string, string> } | null)
+                  ?.metadata ?? (inv.metadata as Record<string, string> | null)
+              if (!meta?.projectSlug || !meta?.fundSlug || meta.fundSlug !== fundSlug) continue
+              if (input.projectSlug && input.projectSlug !== meta.projectSlug) continue
+
+              const grossCents = inv.amount_paid ?? inv.total ?? 0
+              const grossFiatAmount = grossCents / 100
+              const bt =
+                inv.charge && typeof inv.charge === 'object' ? inv.charge.balance_transaction : null
+              const btObj = bt && typeof bt === 'object' ? bt : null
+              const { fee, net: netFiatAmount } = btObj
+                ? balanceTransactionToUsd(btObj, grossCents)
+                : { fee: 0, net: grossFiatAmount }
+
+              records.push({
+                id: `stripe-inv-${inv.id}`,
+                paymentReceivedAt: new Date(inv.created * 1000),
+                source: 'stripe' as DonationSource,
+                fundSlug: meta.fundSlug as FundSlug,
+                projectSlug: meta.projectSlug,
+                projectName: meta.projectName ?? 'General',
+                invoiceId: inv.id,
+                cryptoAmount: '-',
+                cryptoCode: 'USD',
+                rate: '1',
+                fiatAmount: grossFiatAmount,
+                fee,
+                krakenDeposits: null,
+                krakenOrders: null,
+                totalRealizedUsd: netFiatAmount,
+              })
+            }
+
+            for await (const pi of stripeClient.paymentIntents.list({
+              created: { gte: startTs, lt: endTs },
+              limit: 100,
+              expand: ['data.latest_charge.balance_transaction'],
+            })) {
+              if (pi.status !== 'succeeded' || !pi.amount_received || pi.amount_received <= 0)
+                continue
+              const meta = pi.metadata as Record<string, string> | null
+              if (!meta?.projectSlug || !meta?.fundSlug || meta.fundSlug !== fundSlug) continue
+              if (meta.isSubscription === 'true') continue
+              if (input.projectSlug && input.projectSlug !== meta.projectSlug) continue
+
+              const grossCents = pi.amount_received
+              const grossFiatAmount = grossCents / 100
+              const charge = pi.latest_charge
+              const bt = charge && typeof charge === 'object' ? charge.balance_transaction : null
+              const btObj = bt && typeof bt === 'object' ? bt : null
+              const { fee, net: netFiatAmount } = btObj
+                ? balanceTransactionToUsd(btObj, grossCents)
+                : { fee: 0, net: grossFiatAmount }
+
+              records.push({
+                id: `stripe-pi-${pi.id}`,
+                paymentReceivedAt: new Date(pi.created * 1000),
+                source: 'stripe' as DonationSource,
+                fundSlug: meta.fundSlug as FundSlug,
+                projectSlug: meta.projectSlug,
+                projectName: meta.projectName ?? 'General',
+                invoiceId: pi.id,
+                cryptoAmount: '-',
+                cryptoCode: 'USD',
+                rate: '1',
+                fiatAmount: grossFiatAmount,
+                fee,
+                krakenDeposits: null,
+                krakenOrders: null,
+                totalRealizedUsd: netFiatAmount,
+              })
+            }
+          } catch (err) {
+            console.error(`[Stripe] Failed to fetch from ${fundSlug}:`, err)
+          }
+        }
       }
 
-      return prisma.donationAccounting.findMany({
-        where,
-        orderBy: { paymentReceivedAt: 'asc' },
-      })
+      records.sort((a, b) => a.paymentReceivedAt.getTime() - b.paymentReceivedAt.getTime())
+      return records
     }),
 
   listAvailableProjects: publicProcedure.query(async () => {
@@ -271,7 +404,6 @@ export const accountingRouter = router({
             limit: 100,
             expand: ['data.subscription_details', 'data.charge.balance_transaction'],
           })) {
-            console.log(inv)
             const meta =
               (inv.subscription_details as { metadata?: Record<string, string> } | null)
                 ?.metadata ?? (inv.metadata as Record<string, string> | null)
