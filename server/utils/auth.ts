@@ -3,6 +3,19 @@ import { jwtDecode } from 'jwt-decode'
 
 import { env } from '../../env.mjs'
 import { KeycloakJwtPayload } from '../types'
+import { keycloak } from '../services'
+
+export function isUserAdmin(accessToken: string | undefined): boolean {
+  if (!accessToken) return false
+  try {
+    const payload = jwtDecode<KeycloakJwtPayload>(accessToken)
+    const groups = payload.groups ?? []
+    const hasAdminGroup = groups.some((g) => g === '/site-admin')
+    return hasAdminGroup
+  } catch {
+    return false
+  }
+}
 
 export async function refreshToken(token: JWT): Promise<JWT> {
   try {
@@ -36,6 +49,7 @@ export async function refreshToken(token: JWT): Promise<JWT> {
       accessToken: newToken.access_token,
       accessTokenExpiresAt: Date.now() + (newToken.expires_in as number) * 1000,
       refreshToken: newToken.refresh_token,
+      isAdmin: isUserAdmin(newToken.access_token),
     }
   } catch (error) {
     return { ...token, error: 'RefreshAccessTokenError' }

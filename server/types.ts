@@ -3,6 +3,7 @@ import { FundSlug, MembershipTerm } from '@prisma/client'
 export type KeycloakJwtPayload = {
   sub: string
   email: string
+  groups?: string[]
 }
 
 export type UserSettingsJwtPayload = {

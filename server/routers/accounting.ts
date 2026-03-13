@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { DonationSource, FundSlug, Prisma } from '@prisma/client'
-import { publicProcedure, router } from '../trpc'
+import { adminProcedure, router } from '../trpc'
 import { prisma, stripe } from '../services'
 import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from '../utils/btcpayserver'
 import { getDeposits, getClosedSellOrders } from '../utils/kraken'
@@ -49,7 +49,7 @@ function findFundingApiRate(
 }
 
 export const accountingRouter = router({
-  listByMonth: publicProcedure
+  listByMonth: adminProcedure
     .input(
       z.object({
         year: z.number().int().min(2000).max(2100),
@@ -219,7 +219,7 @@ export const accountingRouter = router({
       return records
     }),
 
-  listAvailableProjects: publicProcedure.query(async () => {
+  listAvailableProjects: adminProcedure.query(async () => {
     const records = await prisma.donationAccounting.findMany({
       select: { projectSlug: true, projectName: true },
       distinct: ['projectSlug'],
@@ -228,7 +228,7 @@ export const accountingRouter = router({
     return records.map((r) => ({ projectSlug: r.projectSlug, projectName: r.projectName }))
   }),
 
-  listAvailableMonths: publicProcedure.query(async () => {
+  listAvailableMonths: adminProcedure.query(async () => {
     const records = await prisma.donationAccounting.findMany({
       select: { paymentReceivedAt: true },
       orderBy: { paymentReceivedAt: 'asc' },
@@ -246,7 +246,7 @@ export const accountingRouter = router({
     return Array.from(months.values()).sort((a, b) => a.year - b.year || a.month - b.month)
   }),
 
-  listBtcPayPaymentsByMonth: publicProcedure
+  listBtcPayPaymentsByMonth: adminProcedure
     .input(
       z.object({
         year: z.number().int().min(2000).max(2100),
@@ -349,7 +349,7 @@ export const accountingRouter = router({
       return items
     }),
 
-  listKrakenDepositsByMonth: publicProcedure
+  listKrakenDepositsByMonth: adminProcedure
     .input(
       z.object({
         year: z.number().int().min(2000).max(2100),
@@ -363,7 +363,7 @@ export const accountingRouter = router({
       return allDeposits.filter((d) => d.time >= startOfMonth && d.time < startOfNextMonth)
     }),
 
-  listKrakenSellOrdersByMonth: publicProcedure
+  listKrakenSellOrdersByMonth: adminProcedure
     .input(
       z.object({
         year: z.number().int().min(2000).max(2100),
@@ -377,7 +377,7 @@ export const accountingRouter = router({
       return allOrders.filter((o) => o.closedAt >= startOfMonth && o.closedAt < startOfNextMonth)
     }),
 
-  listStripeInvoicesByMonth: publicProcedure
+  listStripeInvoicesByMonth: adminProcedure
     .input(
       z.object({
         year: z.number().int().min(2000).max(2100),

@@ -6,22 +6,27 @@ export default withAuth({
     signIn: '/',
   },
   callbacks: {
-    async authorized({ token }) {
+    async authorized({ token, req }) {
+      const isAdminRoute = req.nextUrl.pathname.startsWith('/admin')
+
       if (!token) return false
 
-      if (Date.now() < token.accessTokenExpiresAt && !token.error) {
+      if (Date.now() >= token.accessTokenExpiresAt || token.error) {
+        const newToken = await refreshToken(token)
+        if (Date.now() >= newToken.accessTokenExpiresAt || newToken.error) {
+          return false
+        }
+        if (isAdminRoute && !newToken.isAdmin) {
+          return false
+        }
         return true
       }
 
-      const newToken = await refreshToken(token)
+      if (isAdminRoute && !token.isAdmin) return false
 
-      if (Date.now() < newToken.accessTokenExpiresAt && !newToken.error) {
-        return true
-      }
-
-      return false
+      return true
     },
   },
 })
 
-export const config = { matcher: ['/:path/account/:path*'] }
+export const config = { matcher: ['/:path/account/:path*', '/admin/:path*'] }
