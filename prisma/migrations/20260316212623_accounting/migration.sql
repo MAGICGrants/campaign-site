@@ -7,7 +7,7 @@ CREATE TABLE "DonationAccounting" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "source" "DonationSource" NOT NULL,
-    "invoiceId" TEXT NOT NULL,
+    "invoiceId" TEXT,
     "paymentId" TEXT,
     "paymentReceivedAt" TIMESTAMP(3) NOT NULL,
     "cryptoCode" TEXT NOT NULL,
@@ -17,9 +17,9 @@ CREATE TABLE "DonationAccounting" (
     "krakenDeposits" JSONB NOT NULL,
     "krakenOrders" JSONB NOT NULL,
     "totalRealizedUsd" DOUBLE PRECISION NOT NULL,
-    "projectSlug" TEXT NOT NULL,
-    "projectName" TEXT NOT NULL,
-    "fundSlug" "FundSlug" NOT NULL,
+    "projectSlug" TEXT,
+    "projectName" TEXT,
+    "fundSlug" "FundSlug",
 
     CONSTRAINT "DonationAccounting_pkey" PRIMARY KEY ("id")
 );

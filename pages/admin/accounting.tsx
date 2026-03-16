@@ -98,10 +98,10 @@ type AccountingRecord = {
   id: string
   paymentReceivedAt: Date
   source: string
-  fundSlug: string
-  projectSlug: string
-  projectName: string
-  invoiceId: string
+  fundSlug: string | null
+  projectSlug: string | null
+  projectName: string | null
+  invoiceId: string | null
   cryptoAmount: string
   cryptoCode: string
   rate: string
@@ -137,9 +137,11 @@ function exportToCsv(records: (Omit<AccountingRecord, 'krakenDeposits' | 'kraken
     return [
       dayjs.utc(record.paymentReceivedAt).format('YYYY-MM-DD HH:mm:ss') + ' GMT',
       record.source,
-      funds[record.fundSlug as keyof typeof funds].title.replace(' Fund', ''),
-      record.projectName,
-      record.invoiceId,
+      record.fundSlug && record.fundSlug in funds
+        ? funds[record.fundSlug as keyof typeof funds].title.replace(' Fund', '')
+        : '—',
+      record.projectName ?? '—',
+      record.invoiceId ?? '—',
       record.cryptoAmount,
       record.cryptoCode,
       amountUsd.toFixed(2),
@@ -377,8 +379,11 @@ export default function AccountingPage() {
   const summaryByFund = useMemo(() => {
     const byFund = new Map<string, { fundTitle: string; invoiceSum: number; depositSum: number }>()
     for (const record of records) {
-      const fundSlug = record.fundSlug
-      const fundTitle = funds[fundSlug].title.replace(' Fund', '')
+      const fundSlug = record.fundSlug ?? '__unknown__'
+      const fundTitle =
+        fundSlug !== '__unknown__' && fundSlug in funds
+          ? funds[fundSlug as keyof typeof funds].title.replace(' Fund', '')
+          : 'Unknown'
       const amountUsd =
         record.source === 'stripe' ? record.fiatAmount : Number(record.cryptoAmount) * Number(record.rate)
       const existing = byFund.get(fundSlug)
@@ -461,6 +466,7 @@ export default function AccountingPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All funds</SelectItem>
+              <SelectItem value="__unknown__">Unknown</SelectItem>
               {Object.entries(funds).map(([slug, fund]) => (
                 <SelectItem key={slug} value={slug}>
                   {fund.title.replace(' Fund', '')}
@@ -588,15 +594,19 @@ export default function AccountingPage() {
                             record.source}
                         </TableCell>
                         <TableCell>
-                          {funds[record.fundSlug as keyof typeof funds].title.replace(' Fund', '')}
+                          {record.fundSlug && record.fundSlug in funds
+                            ? funds[record.fundSlug as keyof typeof funds].title.replace(' Fund', '')
+                            : '—'}
                         </TableCell>
-                        <TableCell title={record.projectName}>
-                          {record.projectName.length > 20
-                            ? `${record.projectName.slice(0, 20)}…`
-                            : record.projectName}
+                        <TableCell title={record.projectName ?? undefined}>
+                          {record.projectName
+                            ? record.projectName.length > 20
+                              ? `${record.projectName.slice(0, 20)}…`
+                              : record.projectName
+                            : '—'}
                         </TableCell>
                         <TableCell>
-                          <CopyableText text={record.invoiceId} truncate />
+                          <CopyableText text={record.invoiceId ?? '—'} truncate />
                         </TableCell>
                         <TableCell>{cryptoFormatted}</TableCell>
                         <TableCell>{usdFormat.format(amountUsd)}</TableCell>

@@ -76,10 +76,10 @@ export const accountingRouter = router({
         id: string
         paymentReceivedAt: Date
         source: DonationSource
-        fundSlug: FundSlug
-        projectSlug: string
-        projectName: string
-        invoiceId: string
+        fundSlug: FundSlug | null
+        projectSlug: string | null
+        projectName: string | null
+        invoiceId: string | null
         cryptoAmount: string
         cryptoCode: string
         rate: string
@@ -95,8 +95,14 @@ export const accountingRouter = router({
           paymentReceivedAt: { gte: startOfMonth, lt: startOfNextMonth },
           source: { in: dbSources },
         }
-        if (input.projectSlug) where.projectSlug = input.projectSlug
-        if (input.fundSlug) where.fundSlug = input.fundSlug as FundSlug
+        if (input.projectSlug) {
+          where.projectSlug =
+            input.projectSlug === '__unknown__' ? null : input.projectSlug
+        }
+        if (input.fundSlug) {
+          where.fundSlug =
+            input.fundSlug === '__unknown__' ? null : (input.fundSlug as FundSlug)
+        }
 
         const dbRecords = await prisma.donationAccounting.findMany({
           where,
@@ -225,7 +231,14 @@ export const accountingRouter = router({
       distinct: ['projectSlug'],
       orderBy: { projectName: 'asc' },
     })
-    return records.map((r) => ({ projectSlug: r.projectSlug, projectName: r.projectName }))
+    const hasUnknown = records.some((r) => r.projectSlug == null)
+    const projects = records
+      .filter((r) => r.projectSlug != null)
+      .map((r) => ({ projectSlug: r.projectSlug!, projectName: r.projectName ?? 'Unknown' }))
+    if (hasUnknown) {
+      projects.push({ projectSlug: '__unknown__', projectName: 'Unknown' })
+    }
+    return projects
   }),
 
   listAvailableMonths: adminProcedure.query(async () => {

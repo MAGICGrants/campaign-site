@@ -91,7 +91,7 @@ model DonationAccounting {
   updatedAt DateTime @updatedAt
 
   source            DonationSource
-  invoiceId         String
+  invoiceId         String?
   paymentId         String?        @unique
   paymentReceivedAt DateTime
   cryptoCode        String
@@ -101,9 +101,9 @@ model DonationAccounting {
   krakenDeposits    Json
   krakenOrders      Json
   totalRealizedUsd  Float
-  projectSlug       String
-  projectName       String
-  fundSlug          FundSlug
+  projectSlug       String?
+  projectName       String?
+  fundSlug          FundSlug?
 
   @@index([projectSlug])
   @@index([fundSlug])

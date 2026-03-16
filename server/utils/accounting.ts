@@ -9,16 +9,16 @@ import { loadCoinbaseExportCsv } from './coinbase-export-csv'
 
 type PaymentItem = {
   paymentId: string
-  invoiceId: string
+  invoiceId: string | null
   receivedAt: Date
   cryptoCode: string
   cryptoAmount: number
   cryptoAmountRaw: string
   rate: string
   fiatAmount: number
-  projectSlug: string
-  projectName: string
-  fundSlug: FundSlug
+  projectSlug: string | null
+  projectName: string | null
+  fundSlug: FundSlug | null
   source: DonationSource
 }
 
@@ -46,7 +46,7 @@ type MatchedOrder = {
 
 type PaymentMatch = {
   paymentId: string
-  invoiceId: string
+  invoiceId: string | null
   receivedAt: Date
   cryptoCode: string
   cryptoAmountRaw: string
@@ -55,9 +55,9 @@ type PaymentMatch = {
   deposits: MatchedDeposit[]
   orders: MatchedOrder[]
   totalRealizedUsd: number
-  projectSlug: string
-  projectName: string
-  fundSlug: FundSlug
+  projectSlug: string | null
+  projectName: string | null
+  fundSlug: FundSlug | null
   source: DonationSource
 }
 
@@ -96,8 +96,6 @@ async function extractBtcPayPaymentItems(
   }
 
   for (const invoice of invoices) {
-    if (!invoice.metadata?.fundSlug) continue
-
     let paymentMethods
     try {
       paymentMethods = await getBtcPayInvoicePaymentMethods(invoice.id)
@@ -141,9 +139,9 @@ async function extractBtcPayPaymentItems(
           cryptoAmountRaw: payment.value,
           rate,
           fiatAmount: Number((cryptoAmount * Number(rate)).toFixed(2)),
-          projectSlug: invoice.metadata.projectSlug,
-          projectName: invoice.metadata.projectName,
-          fundSlug: invoice.metadata.fundSlug,
+          projectSlug: invoice.metadata.projectSlug ?? null,
+          projectName: invoice.metadata.projectName ?? null,
+          fundSlug: invoice.metadata.fundSlug ?? null,
           source: DonationSource.btcpayserver,
         })
       }
@@ -188,12 +186,9 @@ async function extractCoinbasePaymentItems(invoices: CoinbaseCdpInvoice[]): Prom
 
     if (IGNORED_PAYMENT_IDS.includes(invoice.uuid)) continue
 
-    const metadata = parseMetadataFromCoinbaseMemo(invoice.memo) ??
-      parseMetadataFromCoinbaseMemo(invoice.privateNotes) ?? {
-        projectSlug: 'general',
-        projectName: 'General',
-        fundSlug: 'general' as FundSlug,
-      }
+    const metadata =
+      parseMetadataFromCoinbaseMemo(invoice.memo) ??
+      parseMetadataFromCoinbaseMemo(invoice.privateNotes)
 
     const receivedAt = new Date(invoice.updatedAt)
     const rate = '1'
@@ -208,9 +203,9 @@ async function extractCoinbasePaymentItems(invoices: CoinbaseCdpInvoice[]): Prom
       cryptoAmountRaw: invoice.totalAmountDue.value,
       rate,
       fiatAmount,
-      projectSlug: metadata.projectSlug,
-      projectName: metadata.projectName,
-      fundSlug: metadata.fundSlug,
+      projectSlug: metadata?.projectSlug ?? null,
+      projectName: metadata?.projectName ?? null,
+      fundSlug: metadata?.fundSlug ?? null,
       source: DonationSource.coinbase,
     })
   }
@@ -280,6 +275,26 @@ async function fetchNetworkFees(
   return feeMap
 }
 
+/**
+ * Ensures each payment has a non-empty paymentId for map keys and upsert.
+ * Generates a stable id for payments that lack one.
+ */
+function normalizePaymentItems(
+  items: (Omit<PaymentItem, 'paymentId'> & { paymentId?: string | null })[]
+): PaymentItem[] {
+  return items.map((item, idx) => ({
+    ...item,
+    paymentId:
+      item.paymentId && item.paymentId.trim()
+        ? item.paymentId
+        : `_manual_${item.source}_${item.receivedAt.getTime()}_${item.cryptoAmount}_${item.cryptoCode}_${idx}`,
+    invoiceId: item.invoiceId ?? null,
+    projectSlug: item.projectSlug ?? null,
+    projectName: item.projectName ?? null,
+    fundSlug: item.fundSlug ?? null,
+  }))
+}
+
 function groupBy<T>(items: T[], keyFn: (item: T) => string): Map<string, T[]> {
   const map = new Map<string, T[]>()
   for (const item of items) {
@@ -327,8 +342,8 @@ function matchPaymentsToDeposits(
         matchedCrypto: matchCrypto,
       })
 
-      paymentRemaining -= matchCrypto
-      depositRemaining -= matchCrypto
+      paymentRemaining -= matchCrypto + proportionalNetworkFee
+      depositRemaining -= matchCrypto + proportionalNetworkFee
 
       if (depositRemaining <= EPSILON) {
         depIdx++
@@ -341,44 +356,51 @@ function matchPaymentsToDeposits(
 }
 
 /**
- * Phase B: Match deposit amounts to sell order volumes using a sequential
- * waterfall.
+ * Phase B: Match payment crypto amounts to sell order volumes using a sequential
+ * waterfall. Independent of deposits - uses the same crypto amount each payment
+ * matched to deposits, but consumes from the order queue in order sequence.
  */
-type DepositOrderLink = {
-  depositTxid: string
-  orderId: string
-  order: KrakenSellOrder
-  matchedCrypto: number
-  matchedUsd: number
-}
-
-function matchDepositsToOrders(
-  deposits: KrakenDeposit[],
+function matchPaymentsToOrders(
+  payments: PaymentItem[],
+  paymentDeposits: Map<string, MatchedDeposit[]>,
   orders: KrakenSellOrder[]
-): DepositOrderLink[] {
-  const links: DepositOrderLink[] = []
+): Map<string, MatchedOrder[]> {
+  const result = new Map<string, MatchedOrder[]>()
+  for (const p of payments) result.set(p.paymentId, [])
 
   let orderIdx = 0
   let orderRemaining = orders.length > 0 ? orders[0].volExec : 0
 
-  for (const deposit of deposits) {
-    let depositRemaining = deposit.amount
+  for (const payment of payments) {
+    const deposits = paymentDeposits.get(payment.paymentId) || []
+    let cryptoToAllocate = deposits.reduce((sum, d) => sum + d.matchedCrypto, 0)
+    const paymentOrders: MatchedOrder[] = []
 
-    while (depositRemaining > EPSILON && orderIdx < orders.length) {
+    while (cryptoToAllocate > EPSILON && orderIdx < orders.length) {
       const order = orders[orderIdx]
-      const matchCrypto = Math.min(depositRemaining, orderRemaining)
+      const matchCrypto = Math.min(cryptoToAllocate, orderRemaining)
       const proportion = order.volExec > EPSILON ? matchCrypto / order.volExec : 0
       const matchedUsd = proportion * order.netProceeds
 
-      links.push({
-        depositTxid: deposit.txid,
-        orderId: order.orderId,
-        order,
-        matchedCrypto: matchCrypto,
-        matchedUsd,
-      })
+      const existingOrder = paymentOrders.find((o) => o.orderId === order.orderId)
+      if (existingOrder) {
+        existingOrder.matchedCrypto += matchCrypto
+        existingOrder.matchedUsd += matchedUsd
+      } else {
+        paymentOrders.push({
+          orderId: order.orderId,
+          closedAt: order.closedAt.toISOString(),
+          pair: order.pair,
+          volExec: order.volExec,
+          cost: order.cost,
+          fee: order.fee,
+          netProceeds: order.netProceeds,
+          matchedCrypto: matchCrypto,
+          matchedUsd: matchedUsd,
+        })
+      }
 
-      depositRemaining -= matchCrypto
+      cryptoToAllocate -= matchCrypto
       orderRemaining -= matchCrypto
 
       if (orderRemaining <= EPSILON) {
@@ -386,86 +408,31 @@ function matchDepositsToOrders(
         orderRemaining = orderIdx < orders.length ? orders[orderIdx].volExec : 0
       }
     }
+
+    result.set(payment.paymentId, paymentOrders)
   }
 
-  return links
+  return result
 }
 
 /**
- * Roll up: for each payment, trace matched deposits -> matched orders to
- * compute totalRealizedUsd and build the order list.
+ * Roll up: for each payment, combine deposits and orders (both from independent
+ * waterfalls) and compute totalRealizedUsd from the orders.
  */
 function rollUpMatches(
   payments: PaymentItem[],
   paymentDeposits: Map<string, MatchedDeposit[]>,
-  depositOrderLinks: DepositOrderLink[]
+  paymentOrders: Map<string, MatchedOrder[]>
 ): PaymentMatch[] {
-  const linkQueues = new Map<string, DepositOrderLink[]>()
-  for (const link of depositOrderLinks) {
-    const queue = linkQueues.get(link.depositTxid) || []
-    queue.push({ ...link })
-    linkQueues.set(link.depositTxid, queue)
-  }
-
-  const queuePositions = new Map<string, { idx: number; consumed: number }>()
   const results: PaymentMatch[] = []
 
   for (const payment of payments) {
     const deposits = paymentDeposits.get(payment.paymentId) || []
-    const orders: MatchedOrder[] = []
-    let totalRealizedUsd = 0
+    const orders = paymentOrders.get(payment.paymentId) || []
+    const totalRealizedUsd = orders.reduce((sum, o) => sum + o.matchedUsd, 0)
 
-    for (const dep of deposits) {
-      let cryptoToAllocate = dep.matchedCrypto
-      const queue = linkQueues.get(dep.txid) || []
-      let pos = queuePositions.get(dep.txid) || { idx: 0, consumed: 0 }
-
-      while (cryptoToAllocate > EPSILON && pos.idx < queue.length) {
-        const link = queue[pos.idx]
-        const linkRemaining = link.matchedCrypto - pos.consumed
-        const take = Math.min(cryptoToAllocate, linkRemaining)
-        const proportion = link.matchedCrypto > EPSILON ? take / link.matchedCrypto : 0
-        const usd = proportion * link.matchedUsd
-
-        orders.push({
-          orderId: link.orderId,
-          closedAt: link.order.closedAt.toISOString(),
-          pair: link.order.pair,
-          volExec: link.order.volExec,
-          cost: link.order.cost,
-          fee: link.order.fee,
-          netProceeds: link.order.netProceeds,
-          matchedCrypto: take,
-          matchedUsd: usd,
-        })
-
-        totalRealizedUsd += usd
-        cryptoToAllocate -= take
-        pos.consumed += take
-
-        if (pos.consumed >= link.matchedCrypto - EPSILON) {
-          pos.idx++
-          pos.consumed = 0
-        }
-      }
-
-      queuePositions.set(dep.txid, pos)
-    }
-
-    // Aggregate orders by orderId
-    const aggregatedOrders: MatchedOrder[] = []
-    const orderMap = new Map<string, MatchedOrder>()
-    for (const o of orders) {
-      const existing = orderMap.get(o.orderId)
-      if (existing) {
-        existing.matchedCrypto += o.matchedCrypto
-        existing.matchedUsd += o.matchedUsd
-      } else {
-        const entry = { ...o }
-        orderMap.set(o.orderId, entry)
-        aggregatedOrders.push(entry)
-      }
-    }
+    deposits.sort((a, b) => a.time.localeCompare(b.time))
+    orders.sort((a, b) => a.closedAt.localeCompare(b.closedAt))
 
     results.push({
       paymentId: payment.paymentId,
@@ -476,7 +443,7 @@ function rollUpMatches(
       rate: payment.rate,
       fiatAmount: payment.fiatAmount,
       deposits,
-      orders: aggregatedOrders,
+      orders,
       totalRealizedUsd: Math.round(totalRealizedUsd * 100) / 100,
       projectSlug: payment.projectSlug,
       projectName: payment.projectName,
@@ -512,7 +479,8 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
     source: DonationSource.coinbase,
   }))
 
-  const paymentItems = [...btcPayItems, ...coinbaseCdpItems, ...coinbaseCsvPaymentItems].sort(
+  const rawPaymentItems = [...btcPayItems, ...coinbaseCdpItems, ...coinbaseCsvPaymentItems]
+  const paymentItems = normalizePaymentItems(rawPaymentItems).sort(
     (a, b) => a.receivedAt.getTime() - b.receivedAt.getTime()
   )
   console.log(
@@ -558,17 +526,23 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
   const allMatches: PaymentMatch[] = []
 
   for (const code of cryptoCodes) {
-    const codePayments = paymentsByCode.get(code) || []
-    const codeDeposits = depositsByCode.get(code) || []
-    const codeOrders = ordersByCode.get(code) || []
+    const codePayments = (paymentsByCode.get(code) || []).sort(
+      (a, b) => a.receivedAt.getTime() - b.receivedAt.getTime()
+    )
+    const codeDeposits = (depositsByCode.get(code) || []).sort(
+      (a, b) => a.time.getTime() - b.time.getTime()
+    )
+    const codeOrders = (ordersByCode.get(code) || []).sort(
+      (a, b) => a.closedAt.getTime() - b.closedAt.getTime()
+    )
 
     console.log(
       `[accounting] Matching ${code}: ${codePayments.length} payments, ${codeDeposits.length} deposits, ${codeOrders.length} sell orders`
     )
 
     const paymentDeposits = matchPaymentsToDeposits(codePayments, codeDeposits, networkFees)
-    const depositOrderLinks = matchDepositsToOrders(codeDeposits, codeOrders)
-    const matches = rollUpMatches(codePayments, paymentDeposits, depositOrderLinks)
+    const paymentOrders = matchPaymentsToOrders(codePayments, paymentDeposits, codeOrders)
+    const matches = rollUpMatches(codePayments, paymentDeposits, paymentOrders)
 
     allMatches.push(...matches)
   }

@@ -12,9 +12,9 @@ export type CoinbaseCsvPayment = {
   cryptoAmountRaw: string
   rate: string
   fiatAmount: number
-  projectSlug: string
-  projectName: string
-  fundSlug: FundSlug
+  projectSlug: string | null
+  projectName: string | null
+  fundSlug: FundSlug | null
 }
 
 function parseCsvLine(line: string): string[] {
@@ -131,10 +131,11 @@ export function loadCoinbaseExportCsv(): CoinbaseCsvPayment[] {
     const paymentId = `${systemId || txIdCode}`
 
     const meta = extractMetadataFromCols(cols, metadataStartIdx, cols.length - 2)
-    const projectSlug = meta.projectSlug ?? 'general'
-    const fundSlugRaw = meta.fundSlug ?? 'general'
-    const fundSlug = VALID_FUND_SLUGS.has(fundSlugRaw) ? (fundSlugRaw as FundSlug) : 'general'
-    const projectName = meta.projectName ?? 'General'
+    const projectSlug = meta.projectSlug ?? null
+    const fundSlugRaw = meta.fundSlug ?? null
+    const fundSlug =
+      fundSlugRaw && VALID_FUND_SLUGS.has(fundSlugRaw) ? (fundSlugRaw as FundSlug) : null
+    const projectName = meta.projectName ?? null
 
     const subtotalFiatCol = subtotalFiatIdx >= 0 ? cols[subtotalFiatIdx] : ''
     const fiatMatch = subtotalFiatCol.match(/^([\d.]+)/)
