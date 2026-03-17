@@ -261,7 +261,8 @@ function buildNetworkFeeCache(existingRecords: DonationAccounting[]): Map<string
     if (!deposits) continue
     for (const dep of deposits) {
       if (dep.txid && dep.networkFee != null) {
-        cache.set(dep.txid, dep.networkFee)
+        const current = cache.get(dep.txid) ?? 0
+        cache.set(dep.txid, current + dep.networkFee)
       }
     }
   }
