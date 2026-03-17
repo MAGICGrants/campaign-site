@@ -59,7 +59,9 @@ async function handleFundingRequiredApiDonation(body: WebhookBody, res: NextApiR
 
   if (existingDonationsForInvoice.length > 0) {
     // Check if this txid has already been processed
-    const txIdAlreadyProcessed = existingDonationsForInvoice.find((donation) => (donation.cryptoPayments as DonationCryptoPayments)?.find((payment) => payment.txId === txId))
+    const txIdAlreadyProcessed = existingDonationsForInvoice.find((donation) =>
+      (donation.cryptoPayments as DonationCryptoPayments)?.find((payment) => payment.txId === txId)
+    )
 
     if (txIdAlreadyProcessed) {
       log(
@@ -79,9 +81,9 @@ async function handleFundingRequiredApiDonation(body: WebhookBody, res: NextApiR
     `/rates?currencyPair=${cryptoCode}_USD`
   )
 
-  const cryptoRate = Number(rates[0].rate)
-  const cryptoAmount = Number(body.payment.value)
-  const fiatAmount = Number((cryptoAmount * cryptoRate).toFixed(2))
+  const cryptoRate = rates[0].rate
+  const cryptoAmount = body.payment.value
+  const fiatAmount = Number((Number(cryptoAmount) * Number(cryptoRate)).toFixed(2))
 
   const cryptoPayments: DonationCryptoPayments = []
 
@@ -161,23 +163,23 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
   paymentMethods.forEach((paymentMethod) => {
     if (!body.metadata) return
 
-    const cryptoRate = Number(paymentMethod.rate)
-    const grossCryptoAmount = Number(paymentMethod.paymentMethodPaid)
+    const settledPayments = (paymentMethod.payments ?? []).filter((p) => p.status === 'Settled')
+    for (const payment of settledPayments) {
+      const grossCryptoAmount = Number(payment.value)
+      if (!grossCryptoAmount) continue
 
-    // Deduct 10% of amount if donator wants points
-    const netCryptoAmount = shouldGivePointsBack
-      ? grossCryptoAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
-      : grossCryptoAmount
+      const netCryptoAmount = shouldGivePointsBack
+        ? grossCryptoAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
+        : grossCryptoAmount
 
-    // Move on if amound paid with current method is 0
-    if (!grossCryptoAmount) return
-
-    cryptoPayments.push({
-      cryptoCode: paymentMethod.currency,
-      grossAmount: grossCryptoAmount,
-      netAmount: netCryptoAmount,
-      rate: cryptoRate,
-    })
+      cryptoPayments.push({
+        cryptoCode: paymentMethod.currency,
+        grossAmount: payment.value,
+        netAmount: String(netCryptoAmount),
+        rate: paymentMethod.rate,
+        txId: payment.id,
+      })
+    }
   })
 
   // Handle marked paid invoice
@@ -185,7 +187,8 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
     const invoice = await getBtcPayInvoice(body.invoiceId)
 
     const amountPaidFiat = cryptoPayments.reduce(
-      (total, paymentMethod) => total + paymentMethod.grossAmount * paymentMethod.rate,
+      (total, paymentMethod) =>
+        total + Number(paymentMethod.grossAmount) * Number(paymentMethod.rate),
       0
     )
 
@@ -195,22 +198,25 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
     if (amountDueFiat > 0) {
       cryptoPayments.push({
         cryptoCode: 'MANUAL',
-        grossAmount: amountDueFiat,
-        netAmount: shouldGivePointsBack
-          ? amountDueFiat * NET_DONATION_AMOUNT_WITH_POINTS_RATE
-          : amountDueFiat,
-        rate: 1,
+        grossAmount: String(amountDueFiat),
+        netAmount: String(
+          shouldGivePointsBack
+            ? amountDueFiat * NET_DONATION_AMOUNT_WITH_POINTS_RATE
+            : amountDueFiat
+        ),
+        rate: '1',
       })
     }
   }
 
   const grossFiatAmount = cryptoPayments.reduce(
-    (total, paymentMethod) => total + paymentMethod.grossAmount * paymentMethod.rate,
+    (total, paymentMethod) =>
+      total + Number(paymentMethod.grossAmount) * Number(paymentMethod.rate),
     0
   )
 
   const netFiatAmount = cryptoPayments.reduce(
-    (total, paymentMethod) => total + paymentMethod.netAmount * paymentMethod.rate,
+    (total, paymentMethod) => total + Number(paymentMethod.netAmount) * Number(paymentMethod.rate),
     0
   )
 

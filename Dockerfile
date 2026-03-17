@@ -56,6 +56,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/out ./out
 COPY --from=builder /app/public ./public
 
@@ -82,11 +83,12 @@ RUN mkdir /home/nextjs/.npm-global
 ENV PATH=/home/nextjs/.npm-global/bin:$PATH
 ENV NPM_CONFIG_PREFIX=/home/nextjs/.npm-global
 ENV PRISMA_BINARY_TARGETS='["native", "rhel-openssl-1.0.x"]'
-RUN npm install --quiet --no-progress -g prisma @sentry/cli
+RUN npm install --quiet --no-progress -g prisma @sentry/cli tsx
 RUN npm cache clean --force
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
 CMD ["/bin/sh", "-c", "prisma migrate deploy \
+&& npx tsx scripts/migrate-crypto-payments-to-strings.ts \
 && (npm run sentry:sourcemaps \
 & node server.js)"]

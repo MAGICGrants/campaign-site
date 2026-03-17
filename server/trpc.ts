@@ -62,4 +62,24 @@ export const protectedProcedure = t.procedure.use((opts) => {
   })
 })
 
+export const adminProcedure = t.procedure.use((opts) => {
+  if (!opts.ctx.session?.user || opts.ctx.session.error) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' })
+  }
+  if (!opts.ctx.session.user.isAdmin) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Admin access required' })
+  }
+
+  return opts.next({
+    ...opts,
+    ctx: {
+      ...opts.ctx,
+      session: {
+        ...opts.ctx.session,
+        user: opts.ctx.session.user,
+      },
+    },
+  })
+})
+
 export const mergeRouters = t.mergeRouters

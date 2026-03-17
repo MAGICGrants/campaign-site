@@ -11,7 +11,8 @@ const globalForPrisma = global as unknown as { prisma: PrismaClient }
 const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    log: process.env.NODE_ENV === 'production' ? ['error'] : ['query', 'info', 'warn', 'error'],
+    // log: process.env.NODE_ENV === 'production' ? ['error'] : ['query', 'info', 'warn', 'error'],
+    log: ['error'],
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
@@ -65,6 +66,11 @@ const coinbaseCommerceApi = axios.create({
   headers: { 'X-CC-Api-Key': env.COINBASE_COMMERCE_API_KEY },
 })
 
+const coinbaseCdpApi = axios.create({
+  baseURL: 'https://business.coinbase.com/api/v1',
+  // Bearer token is generated on every request
+})
+
 const geminiApi = axios.create({
   baseURL: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`,
 })
@@ -79,5 +85,6 @@ export {
   stripe,
   privacyGuidesDiscourseApi,
   coinbaseCommerceApi,
+  coinbaseCdpApi,
   geminiApi,
 }

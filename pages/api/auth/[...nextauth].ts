@@ -5,7 +5,7 @@ import axios from 'axios'
 
 import { env } from '../../../env.mjs'
 import { KeycloakJwtPayload } from '../../../server/types'
-import { refreshToken } from '../../../server/utils/auth'
+import { isUserAdmin, refreshToken } from '../../../server/utils/auth'
 import { isTurnstileValid } from '../../../server/utils/turnstile'
 
 export const authOptions: AuthOptions = {
@@ -20,6 +20,7 @@ export const authOptions: AuthOptions = {
           accessToken: keycloakToken.access_token,
           accessTokenExpiresAt: Date.now() + (keycloakToken.expires_in as number) * 1000,
           refreshToken: keycloakToken.refresh_token,
+          isAdmin: isUserAdmin(keycloakToken.access_token),
         }
       }
 
@@ -36,6 +37,7 @@ export const authOptions: AuthOptions = {
         user: {
           sub: token.sub,
           email: token.email,
+          isAdmin: token.isAdmin ?? false,
         },
         error: token.error,
         expires: session.expires,

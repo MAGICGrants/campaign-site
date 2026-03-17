@@ -5,6 +5,7 @@ declare module 'next-auth' {
     user: {
       sub: string
       email: string
+      isAdmin?: boolean
     }
   }
 }

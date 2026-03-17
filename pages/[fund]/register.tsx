@@ -225,10 +225,10 @@ function RegisterFormModal() {
   }
 
   return (
-    <div className="w-full flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0 justify-center items-center sm:items-start">
+    <div className="w-full m-auto flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0 justify-center items-center sm:items-start">
       {router.query.nextAction === 'membership' && <MembershipPerksAside />}
 
-      <div className="max-w-[540px] mx-auto p-6 space-y-6 rounded-lg bg-white">
+      <div className="max-w-[540px] m-auto p-6 space-y-6 rounded-lg bg-white">
         <h1 className="font-bold">Register</h1>
 
         <Form {...form}>

@@ -3,6 +3,7 @@ import { FundSlug, MembershipTerm } from '@prisma/client'
 export type KeycloakJwtPayload = {
   sub: string
   email: string
+  groups?: string[]
 }
 
 export type UserSettingsJwtPayload = {
@@ -32,9 +33,9 @@ export type DonationMetadata = {
 
 export type DonationCryptoPayments = {
   cryptoCode: 'BTC' | 'XMR' | 'LTC' | 'MANUAL' | string
-  grossAmount: number
-  netAmount: number
-  rate: number
+  grossAmount: string
+  netAmount: string
+  rate: string
   txId?: string
 }[]
 
@@ -57,6 +58,14 @@ export type BtcPayGetPaymentMethodsRes = {
   currency: 'BTC' | 'XMR' | 'LTC'
   paymentMethodPaid: string
   destination: string
+  payments: {
+    id: string
+    receivedDate: number
+    value: string
+    fee: string
+    status: string
+    destination: string
+  }[]
 }[]
 
 export type BtcPayCreateInvoiceBody = {
@@ -82,6 +91,37 @@ export type BtcPayCreateInvoiceRes = {
   additionalStatus: string
   availableStatusesForManualMarking: any
   archived: boolean
+}
+
+export type BtcPayListInvoiceItem = BtcPayCreateInvoiceRes
+
+export type BtcPayPaymentItem = {
+  paymentId: string
+  invoiceId: string
+  receivedAt: Date
+  cryptoCode: string
+  cryptoAmount: number
+  cryptoAmountRaw: string
+  rate: string
+  fiatAmount: number
+  projectSlug: string
+  projectName: string
+  fundSlug: string
+  isStaticGenerated: boolean
+}
+
+export type StripeInvoiceItem = {
+  id: string
+  createdAt: Date
+  paymentId: string
+  invoiceId: string | null
+  projectSlug: string
+  projectName: string
+  fundSlug: string
+  grossFiatAmount: number
+  fee: number
+  netFiatAmount: number
+  isRecurring: boolean
 }
 
 // Strapi Perk

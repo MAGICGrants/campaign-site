@@ -130,7 +130,7 @@ ${htmlFromMarkdown}`
   return transporter.sendMail({
     from: env.SES_VERIFIED_SENDER,
     to,
-    subject: 'Donation confirmation',
+    subject: 'Donation confirmation for donate.magicgrants.org',
     html,
   })
 }
@@ -200,7 +200,7 @@ export async function sendPerkPurchaseConfirmationEmail({
   return transporter.sendMail({
     from: env.SES_VERIFIED_SENDER,
     to,
-    subject: 'Perk purchase confirmation',
+    subject: 'Perk purchase confirmation for donate.magicgrants.org',
     html,
   })
 }

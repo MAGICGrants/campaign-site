@@ -149,10 +149,17 @@ export const authRouter = router({
       transporter.sendMail({
         from: env.SES_VERIFIED_SENDER,
         to: input.email,
-        subject: 'Verify your email',
-        html: `<a href="${env.APP_URL}/${input.fundSlug}/verify-email/${emailVerifyToken}${input.nextAction === 'membership' ? `?nextAction=membership` : ''}" target="_blank">Verify email</a>`,
+        subject: 'Verify your email for donate.magicgrants.org',
+        html: `
+          <p>Please click the link below to verify your email address for donate.magicgrants.org:</p>
+          <p><a href="${env.APP_URL}/${input.fundSlug}/verify-email/${emailVerifyToken}${input.nextAction === 'membership' ? `?nextAction=membership` : ''}" target="_blank">Verify Email Address</a></p>
+          <hr />
+          <p style="font-size: 12px; color: #666;">If you did not make this request, please ignore this email.</p>
+        `,
       })
     }),
+
+
 
   verifyEmail: publicProcedure
     .input(z.object({ token: z.string() }))
@@ -268,7 +275,7 @@ export const authRouter = router({
       transporter.sendMail({
         from: env.SES_VERIFIED_SENDER,
         to: input.email,
-        subject: 'Reset your password',
+        subject: 'Reset your password for donate.magicgrants.org',
         html: `<a href="${env.APP_URL}/${input.fundSlug}/reset-password/${passwordResetToken}" target="_blank">Reset password</a>`,
       })
     }),
