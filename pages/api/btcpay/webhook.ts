@@ -59,7 +59,9 @@ async function handleFundingRequiredApiDonation(body: WebhookBody, res: NextApiR
 
   if (existingDonationsForInvoice.length > 0) {
     // Check if this txid has already been processed
-    const txIdAlreadyProcessed = existingDonationsForInvoice.find((donation) => (donation.cryptoPayments as DonationCryptoPayments)?.find((payment) => payment.txId === txId))
+    const txIdAlreadyProcessed = existingDonationsForInvoice.find((donation) =>
+      (donation.cryptoPayments as DonationCryptoPayments)?.find((payment) => payment.txId === txId)
+    )
 
     if (txIdAlreadyProcessed) {
       log(
@@ -161,22 +163,23 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
   paymentMethods.forEach((paymentMethod) => {
     if (!body.metadata) return
 
-    const grossCryptoAmount = Number(paymentMethod.paymentMethodPaid)
+    const settledPayments = (paymentMethod.payments ?? []).filter((p) => p.status === 'Settled')
+    for (const payment of settledPayments) {
+      const grossCryptoAmount = Number(payment.value)
+      if (!grossCryptoAmount) continue
 
-    // Move on if amount paid with current method is 0
-    if (!grossCryptoAmount) return
+      const netCryptoAmount = shouldGivePointsBack
+        ? grossCryptoAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
+        : grossCryptoAmount
 
-    // Deduct 10% of amount if donator wants points
-    const netCryptoAmount = shouldGivePointsBack
-      ? grossCryptoAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
-      : grossCryptoAmount
-
-    cryptoPayments.push({
-      cryptoCode: paymentMethod.currency,
-      grossAmount: paymentMethod.paymentMethodPaid,
-      netAmount: String(netCryptoAmount),
-      rate: paymentMethod.rate,
-    })
+      cryptoPayments.push({
+        cryptoCode: paymentMethod.currency,
+        grossAmount: payment.value,
+        netAmount: String(netCryptoAmount),
+        rate: paymentMethod.rate,
+        txId: payment.id,
+      })
+    }
   })
 
   // Handle marked paid invoice
@@ -184,7 +187,8 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
     const invoice = await getBtcPayInvoice(body.invoiceId)
 
     const amountPaidFiat = cryptoPayments.reduce(
-      (total, paymentMethod) => total + Number(paymentMethod.grossAmount) * Number(paymentMethod.rate),
+      (total, paymentMethod) =>
+        total + Number(paymentMethod.grossAmount) * Number(paymentMethod.rate),
       0
     )
 
@@ -195,16 +199,19 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
       cryptoPayments.push({
         cryptoCode: 'MANUAL',
         grossAmount: String(amountDueFiat),
-        netAmount: String(shouldGivePointsBack
-          ? amountDueFiat * NET_DONATION_AMOUNT_WITH_POINTS_RATE
-          : amountDueFiat),
+        netAmount: String(
+          shouldGivePointsBack
+            ? amountDueFiat * NET_DONATION_AMOUNT_WITH_POINTS_RATE
+            : amountDueFiat
+        ),
         rate: '1',
       })
     }
   }
 
   const grossFiatAmount = cryptoPayments.reduce(
-    (total, paymentMethod) => total + Number(paymentMethod.grossAmount) * Number(paymentMethod.rate),
+    (total, paymentMethod) =>
+      total + Number(paymentMethod.grossAmount) * Number(paymentMethod.rate),
     0
   )
 

@@ -128,12 +128,13 @@ async function extractBtcPayPaymentItems(
         let rate: string
 
         if (isFundingApi) {
-          // Look up rate from DB donation's cryptoPayments by matching amount
+          // Look up rate from DB donation's cryptoPayments by payment id, or by amount
           rate =
             findFundingApiRate(
               fundingDonationsByInvoice.get(invoice.id) || [],
               cryptoCode,
-              cryptoAmount
+              cryptoAmount,
+              payment.id
             ) ?? pm.rate
         } else {
           rate = pm.rate
@@ -226,12 +227,22 @@ async function extractCoinbasePaymentItems(invoices: CoinbaseCdpInvoice[]): Prom
 function findFundingApiRate(
   donations: { cryptoPayments: any }[],
   cryptoCode: string,
-  paymentAmount: number
+  paymentAmount: number,
+  paymentId: string
 ): string | null {
+  // First pass: match by payment id (txId)
   for (const donation of donations) {
     const payments = donation.cryptoPayments as DonationCryptoPayments | null
     if (!payments) continue
-
+    for (const cp of payments) {
+      if (cp.cryptoCode !== cryptoCode) continue
+      if (cp.txId && cp.txId === paymentId) return cp.rate
+    }
+  }
+  // Fall back: match by amount
+  for (const donation of donations) {
+    const payments = donation.cryptoPayments as DonationCryptoPayments | null
+    if (!payments) continue
     for (const cp of payments) {
       if (cp.cryptoCode !== cryptoCode) continue
       if (Math.abs(Number(cp.grossAmount) - paymentAmount) < AMOUNT_TOLERANCE) {

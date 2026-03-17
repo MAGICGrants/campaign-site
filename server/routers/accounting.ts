@@ -5,7 +5,7 @@ import { prisma, stripe } from '../services'
 import { accountingGenerationQueue } from '../queues'
 import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from '../utils/btcpayserver'
 import { getDeposits, getClosedSellOrders } from '../utils/kraken'
-import type { BtcPayPaymentItem, StripeInvoiceItem } from '../types'
+import type { BtcPayPaymentItem, DonationCryptoPayments, StripeInvoiceItem } from '../types'
 
 const FUND_SLUGS: FundSlug[] = ['monero', 'firo', 'privacyguides', 'general']
 
@@ -15,9 +15,7 @@ async function deleteAccountingRecordsFromIgnoredId(
 ): Promise<number> {
   const affected =
     type === 'deposit'
-      ? await prisma.$queryRaw<
-          { id: string; paymentReceivedAt: Date }[]
-        >`
+      ? await prisma.$queryRaw<{ id: string; paymentReceivedAt: Date }[]>`
           SELECT id, "paymentReceivedAt"
           FROM "DonationAccounting"
           WHERE EXISTS (
@@ -25,9 +23,7 @@ async function deleteAccountingRecordsFromIgnoredId(
             WHERE elem->>'txid' = ${value}
           )
         `
-      : await prisma.$queryRaw<
-          { id: string; paymentReceivedAt: Date }[]
-        >`
+      : await prisma.$queryRaw<{ id: string; paymentReceivedAt: Date }[]>`
           SELECT id, "paymentReceivedAt"
           FROM "DonationAccounting"
           WHERE EXISTS (
@@ -40,9 +36,7 @@ async function deleteAccountingRecordsFromIgnoredId(
     return 0
   }
 
-  const minDate = new Date(
-    Math.min(...affected.map((r) => r.paymentReceivedAt.getTime()))
-  )
+  const minDate = new Date(Math.min(...affected.map((r) => r.paymentReceivedAt.getTime())))
 
   const result = await prisma.donationAccounting.deleteMany({
     where: { paymentReceivedAt: { gte: minDate } },
@@ -73,12 +67,23 @@ const AMOUNT_TOLERANCE = 1e-6
 function findFundingApiRate(
   donations: { cryptoPayments: unknown }[],
   cryptoCode: string,
-  paymentAmount: number
+  paymentAmount: number,
+  paymentId: string
 ): string | null {
+  const paymentsList = (d: { cryptoPayments: unknown }) =>
+    d.cryptoPayments as DonationCryptoPayments | null
+  // First pass: match by payment id (txId)
   for (const donation of donations) {
-    const payments = donation.cryptoPayments as
-      | { cryptoCode: string; grossAmount: string; rate: string }[]
-      | null
+    const payments = paymentsList(donation)
+    if (!payments) continue
+    for (const cp of payments) {
+      if (cp.cryptoCode !== cryptoCode) continue
+      if (cp.txId && cp.txId === paymentId) return cp.rate
+    }
+  }
+  // Fall back: match by amount
+  for (const donation of donations) {
+    const payments = paymentsList(donation)
     if (!payments) continue
     for (const cp of payments) {
       if (cp.cryptoCode !== cryptoCode) continue
@@ -138,12 +143,10 @@ export const accountingRouter = router({
           source: { in: dbSources },
         }
         if (input.projectSlug) {
-          where.projectSlug =
-            input.projectSlug === '__unknown__' ? null : input.projectSlug
+          where.projectSlug = input.projectSlug === '__unknown__' ? null : input.projectSlug
         }
         if (input.fundSlug) {
-          where.fundSlug =
-            input.fundSlug === '__unknown__' ? null : (input.fundSlug as FundSlug)
+          where.fundSlug = input.fundSlug === '__unknown__' ? null : (input.fundSlug as FundSlug)
         }
 
         const dbRecords = await prisma.donationAccounting.findMany({
@@ -375,7 +378,8 @@ export const accountingRouter = router({
                 findFundingApiRate(
                   fundingDonationsByInvoice.get(invoice.id) || [],
                   cryptoCode,
-                  cryptoAmount
+                  cryptoAmount,
+                  payment.id
                 ) ?? pm.rate
             } else {
               rate = pm.rate
@@ -538,7 +542,9 @@ export const accountingRouter = router({
       orderBy: [{ type: 'asc' }, { value: 'asc' }],
     })
     return {
-      deposits: records.filter((r) => r.type === 'deposit').map((r) => ({ id: r.id, value: r.value })),
+      deposits: records
+        .filter((r) => r.type === 'deposit')
+        .map((r) => ({ id: r.id, value: r.value })),
       orders: records.filter((r) => r.type === 'order').map((r) => ({ id: r.id, value: r.value })),
     }
   }),
