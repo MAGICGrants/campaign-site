@@ -101,7 +101,11 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
     {
       cryptoCode: body.event.data.pricing.settlement.currency,
       grossAmount: body.event.data.pricing.settlement.amount,
-      netAmount: String(settlementAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE),
+      netAmount: String(
+        shouldGivePointsBack
+          ? settlementAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
+          : settlementAmount
+      ),
       rate: String(settlementAmount / grossFiatAmount),
     },
   ]
