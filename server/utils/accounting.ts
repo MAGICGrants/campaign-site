@@ -363,7 +363,7 @@ function matchPaymentsToDeposits(
       })
 
       paymentRemaining -= matchCrypto + proportionalNetworkFee
-      depositRemaining -= matchCrypto + proportionalNetworkFee
+      depositRemaining -= matchCrypto
 
       if (depositRemaining <= EPSILON) {
         depIdx++
