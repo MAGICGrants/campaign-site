@@ -107,9 +107,9 @@ const Header = () => {
                   <CustomLink href={`/admin/accounting`} className="text-foreground">
                     <DropdownMenuItem>Accounting</DropdownMenuItem>
                   </CustomLink>
+                  <DropdownMenuSeparator />
                 </>
               )}
-              <DropdownMenuSeparator />
               {!!fund && (
                 <>
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
