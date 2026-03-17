@@ -2,6 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  // Axios uses package exports: require() resolves to dist/node/axios.cjs, but
+  // Next.js output tracing may only follow the ESM path. Force-include the full package.
+  outputFileTracingIncludes: {
+    '/**': ['node_modules/axios/**'],
+  },
   images: {
     remotePatterns: [
       { hostname: process.env.STRAPI_CDN_HOST || 'magic-strapi.nbg1.your-objectstorage.com' },
