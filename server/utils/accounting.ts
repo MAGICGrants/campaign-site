@@ -64,9 +64,18 @@ type PaymentMatch = {
 const EPSILON = 1e-8
 const AMOUNT_TOLERANCE = 1e-6
 
-const IGNORED_DEPOSIT_TXIDS: string[] = []
-const IGNORED_ORDER_IDS: string[] = []
 const IGNORED_PAYMENT_IDS: string[] = []
+
+async function loadAccountingIgnores(): Promise<{
+  depositTxids: string[]
+  orderIds: string[]
+}> {
+  const records = await prisma.accountingIgnore.findMany()
+  return {
+    depositTxids: records.filter((r) => r.type === 'deposit').map((r) => r.value),
+    orderIds: records.filter((r) => r.type === 'order').map((r) => r.value),
+  }
+}
 
 async function extractBtcPayPaymentItems(
   invoices: BtcPayListInvoiceItem[]
@@ -503,13 +512,14 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
 
   const earliestDate = paymentItems[0].receivedAt
 
-  const [allDeposits, allSellOrders] = await Promise.all([
+  const [allDeposits, allSellOrders, ignores] = await Promise.all([
     getDeposits(earliestDate),
     getClosedSellOrders(earliestDate),
+    loadAccountingIgnores(),
   ])
 
-  const deposits = allDeposits.filter((d) => !IGNORED_DEPOSIT_TXIDS.includes(d.txid))
-  const sellOrders = allSellOrders.filter((o) => !IGNORED_ORDER_IDS.includes(o.orderId))
+  const deposits = allDeposits.filter((d) => !ignores.depositTxids.includes(d.txid))
+  const sellOrders = allSellOrders.filter((o) => !ignores.orderIds.includes(o.orderId))
 
   console.log(
     `[accounting] Fetched ${allDeposits.length} deposits (${allDeposits.length - deposits.length} ignored) and ${allSellOrders.length} sell orders (${allSellOrders.length - sellOrders.length} ignored)`

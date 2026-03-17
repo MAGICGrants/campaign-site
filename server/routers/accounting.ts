@@ -2,11 +2,53 @@ import { z } from 'zod'
 import { DonationSource, FundSlug, Prisma } from '@prisma/client'
 import { adminProcedure, router } from '../trpc'
 import { prisma, stripe } from '../services'
+import { accountingGenerationQueue } from '../queues'
 import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from '../utils/btcpayserver'
 import { getDeposits, getClosedSellOrders } from '../utils/kraken'
 import type { BtcPayPaymentItem, StripeInvoiceItem } from '../types'
 
 const FUND_SLUGS: FundSlug[] = ['monero', 'firo', 'privacyguides', 'general']
+
+async function deleteAccountingRecordsFromIgnoredId(
+  type: 'deposit' | 'order',
+  value: string
+): Promise<number> {
+  const affected =
+    type === 'deposit'
+      ? await prisma.$queryRaw<
+          { id: string; paymentReceivedAt: Date }[]
+        >`
+          SELECT id, "paymentReceivedAt"
+          FROM "DonationAccounting"
+          WHERE EXISTS (
+            SELECT 1 FROM jsonb_array_elements("krakenDeposits"::jsonb) AS elem
+            WHERE elem->>'txid' = ${value}
+          )
+        `
+      : await prisma.$queryRaw<
+          { id: string; paymentReceivedAt: Date }[]
+        >`
+          SELECT id, "paymentReceivedAt"
+          FROM "DonationAccounting"
+          WHERE EXISTS (
+            SELECT 1 FROM jsonb_array_elements("krakenOrders"::jsonb) AS elem
+            WHERE elem->>'orderId' = ${value}
+          )
+        `
+
+  if (affected.length === 0) {
+    return 0
+  }
+
+  const minDate = new Date(
+    Math.min(...affected.map((r) => r.paymentReceivedAt.getTime()))
+  )
+
+  const result = await prisma.donationAccounting.deleteMany({
+    where: { paymentReceivedAt: { gte: minDate } },
+  })
+  return result.count
+}
 
 function balanceTransactionToUsd(
   bt: { currency: string; fee?: number; net?: number; exchange_rate?: number | null },
@@ -489,5 +531,45 @@ export const accountingRouter = router({
 
       items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       return items
+    }),
+
+  listAccountingIgnores: adminProcedure.query(async () => {
+    const records = await prisma.accountingIgnore.findMany({
+      orderBy: [{ type: 'asc' }, { value: 'asc' }],
+    })
+    return {
+      deposits: records.filter((r) => r.type === 'deposit').map((r) => ({ id: r.id, value: r.value })),
+      orders: records.filter((r) => r.type === 'order').map((r) => ({ id: r.id, value: r.value })),
+    }
+  }),
+
+  addAccountingIgnore: adminProcedure
+    .input(
+      z.object({
+        type: z.enum(['deposit', 'order']),
+        value: z.string().min(1),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const value = input.value.trim()
+      const record = await prisma.accountingIgnore.upsert({
+        where: { type_value: { type: input.type, value } },
+        create: { type: input.type, value },
+        update: {},
+      })
+      const deleted = await deleteAccountingRecordsFromIgnoredId(input.type, value)
+      await accountingGenerationQueue.add('AccountingGeneration', {})
+      return { ...record, deletedCount: deleted }
+    }),
+
+  removeAccountingIgnore: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      await prisma.accountingIgnore.delete({ where: { id: input.id } })
+      // When un-ignoring, no records contain this id (it was excluded). Delete all
+      // so regeneration recreates with the newly included deposit/order.
+      const result = await prisma.donationAccounting.deleteMany({})
+      await accountingGenerationQueue.add('AccountingGeneration', {})
+      return { deletedCount: result.count }
     }),
 })

@@ -85,6 +85,15 @@ model ProjectAddresses {
   @@unique([projectSlug, fundSlug])
 }
 
+model AccountingIgnore {
+  id    String @id @default(cuid())
+  type  String // 'deposit' | 'order'
+  value String // txid or orderId
+
+  @@unique([type, value])
+  @@index([type])
+}
+
 model DonationAccounting {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())

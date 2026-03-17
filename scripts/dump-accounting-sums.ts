@@ -50,12 +50,16 @@ async function main() {
   let deposits = await getDeposits(startDate)
   let orders = await getClosedSellOrders(startDate)
 
-  const IGNORED_DEPOSIT_TXIDS: string[] = []
-  const IGNORED_ORDER_IDS: string[] = []
+  const ignoreRecords = await prisma.accountingIgnore.findMany()
+  const ignoredDepositTxids = new Set(
+    ignoreRecords.filter((r) => r.type === 'deposit').map((r) => r.value)
+  )
+  const ignoredOrderIds = new Set(
+    ignoreRecords.filter((r) => r.type === 'order').map((r) => r.value)
+  )
 
-  // filter deposits by txid
-  deposits = deposits.filter((dep) => !IGNORED_DEPOSIT_TXIDS.includes(dep.txid))
-  orders = orders.filter((order) => !IGNORED_ORDER_IDS.includes(order.orderId))
+  deposits = deposits.filter((dep) => !ignoredDepositTxids.has(dep.txid))
+  orders = orders.filter((order) => !ignoredOrderIds.has(order.orderId))
 
   const depositsByCode: Record<string, any[]> = {}
   for (const dep of deposits) {

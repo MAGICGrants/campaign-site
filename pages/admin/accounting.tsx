@@ -20,9 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select'
-import { Check, ChevronDown, ChevronsUpDownIcon, Copy, Download, TableIcon } from 'lucide-react'
+import { Check, Copy, Download, Plus, Settings2, TableIcon, Trash2 } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
 import { cn } from '../../utils/cn'
 import { trpc } from '../../utils/trpc'
@@ -112,7 +113,12 @@ type AccountingRecord = {
   totalRealizedUsd: number
 }
 
-function exportToCsv(records: (Omit<AccountingRecord, 'krakenDeposits' | 'krakenOrders'> & { krakenDeposits?: unknown; krakenOrders?: unknown })[]) {
+function exportToCsv(
+  records: (Omit<AccountingRecord, 'krakenDeposits' | 'krakenOrders'> & {
+    krakenDeposits?: unknown
+    krakenOrders?: unknown
+  })[]
+) {
   const headers = [
     'time',
     'source',
@@ -131,9 +137,10 @@ function exportToCsv(records: (Omit<AccountingRecord, 'krakenDeposits' | 'kraken
     const deposits = (record.krakenDeposits as MatchedDeposit[] | null) ?? []
     const orders = (record.krakenOrders as MatchedOrder[] | null) ?? []
     const amountUsd =
-      record.source === 'stripe' ? record.fiatAmount : Number(record.cryptoAmount) * Number(record.rate)
-    const feeStr =
-      record.source === 'stripe' && record.fee != null ? record.fee.toFixed(2) : '-'
+      record.source === 'stripe'
+        ? record.fiatAmount
+        : Number(record.cryptoAmount) * Number(record.rate)
+    const feeStr = record.source === 'stripe' && record.fee != null ? record.fee.toFixed(2) : '-'
     return [
       dayjs.utc(record.paymentReceivedAt).format('YYYY-MM-DD HH:mm:ss') + ' GMT',
       record.source,
@@ -226,7 +233,7 @@ function DepositsDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-6xl max-h-[90vh] overflow-auto">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>Kraken Deposits</DialogTitle>
         </DialogHeader>
@@ -274,7 +281,7 @@ function OrdersDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-6xl max-h-[90vh] overflow-auto">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>Kraken Orders</DialogTitle>
         </DialogHeader>
@@ -314,6 +321,173 @@ function OrdersDialog({
   )
 }
 
+function IgnoredItemsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const utils = trpc.useUtils()
+  const ignoresQuery = trpc.accounting.listAccountingIgnores.useQuery(undefined, {
+    enabled: open,
+  })
+  const addIgnore = trpc.accounting.addAccountingIgnore.useMutation({
+    onSuccess: () => {
+      utils.accounting.listAccountingIgnores.invalidate()
+      utils.accounting.listByMonth.invalidate()
+      utils.accounting.listAvailableMonths.invalidate()
+      utils.accounting.listAvailableProjects.invalidate()
+    },
+  })
+  const removeIgnore = trpc.accounting.removeAccountingIgnore.useMutation({
+    onSuccess: () => {
+      utils.accounting.listAccountingIgnores.invalidate()
+      utils.accounting.listByMonth.invalidate()
+      utils.accounting.listAvailableMonths.invalidate()
+      utils.accounting.listAvailableProjects.invalidate()
+    },
+  })
+
+  const [newDepositTxid, setNewDepositTxid] = useState('')
+  const [newOrderId, setNewOrderId] = useState('')
+
+  const deposits = ignoresQuery.data?.deposits ?? []
+  const orders = ignoresQuery.data?.orders ?? []
+
+  function handleAddDeposit(e: React.FormEvent) {
+    e.preventDefault()
+    const txid = newDepositTxid.trim()
+    if (!txid) return
+    addIgnore.mutate({ type: 'deposit', value: txid })
+    setNewDepositTxid('')
+  }
+
+  function handleAddOrder(e: React.FormEvent) {
+    e.preventDefault()
+    const orderId = newOrderId.trim()
+    if (!orderId) return
+    addIgnore.mutate({ type: 'order', value: orderId })
+    setNewOrderId('')
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>Ignored Deposits & Orders</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          These deposit TXIDs and order IDs are excluded from accounting matching. Adding or
+          removing triggers a regeneration job.
+        </p>
+
+        <div className="grid gap-6 sm:grid-cols-2 min-w-0">
+          <div className="space-y-3 min-w-0">
+            <h4 className="font-medium">Ignored deposit TXIDs</h4>
+            <form onSubmit={handleAddDeposit} className="flex w-full min-w-0 items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <Input
+                  value={newDepositTxid}
+                  onChange={(e) => setNewDepositTxid(e.target.value)}
+                  className="h-9 w-full font-mono text-xs"
+                />
+              </div>
+              <Button
+                type="submit"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                disabled={!newDepositTxid.trim() || addIgnore.isPending}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </form>
+            <div className="rounded-md border bg-muted/30 max-h-40 overflow-auto">
+              {deposits.length === 0 ? (
+                <p className="px-3 py-4 text-sm text-muted-foreground">None</p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {deposits.map((item) => (
+                    <li
+                      key={item.id}
+                      className="flex items-center gap-2 px-3 py-2 text-sm font-mono min-w-0"
+                    >
+                      <span className="min-w-0 flex-1 truncate" title={item.value}>
+                        {item.value}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="h-7 w-7 shrink-0"
+                        onClick={() => removeIgnore.mutate({ id: item.id })}
+                        disabled={removeIgnore.isPending}
+                        aria-label="Remove"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3 min-w-0">
+            <h4 className="font-medium">Ignored order IDs</h4>
+            <form onSubmit={handleAddOrder} className="flex w-full min-w-0 items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <Input
+                  value={newOrderId}
+                  onChange={(e) => setNewOrderId(e.target.value)}
+                  className="h-9 w-full font-mono text-xs"
+                />
+              </div>
+              <Button
+                type="submit"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                disabled={!newOrderId.trim() || addIgnore.isPending}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </form>
+            <div className="rounded-md border bg-muted/30 max-h-40 overflow-auto">
+              {orders.length === 0 ? (
+                <p className="px-3 py-4 text-sm text-muted-foreground">None</p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {orders.map((item) => (
+                    <li
+                      key={item.id}
+                      className="flex items-center gap-2 px-3 py-2 text-sm font-mono min-w-0"
+                    >
+                      <span className="min-w-0 flex-1 truncate" title={item.value}>
+                        {item.value}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="h-7 w-7 shrink-0"
+                        onClick={() => removeIgnore.mutate({ id: item.id })}
+                        disabled={removeIgnore.isPending}
+                        aria-label="Remove"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function AccountingPage() {
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState<string>(() =>
@@ -333,6 +507,7 @@ export default function AccountingPage() {
     open: boolean
     orders: MatchedOrder[]
   }>({ open: false, orders: [] })
+  const [ignoredItemsDialogOpen, setIgnoredItemsDialogOpen] = useState(false)
 
   const [year, month] = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number)
@@ -385,7 +560,9 @@ export default function AccountingPage() {
           ? funds[fundSlug as keyof typeof funds].title.replace(' Fund', '')
           : 'Unknown'
       const amountUsd =
-        record.source === 'stripe' ? record.fiatAmount : Number(record.cryptoAmount) * Number(record.rate)
+        record.source === 'stripe'
+          ? record.fiatAmount
+          : Number(record.cryptoAmount) * Number(record.rate)
       const existing = byFund.get(fundSlug)
       if (existing) {
         existing.invoiceSum += amountUsd
@@ -414,7 +591,16 @@ export default function AccountingPage() {
       <div className="w-full mx-auto flex flex-col space-y-4">
         <h1 className="text-2xl font-bold sm:text-3xl">Donation Accounting</h1>
 
-        <div className="ml-auto flex flex-row gap-2 flex-wrap justify-end">
+        <div className="ml-auto flex flex-row gap-2 flex-wrap justify-end items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIgnoredItemsDialogOpen(true)}
+            aria-label="Manage ignored deposits and orders"
+          >
+            <Settings2 className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Ignored items</span>
+          </Button>
           <Popover>
             <Select>
               <PopoverTrigger className="w-full sm:w-[180px]" asChild>
@@ -595,7 +781,10 @@ export default function AccountingPage() {
                         </TableCell>
                         <TableCell>
                           {record.fundSlug && record.fundSlug in funds
-                            ? funds[record.fundSlug as keyof typeof funds].title.replace(' Fund', '')
+                            ? funds[record.fundSlug as keyof typeof funds].title.replace(
+                                ' Fund',
+                                ''
+                              )
                             : '—'}
                         </TableCell>
                         <TableCell title={record.projectName ?? undefined}>
@@ -611,9 +800,7 @@ export default function AccountingPage() {
                         <TableCell>{cryptoFormatted}</TableCell>
                         <TableCell>{usdFormat.format(amountUsd)}</TableCell>
                         <TableCell>
-                          {isStripe && record.fee != null
-                            ? usdFormat.format(record.fee)
-                            : '-'}
+                          {isStripe && record.fee != null ? usdFormat.format(record.fee) : '-'}
                         </TableCell>
                         <TableCell>
                           {isStripe ? (
@@ -678,6 +865,7 @@ export default function AccountingPage() {
         onOpenChange={(open) => setOrdersDialog((p) => ({ ...p, open }))}
         orders={ordersDialog.orders}
       />
+      <IgnoredItemsDialog open={ignoredItemsDialogOpen} onOpenChange={setIgnoredItemsDialogOpen} />
     </>
   )
 }
