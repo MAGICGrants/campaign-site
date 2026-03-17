@@ -148,7 +148,7 @@ const KRAKEN_PAIR_TO_CRYPTO: Record<string, string> = {
 }
 
 function generateNonce(): string {
-  const nonce = Math.max(Date.now() * 1000, lastNonce + 1)
+  const nonce = Math.max(Date.now(), lastNonce + 1)
   lastNonce = nonce
   return String(nonce)
 }
