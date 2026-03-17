@@ -146,8 +146,13 @@ export const accountRouter = router({
       transporter.sendMail({
         from: env.SES_VERIFIED_SENDER,
         to: input.newEmail,
-        subject: 'Verify your email',
-        html: `<a href="${env.APP_URL}/${input.fundSlug}/verify-email/${token}" target="_blank">Verify email</a>`,
+        subject: 'Verify your email for donate.magicgrants.org',
+        html: `
+          <p>Please click the link below to verify your email address for donate.magicgrants.org:</p>
+          <p><a href="${env.APP_URL}/${input.fundSlug}/verify-email/${token}" target="_blank">Verify Email Address</a></p>
+          <hr />
+          <p style="font-size: 12px; color: #666;">If you did not make this request, please ignore this email.</p>
+        `,
       })
     }),
 
