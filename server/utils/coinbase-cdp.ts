@@ -47,6 +47,11 @@ async function getBearerToken(endpoint: string): Promise<string> {
 }
 
 export async function getCoinbaseCdpInvoices(): Promise<CoinbaseCdpInvoice[]> {
+  if (!env.COINBASE_CDP_API_KEY_ID || !env.COINBASE_CDP_API_KEY_PRIVATE_KEY) {
+    console.warn('Coinbase CDP API key ID or private key not configured, skipping invoice fetch')
+    return []
+  }
+
   const allInvoices: CoinbaseCdpInvoice[] = []
   let pageToken: string | undefined
 
@@ -61,8 +66,6 @@ export async function getCoinbaseCdpInvoices(): Promise<CoinbaseCdpInvoice[]> {
       `/invoices?${params.toString()}`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
-
-    console.log(data)
 
     allInvoices.push(...data.invoices)
     pageToken = data.nextPageToken
