@@ -1,4 +1,4 @@
-FROM node:24-alpine AS base
+FROM node:20-alpine3.19 AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -13,7 +13,7 @@ ENV PRISMA_BINARY_TARGETS='["native", "rhel-openssl-1.0.x"]'
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 RUN \
   if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
-  elif [ -f package-lock.json ]; then npm ci; \
+  elif [ -f package-lock.json ]; then npm ci --ignore-engines; \
   elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
   else echo "Lockfile not found." && exit 1; \
   fi
@@ -24,7 +24,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Required by prisma
-RUN ln -s /usr/lib/libssl.so.3 /lib/libssl.so.3
+# RUN ln -s /usr/lib/libssl.so.3 /lib/libssl.so.3
 
 ENV SKIP_ENV_VALIDATION=1
 ENV NEXT_TELEMETRY_DISABLED=1
