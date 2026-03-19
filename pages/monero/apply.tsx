@@ -28,7 +28,7 @@ export default function Apply() {
 
   return (
     <div className="mx-auto flex-1 flex flex-col items-center justify-center gap-4 py-8 prose">
-      <form onSubmit={handleSubmit(onSubmit)} className="max-w-5xl flex flex-col gap-4 p-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="max-w-5xl w-full flex flex-col gap-4 p-12 bg-white rounded-lg">
         <div>
           <h1>Application for Monero Fund Project Listing or General Fund Grant</h1>
           <p>Thanks for your interest in the Monero Fund!</p>

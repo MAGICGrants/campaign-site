@@ -1,6 +1,31 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* Register custom colors for Tailwind v4 utilities */
+@theme inline {
+  --color-border: hsl(var(--border));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  /* Fund brand colors */
+  --color-monero: hsl(var(--monero));
+  --color-firo: hsl(var(--firo));
+  --color-privacyguides: hsl(var(--privacyguides));
+  --color-general: hsl(var(--general));
+  /* Semantic colors */
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-hover: hsl(var(--primary-hover));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-input: hsl(var(--border));
+}
 
 @layer base {
   :root {
@@ -8,6 +33,22 @@
     --firo: 351 69% 36%;
     --privacyguides: 40 100% 50%;
     --general: 220 86% 58%;
+    /* Default theme values (monero) - required for @theme utilities before theme class is applied */
+    --background: 24 100% 95%;
+    --foreground: 223 84% 5%;
+    --border: 214.3 31.8% 87%;
+    --ring: 222.2 84% 4.9%;
+    --primary: var(--monero);
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 24 100% 45%;
+    --muted: 214.3 31.8% 87%;
+    --muted-foreground: 218 11% 65%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
   }
 
   .monero {
@@ -117,7 +158,23 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  h1 {
+    @apply text-2xl;
+  }
+
+  h2 {
+    @apply text-xl;
+  }
+
+  h3 {
+    @apply text-lg;
   }
 }
 
@@ -153,18 +210,6 @@ input:-webkit-autofill:focus {
     color 600000s 0s;
 }
 
-@layer base {
-  h1 {
-    @apply text-2xl;
-  }
-  h2 {
-    @apply text-xl;
-  }
-  h3 {
-    @apply text-lg;
-  }
-}
-
 .prose > ul > li > p {
   margin-top: 0;
   margin-bottom: 0;
@@ -172,6 +217,10 @@ input:-webkit-autofill:focus {
 
 .prose small {
   @apply leading-normal;
+}
+
+.prose a {
+  @apply text-primary hover:text-primary-hover;
 }
 
 form label {
@@ -185,13 +234,4 @@ form label {
 form input[type='text'],
 form textarea {
   @apply mt-2;
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
 }

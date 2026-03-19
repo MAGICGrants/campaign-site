@@ -124,7 +124,7 @@ function RegisterFormModal() {
   const router = useRouter()
   const { toast } = useToast()
   const fundSlug = useFundSlug()
-  const turnstileRef = useRef<TurnstileInstance | null>()
+  const turnstileRef = useRef<TurnstileInstance | null>(null)
   const getCountriesQuery = trpc.perk.getCountries.useQuery()
   const registerMutation = trpc.auth.register.useMutation()
 

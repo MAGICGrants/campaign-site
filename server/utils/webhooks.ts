@@ -153,16 +153,19 @@ async function handleDonationOrNonRecurringMembership(
       res.revalidate(`/${metadata.fundSlug}/projects/${metadata.projectSlug}`),
     ])
   } catch (err) {
-    log('warn', `[Stripe webhook] Failed to revalidate pages for payment intent ${paymentIntent.id}.`)
+    log(
+      'warn',
+      `[Stripe webhook] Failed to revalidate pages for payment intent ${paymentIntent.id}.`
+    )
   }
 
   log('info', `[Stripe webhook] Successfully processed payment intent ${paymentIntent.id}!`)
 }
 
 async function handleRecurringMembership(invoice: Stripe.Invoice, res: NextApiResponse) {
-  if (!invoice.subscription) return
+  if (!invoice.parent?.subscription_details) return
 
-  const metadata = invoice.subscription_details?.metadata as DonationMetadata
+  const metadata = invoice.parent.subscription_details.metadata as DonationMetadata
   if (!metadata) return
   if (JSON.stringify(metadata) === '{}') return
   // If none of these are set, this donation didn't come from a campaign site user
@@ -204,7 +207,7 @@ async function handleRecurringMembership(invoice: Stripe.Invoice, res: NextApiRe
     data: {
       userId: metadata.userId as string,
       stripeInvoiceId: invoice.id,
-      stripeSubscriptionId: invoice.subscription.toString(),
+      stripeSubscriptionId: invoice.parent.subscription_details.subscription.toString(),
       projectName: metadata.projectName,
       projectSlug: metadata.projectSlug,
       fundSlug: metadata.fundSlug,
@@ -239,7 +242,7 @@ async function handleRecurringMembership(invoice: Stripe.Invoice, res: NextApiRe
   if (metadata.donorEmail && metadata.donorName && metadata.membershipTerm) {
     const donations = await prisma.donation.findMany({
       where: {
-        stripeSubscriptionId: invoice.subscription.toString(),
+        stripeSubscriptionId: invoice.parent.subscription_details.subscription.toString(),
         membershipExpiresAt: { not: null },
       },
       orderBy: { membershipExpiresAt: 'desc' },

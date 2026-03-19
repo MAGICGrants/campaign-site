@@ -9,7 +9,7 @@ import { fundSlugs } from '../../utils/funds'
 export default function Faq({ content }: { content: string }) {
   return (
     <article
-      className="prose max-w-3xl mx-auto pb-8 pt-8 xl:col-span-2"
+      className="prose max-w-3xl mx-auto p-12 xl:col-span-2 bg-white rounded-lg"
       dangerouslySetInnerHTML={{ __html: xss(content || '') }}
     />
   )

@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { DonationSource, FundSlug, Prisma } from '@prisma/client'
+import Stripe from 'stripe'
+
 import { adminProcedure, router } from '../trpc'
 import { prisma, stripe } from '../services'
 import { accountingGenerationQueue } from '../queues'
@@ -58,6 +60,108 @@ function balanceTransactionToUsd(
     fee: feeInt / rate / 100,
     net: netInt / rate / 100,
   }
+}
+
+type BalanceTransactionLike = {
+  currency: string
+  fee?: number
+  net?: number
+  exchange_rate?: number | null
+}
+
+/** Extract balance_transaction and paymentId from invoice payments (Stripe 2026+ API) */
+function getInvoicePaymentInfo(inv: Stripe.Invoice): {
+  balanceTransaction: BalanceTransactionLike | null
+  paymentId: string
+} {
+  const paymentId = inv.id
+  let balanceTransaction: BalanceTransactionLike | null = null
+
+  const payments = inv.payments?.data
+  if (payments && Array.isArray(payments)) {
+    const paidPayment = payments.find((p) => p.status === 'paid')
+    const p = paidPayment?.payment
+    if (p) {
+      if (p.type === 'payment_intent' && p.payment_intent) {
+        const pi = typeof p.payment_intent === 'object' ? p.payment_intent : null
+        if (pi) {
+          const charge = pi.latest_charge
+          const chargeObj = charge && typeof charge === 'object' ? charge : null
+          const bt = chargeObj?.balance_transaction
+          balanceTransaction =
+            bt && typeof bt === 'object' && bt !== null && 'currency' in bt
+              ? (bt as BalanceTransactionLike)
+              : null
+          return { balanceTransaction, paymentId: pi.id }
+        }
+      }
+      if (p.type === 'charge' && p.charge) {
+        const charge = typeof p.charge === 'object' ? p.charge : null
+        if (charge) {
+          const bt = charge.balance_transaction
+          balanceTransaction =
+            bt && typeof bt === 'object' && bt !== null && 'currency' in bt
+              ? (bt as BalanceTransactionLike)
+              : null
+          return { balanceTransaction, paymentId: charge.id }
+        }
+      }
+    }
+  }
+  return { balanceTransaction, paymentId }
+}
+
+/** Fetch balance_transaction via extra API calls when expand limit prevents inline inclusion */
+async function fetchInvoiceBalanceTransaction(
+  inv: Stripe.Invoice,
+  stripeClient: Stripe
+): Promise<{ balanceTransaction: BalanceTransactionLike | null; paymentId: string }> {
+  const fromExpand = getInvoicePaymentInfo(inv)
+  if (fromExpand.balanceTransaction) return fromExpand
+
+  const payments = inv.payments?.data
+  if (!payments?.length) return fromExpand
+
+  const paidPayment = payments.find((p) => p.status === 'paid')
+  const p = paidPayment?.payment as
+    | { type?: string; payment_intent?: string | { id?: string }; charge?: string | { id?: string } }
+    | undefined
+  if (!p) return fromExpand
+
+  try {
+    if (p.type === 'payment_intent' && p.payment_intent) {
+      const piId =
+        typeof p.payment_intent === 'string' ? p.payment_intent : p.payment_intent?.id
+      if (!piId) return fromExpand
+      const pi = await stripeClient.paymentIntents.retrieve(piId, {
+        expand: ['latest_charge.balance_transaction'],
+      })
+      const charge = pi.latest_charge
+      const chargeObj = charge && typeof charge === 'object' ? charge : null
+      const bt = chargeObj?.balance_transaction
+      const balanceTransaction =
+        bt && typeof bt === 'object' && bt !== null && 'currency' in bt
+          ? (bt as BalanceTransactionLike)
+          : null
+      return { balanceTransaction, paymentId: pi.id }
+    }
+    if (p.type === 'charge' && p.charge) {
+      const chId = typeof p.charge === 'string' ? p.charge : p.charge?.id
+      if (!chId) return fromExpand
+      const charge = await stripeClient.charges.retrieve(chId, {
+        expand: ['balance_transaction'],
+      })
+      const bt = charge.balance_transaction
+      const balanceTransaction =
+        bt && typeof bt === 'object' && bt !== null && 'currency' in bt
+          ? (bt as BalanceTransactionLike)
+          : null
+      return { balanceTransaction, paymentId: charge.id }
+    }
+  } catch {
+    // Fall through to return fromExpand (fee: 0)
+  }
+  return fromExpand
 }
 
 const donationSourceSchema = z.enum(['btcpayserver', 'coinbase', 'stripe'])
@@ -175,34 +279,47 @@ export const accountingRouter = router({
       }
 
       if (includeStripe) {
-        for (const fundSlug of FUND_SLUGS) {
-          if (input.fundSlug && input.fundSlug !== fundSlug) continue
-          const stripeClient = stripe[fundSlug]
-          if (!stripeClient) continue
-
-          try {
+        const fundSlugs = FUND_SLUGS.filter(
+          (s) => !input.fundSlug || input.fundSlug === s
+        )
+        const stripeResults = await Promise.allSettled(
+          fundSlugs.map(async (fundSlug) => {
+            const stripeClient = stripe[fundSlug]
+            if (!stripeClient) return []
+            const fundRecords: (typeof records)[number][] = []
+            const invoices: Stripe.Invoice[] = []
             for await (const inv of stripeClient.invoices.list({
               created: { gte: startTs, lt: endTs },
               status: 'paid',
               limit: 100,
-              expand: ['data.subscription_details', 'data.charge.balance_transaction'],
+              expand: [
+                'data.parent',
+                'data.payments.data.payment',
+              ],
             })) {
               const meta =
-                (inv.subscription_details as { metadata?: Record<string, string> } | null)
+                (inv.parent?.subscription_details as { metadata?: Record<string, string> } | null)
                   ?.metadata ?? (inv.metadata as Record<string, string> | null)
               if (!meta?.projectSlug || !meta?.fundSlug || meta.fundSlug !== fundSlug) continue
               if (input.projectSlug && input.projectSlug !== meta.projectSlug) continue
-
+              invoices.push(inv)
+            }
+            const btResults = await Promise.all(
+              invoices.map((inv) => fetchInvoiceBalanceTransaction(inv, stripeClient))
+            )
+            for (let i = 0; i < invoices.length; i++) {
+              const inv = invoices[i]
+              const meta =
+                (inv.parent?.subscription_details as { metadata?: Record<string, string> } | null)
+                  ?.metadata ?? (inv.metadata as Record<string, string> | null)
+              if (!meta) continue
               const grossCents = inv.amount_paid ?? inv.total ?? 0
               const grossFiatAmount = grossCents / 100
-              const bt =
-                inv.charge && typeof inv.charge === 'object' ? inv.charge.balance_transaction : null
-              const btObj = bt && typeof bt === 'object' ? bt : null
+              const { balanceTransaction: btObj } = btResults[i]
               const { fee, net: netFiatAmount } = btObj
                 ? balanceTransactionToUsd(btObj, grossCents)
                 : { fee: 0, net: grossFiatAmount }
-
-              records.push({
+              fundRecords.push({
                 id: `stripe-inv-${inv.id}`,
                 paymentReceivedAt: new Date(inv.created * 1000),
                 source: 'stripe' as DonationSource,
@@ -220,7 +337,6 @@ export const accountingRouter = router({
                 totalRealizedUsd: netFiatAmount,
               })
             }
-
             for await (const pi of stripeClient.paymentIntents.list({
               created: { gte: startTs, lt: endTs },
               limit: 100,
@@ -232,7 +348,6 @@ export const accountingRouter = router({
               if (!meta?.projectSlug || !meta?.fundSlug || meta.fundSlug !== fundSlug) continue
               if (meta.isSubscription === 'true') continue
               if (input.projectSlug && input.projectSlug !== meta.projectSlug) continue
-
               const grossCents = pi.amount_received
               const grossFiatAmount = grossCents / 100
               const charge = pi.latest_charge
@@ -241,8 +356,7 @@ export const accountingRouter = router({
               const { fee, net: netFiatAmount } = btObj
                 ? balanceTransactionToUsd(btObj, grossCents)
                 : { fee: 0, net: grossFiatAmount }
-
-              records.push({
+              fundRecords.push({
                 id: `stripe-pi-${pi.id}`,
                 paymentReceivedAt: new Date(pi.created * 1000),
                 source: 'stripe' as DonationSource,
@@ -260,8 +374,15 @@ export const accountingRouter = router({
                 totalRealizedUsd: netFiatAmount,
               })
             }
-          } catch (err) {
-            console.error(`[Stripe] Failed to fetch from ${fundSlug}:`, err)
+            return fundRecords
+          })
+        )
+        for (let i = 0; i < stripeResults.length; i++) {
+          const result = stripeResults[i]
+          if (result.status === 'fulfilled') {
+            records.push(...result.value)
+          } else {
+            console.error(`[Stripe] Failed to fetch from ${fundSlugs[i]}:`, result.reason)
           }
         }
       }
@@ -451,37 +572,46 @@ export const accountingRouter = router({
 
       const items: StripeInvoiceItem[] = []
 
-      for (const fundSlug of FUND_SLUGS) {
-        const stripeClient = stripe[fundSlug]
-        if (!stripeClient) continue
-
-        try {
-          // Fetch paid invoices (recurring / subscription)
+      const stripeResults = await Promise.allSettled(
+        FUND_SLUGS.map(async (fundSlug) => {
+          const stripeClient = stripe[fundSlug]
+          if (!stripeClient) return []
+          const fundItems: StripeInvoiceItem[] = []
+          const invoices: Stripe.Invoice[] = []
           for await (const inv of stripeClient.invoices.list({
             created: { gte: startTs, lt: endTs },
             status: 'paid',
             limit: 100,
-            expand: ['data.subscription_details', 'data.charge.balance_transaction'],
+            expand: [
+              'data.parent',
+              'data.payments.data.payment',
+            ],
           })) {
             const meta =
-              (inv.subscription_details as { metadata?: Record<string, string> } | null)
+              (inv.parent?.subscription_details as { metadata?: Record<string, string> } | null)
                 ?.metadata ?? (inv.metadata as Record<string, string> | null)
             if (!meta?.projectSlug || !meta?.fundSlug || meta.fundSlug !== fundSlug) continue
+            invoices.push(inv)
+          }
+          const btResults = await Promise.all(
+            invoices.map((inv) => fetchInvoiceBalanceTransaction(inv, stripeClient))
+          )
+          for (let i = 0; i < invoices.length; i++) {
+            const inv = invoices[i]
+            const meta =
+              (inv.parent?.subscription_details as { metadata?: Record<string, string> } | null)
+                ?.metadata ?? (inv.metadata as Record<string, string> | null)
+            if (!meta) continue
             const grossCents = inv.amount_paid ?? inv.total ?? 0
             const grossFiatAmount = grossCents / 100
-            const bt =
-              inv.charge && typeof inv.charge === 'object' ? inv.charge.balance_transaction : null
-            const btObj = bt && typeof bt === 'object' ? bt : null
+            const { balanceTransaction: btObj, paymentId } = btResults[i]
             const { fee, net: netFiatAmount } = btObj
               ? balanceTransactionToUsd(btObj, grossCents)
               : { fee: 0, net: grossFiatAmount }
-            items.push({
+            fundItems.push({
               id: inv.id,
               createdAt: new Date(inv.created * 1000),
-              paymentId:
-                typeof inv.payment_intent === 'string'
-                  ? inv.payment_intent
-                  : (inv.payment_intent?.id ?? inv.id),
+              paymentId,
               invoiceId: inv.id,
               projectSlug: meta.projectSlug,
               projectName: meta.projectName ?? 'General',
@@ -489,17 +619,14 @@ export const accountingRouter = router({
               grossFiatAmount,
               fee,
               netFiatAmount,
-              isRecurring: !!inv.subscription,
+              isRecurring: !!inv.parent?.subscription_details,
             })
           }
-
-          // Fetch succeeded payment intents (one-time)
           const paymentIntents = await stripeClient.paymentIntents.list({
             created: { gte: startTs, lt: endTs },
             limit: 100,
             expand: ['data.latest_charge.balance_transaction'],
           })
-
           for (const pi of paymentIntents.data) {
             if (pi.status !== 'succeeded' || !pi.amount_received || pi.amount_received <= 0)
               continue
@@ -514,7 +641,7 @@ export const accountingRouter = router({
             const { fee, net: netFiatAmount } = btObj
               ? balanceTransactionToUsd(btObj, grossCents)
               : { fee: 0, net: grossFiatAmount }
-            items.push({
+            fundItems.push({
               id: pi.id,
               createdAt: new Date(pi.created * 1000),
               paymentId: pi.id,
@@ -528,8 +655,15 @@ export const accountingRouter = router({
               isRecurring: false,
             })
           }
-        } catch (err) {
-          console.error(`[Stripe] Failed to fetch from ${fundSlug}:`, err)
+          return fundItems
+        })
+      )
+      for (let i = 0; i < stripeResults.length; i++) {
+        const result = stripeResults[i]
+        if (result.status === 'fulfilled') {
+          items.push(...result.value)
+        } else {
+          console.error(`[Stripe] Failed to fetch from ${FUND_SLUGS[i]}:`, result.reason)
         }
       }
 

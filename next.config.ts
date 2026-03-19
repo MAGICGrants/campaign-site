@@ -1,5 +1,7 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+import type { NextConfig } from 'next'
+import { withSentryConfig } from '@sentry/nextjs'
+
+const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   // Axios uses package exports: require() resolves to dist/node/axios.cjs, but
@@ -22,13 +24,7 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
-
-// Injected content via Sentry wizard below
-
-const { withSentryConfig } = require('@sentry/nextjs')
-
-module.exports = withSentryConfig(module.exports, {
+export default withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 

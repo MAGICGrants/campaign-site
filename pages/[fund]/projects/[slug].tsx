@@ -63,7 +63,6 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
   const hasProfaneNames = !!leaderboardQuery.data?.find((item) => item.nameIsProfane)
 
   function toggleLeaderboardItemNameVis(itemIndex: number) {
-    console.log(leaderboardItemNamesToReveal, itemIndex)
     if (leaderboardItemNamesToReveal.includes(itemIndex)) {
       setLeaderboardItemNamesToReveal((state) => state.filter((index) => index !== itemIndex))
     } else {
@@ -207,7 +206,7 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
           </div>
 
           <article
-            className="prose max-w-none mt-4 p-6 col-span-2 bg-white rounded-lg"
+            className="prose max-w-none p-6 col-span-2 bg-white rounded-lg"
             dangerouslySetInnerHTML={{ __html: xss(content || '') }}
           />
         </PageHeading>
