@@ -4,7 +4,7 @@ import { BtcPayListInvoiceItem, DonationCryptoPayments } from '../types'
 import { getDeposits, getClosedSellOrders, KrakenDeposit, KrakenSellOrder } from './kraken'
 import { getNetworkFee } from './blockexplorers'
 import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from './btcpayserver'
-import { getCoinbaseCdpInvoices, CoinbaseCdpInvoice } from './coinbase-cdp'
+import { getCoinbaseCdpCheckouts, CoinbaseCdpCheckout } from './coinbase-cdp'
 import { loadCoinbaseExportCsv } from './coinbase-export-csv'
 
 type PaymentItem = {
@@ -162,55 +162,44 @@ async function extractBtcPayPaymentItems(
   return items
 }
 
-function parseMetadataFromCoinbaseMemo(memo: string | undefined): {
-  projectSlug: string
-  projectName: string
-  fundSlug: FundSlug
-} | null {
-  if (!memo) return null
-  try {
-    const parsed = JSON.parse(memo) as Record<string, string>
-    const fundSlug = parsed.fundSlug as FundSlug
-    if (fundSlug && Object.values(FundSlug).includes(fundSlug)) {
-      return {
-        projectSlug: parsed.projectSlug ?? 'general',
-        projectName: parsed.projectName ?? 'General',
-        fundSlug,
-      }
-    }
-  } catch {
-    // ignore
+function parseMetadataFromCheckoutMetadata(
+  meta: Record<string, string> | undefined
+): { projectSlug: string; projectName: string; fundSlug: FundSlug } | null {
+  if (!meta?.fundSlug) return null
+  const fundSlug = meta.fundSlug as FundSlug
+  if (!fundSlug || !Object.values(FundSlug).includes(fundSlug)) return null
+  return {
+    projectSlug: meta.projectSlug ?? 'general',
+    projectName: meta.projectName ?? 'General',
+    fundSlug,
   }
-  return null
 }
 
-async function extractCoinbasePaymentItems(invoices: CoinbaseCdpInvoice[]): Promise<PaymentItem[]> {
+async function extractCoinbasePaymentItems(checkouts: CoinbaseCdpCheckout[]): Promise<PaymentItem[]> {
   const items: PaymentItem[] = []
 
-  for (const invoice of invoices) {
-    const currency = invoice.totalAmountDue?.currency
-    if (!currency || currency !== 'USDC') continue
+  for (const co of checkouts) {
+    if (co.status !== 'COMPLETED') continue
+    if (co.currency !== 'USDC') continue
 
-    const cryptoAmount = Number(invoice.totalAmountDue.value)
+    const cryptoAmount = Number(co.amount)
     if (cryptoAmount <= 0) continue
 
-    if (IGNORED_PAYMENT_IDS.includes(invoice.uuid)) continue
+    if (IGNORED_PAYMENT_IDS.includes(co.id)) continue
 
-    const metadata =
-      parseMetadataFromCoinbaseMemo(invoice.memo) ??
-      parseMetadataFromCoinbaseMemo(invoice.privateNotes)
+    const metadata = parseMetadataFromCheckoutMetadata(co.metadata)
 
-    const receivedAt = new Date(invoice.updatedAt)
+    const receivedAt = new Date(co.updatedAt)
     const rate = '1'
     const fiatAmount = cryptoAmount
 
     items.push({
-      paymentId: invoice.uuid,
-      invoiceId: invoice.uuid,
+      paymentId: co.id,
+      invoiceId: co.id,
       receivedAt,
       cryptoCode: 'USDC',
       cryptoAmount,
-      cryptoAmountRaw: invoice.totalAmountDue.value,
+      cryptoAmountRaw: co.amount,
       rate,
       fiatAmount,
       projectSlug: metadata?.projectSlug ?? null,
@@ -479,19 +468,19 @@ function rollUpMatches(
 export async function generateAccountingRecords(): Promise<DonationAccounting[]> {
   console.log('[accounting] Starting accounting record generation...')
 
-  const [btcPayInvoices, coinbaseInvoices, existingRecords] = await Promise.all([
+  const [btcPayInvoices, coinbaseCheckouts, existingRecords] = await Promise.all([
     getBtcPayInvoices(),
-    getCoinbaseCdpInvoices(),
+    getCoinbaseCdpCheckouts(),
     prisma.donationAccounting.findMany({ orderBy: { paymentReceivedAt: 'asc' } }),
   ])
 
   console.log(
-    `[accounting] Found ${btcPayInvoices.length} BTCPay invoices, ${coinbaseInvoices.length} Coinbase invoices`
+    `[accounting] Found ${btcPayInvoices.length} BTCPay invoices, ${coinbaseCheckouts.length} Coinbase checkouts`
   )
 
   const [btcPayItems, coinbaseCdpItems, coinbaseCsvItems] = await Promise.all([
     extractBtcPayPaymentItems(btcPayInvoices),
-    extractCoinbasePaymentItems(coinbaseInvoices),
+    extractCoinbasePaymentItems(coinbaseCheckouts),
     Promise.resolve(loadCoinbaseExportCsv()),
   ])
 

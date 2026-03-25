@@ -2,7 +2,7 @@ import { FundSlug, PrismaClient } from '@prisma/client'
 import Stripe from 'stripe'
 import KeycloakAdminClient from '@keycloak/keycloak-admin-client'
 import nodemailer from 'nodemailer'
-import axios from 'axios'
+import axios, { isAxiosError } from 'axios'
 
 import { env } from '../env.mjs'
 
@@ -63,15 +63,32 @@ const privacyGuidesDiscourseApi = axios.create({
   },
 })
 
-const coinbaseCommerceApi = axios.create({
-  baseURL: 'https://api.commerce.coinbase.com',
-  headers: { 'X-CC-Api-Key': env.COINBASE_COMMERCE_API_KEY },
+function toCoinbaseCdpError(error: unknown): Error {
+  if (!isAxiosError(error)) {
+    return error instanceof Error ? error : new Error(String(error))
+  }
+  const { response, message } = error
+  if (response) {
+    const body =
+      typeof response.data === 'string'
+        ? response.data
+        : JSON.stringify(response.data)
+    const err = new Error(`HTTP ${response.status}: ${body}`)
+    ;(err as Error & { status?: number }).status = response.status
+    return err
+  }
+  return new Error(message || 'Coinbase CDP request failed')
+}
+
+/** Coinbase CDP Business API — use full paths on requests (see `coinbase-cdp.ts`). */
+const coinbaseCdpApi = axios.create({
+  baseURL: 'https://business.coinbase.com',
 })
 
-const coinbaseCdpApi = axios.create({
-  baseURL: 'https://business.coinbase.com/api/v1',
-  // Bearer token is generated on every request
-})
+coinbaseCdpApi.interceptors.response.use(
+  (res) => res,
+  (error) => Promise.reject(toCoinbaseCdpError(error))
+)
 
 const geminiApi = axios.create({
   baseURL: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`,
@@ -86,7 +103,6 @@ export {
   printfulApi,
   stripe,
   privacyGuidesDiscourseApi,
-  coinbaseCommerceApi,
   coinbaseCdpApi,
   geminiApi,
 }

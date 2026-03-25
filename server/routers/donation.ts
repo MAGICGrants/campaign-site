@@ -19,7 +19,7 @@ import { BtcPayCreateInvoiceRes, DonationMetadata } from '../types'
 import { funds, fundSlugs } from '../../utils/funds'
 import { fundSlugToCustomerIdAttr } from '../utils/funds'
 import { getDonationAttestation, getMembershipAttestation } from '../utils/attestation'
-import { createCoinbaseCharge } from '../utils/coinbase-commerce'
+import { createCoinbaseCheckout } from '../utils/coinbase-cdp'
 import { isNameProfane } from '../utils/profanity'
 
 export const donationRouter = router({
@@ -210,13 +210,12 @@ export const donationRouter = router({
       }
 
       if (input.paymentMethod === 'evm') {
-        const charge = await createCoinbaseCharge({
+        const link = await createCoinbaseCheckout({
           amountUsd: input.amount,
-          fundSlug: input.fundSlug,
           metadata,
         })
 
-        url = charge.hosted_url
+        url = link.url
       }
 
       return { url }
@@ -446,13 +445,12 @@ export const donationRouter = router({
       }
 
       if (input.paymentMethod === 'evm') {
-        const charge = await createCoinbaseCharge({
+        const link = await createCoinbaseCheckout({
           amountUsd: input.amount,
-          fundSlug: input.fundSlug,
           metadata,
         })
 
-        url = charge.hosted_url
+        url = link.url
       }
 
       return { url }
