@@ -1,18 +1,13 @@
 import { FundSlug } from '@prisma/client'
 import sanitize from 'sanitize-filename'
-import xss from 'xss'
 
 import markdownToHtml from '../../utils/markdownToHtml'
 import { fileExists, getSingleFile } from '../../utils/md'
 import { fundSlugs } from '../../utils/funds'
+import Markdown from '../../components/Markdown'
 
 export default function Faq({ content }: { content: string }) {
-  return (
-    <article
-      className="prose max-w-3xl mx-auto p-12 xl:col-span-2 bg-white rounded-lg"
-      dangerouslySetInnerHTML={{ __html: xss(content || '') }}
-    />
-  )
+  return <Markdown content={content} />
 }
 
 export async function getStaticProps({ params }: { params: { fund: FundSlug } }) {

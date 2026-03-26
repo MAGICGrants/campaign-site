@@ -21,6 +21,7 @@ import { useFundSlug } from '../../../utils/use-fund-slug'
 import { Table, TableBody, TableCell, TableRow } from '../../../components/ui/table'
 import { cn } from '../../../utils/cn'
 import { formatBtc, formatUsd } from '../../../utils/money-formating'
+import Markdown from '../../../components/Markdown'
 
 type SingleProjectPageProps = {
   project: ProjectItem
@@ -39,12 +40,15 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
     return <ErrorPage statusCode={404} />
   }
 
-  const leaderboardQuery = trpc.leaderboard.getLeaderboard.useQuery({
-    fundSlug: fundSlug || 'general',
-    projectSlug: project.slug,
-  }, {
-    refetchOnWindowFocus: false,
-  })
+  const leaderboardQuery = trpc.leaderboard.getLeaderboard.useQuery(
+    {
+      fundSlug: fundSlug || 'general',
+      projectSlug: project.slug,
+    },
+    {
+      refetchOnWindowFocus: false,
+    }
+  )
 
   const totalFiatAmount =
     donationStats.xmr.fiatAmount +
@@ -75,9 +79,7 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
   return (
     <>
       <Head>
-        <title>
-          {`${project.title} - ${funds[project.fund].title}`}
-        </title>
+        <title>{`${project.title} - ${funds[project.fund].title}`}</title>
       </Head>
 
       <div className="divide-y divide-gray-200">
@@ -207,10 +209,7 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
             </div>
           </div>
 
-          <article
-            className="prose max-w-none p-6 col-span-2 bg-white rounded-lg"
-            dangerouslySetInnerHTML={{ __html: xss(content || '') }}
-          />
+          <Markdown content={content || ''} />
         </PageHeading>
       </div>
     </>
