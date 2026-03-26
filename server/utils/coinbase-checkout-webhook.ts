@@ -14,45 +14,49 @@ export function verifyCoinbaseCdpHookSignature(
   headers: IncomingHttpHeaders,
   maxAgeMinutes = 5
 ): boolean {
-  if (!signatureHeader) return false
+  if (!signatureHeader) return false;
   try {
-    const elements = signatureHeader.split(',')
-    const tEl = elements.find((e) => e.trim().startsWith('t='))
-    const hEl = elements.find((e) => e.trim().startsWith('h='))
-    const v1El = elements.find((e) => e.trim().startsWith('v1='))
-    if (!tEl || !hEl || !v1El) return false
-
-    const timestamp = tEl.split('=').slice(1).join('=').trim()
-    const headerNames = hEl.split('=').slice(1).join('=').trim()
-    const providedSignature = v1El.split('=').slice(1).join('=').trim()
-
-    const headerNameList = headerNames.split(/\s+/).filter(Boolean)
-    const headerValues = headerNameList
-      .map((name) => {
-        const lower = name.toLowerCase()
-        const v = headers[lower] ?? headers[name]
-        if (Array.isArray(v)) return v[0] ?? ''
-        return v ?? ''
-      })
-      .join('.')
-
-    const signedPayload = `${timestamp}.${headerNames}.${headerValues}.${payload}`
-
-    const expectedSignature = crypto.createHmac('sha256', secret).update(signedPayload, 'utf8').digest('hex')
-
-    const a = Buffer.from(expectedSignature, 'hex')
-    const b = Buffer.from(providedSignature, 'hex')
-    if (a.length !== b.length) return false
-    if (!crypto.timingSafeEqual(a, b)) return false
-
-    const webhookTime = parseInt(timestamp, 10) * 1000
-    const ageMinutes = (Date.now() - webhookTime) / (1000 * 60)
-    if (ageMinutes > maxAgeMinutes || ageMinutes < -1) return false
-
-    return true
-  } catch {
-    return false
-  }
+    // Parse signature header: t=timestamp,h=headers,v1=signature
+    const elements = signatureHeader.split(',');
+    const timestamp = elements.find(e => e.startsWith('t='))?.split('=')[1];
+    const headerNames = elements.find(e => e.startsWith('h='))?.split('=')[1];
+    const providedSignature = elements.find(e => e.startsWith('v1='))?.split('=')[1];
+    
+    // Build header values string
+    const headerNameList = headerNames?.split(' ') || [];
+    const headerValues = headerNameList.map(name => headers[name] || '').join('.');
+    
+    // Build signed payload
+    const signedPayload = `${timestamp}.${headerNames}.${headerValues}.${payload}`;
+    
+    // Compute expected signature
+    const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(signedPayload, 'utf8')
+        .digest('hex');
+    
+    // Compare signatures securely
+    const signaturesMatch = crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, 'hex'),
+        Buffer.from(providedSignature || '', 'hex')
+    );
+    
+    // Verify timestamp to prevent replay attacks
+    const webhookTime = parseInt(timestamp || '0') * 1000; // Convert to milliseconds
+    const currentTime = Date.now();
+    const ageMinutes = (currentTime - webhookTime) / (1000 * 60);
+    
+    if (ageMinutes > maxAgeMinutes) {
+        console.error(`Webhook timestamp exceeds maximum age: ${ageMinutes.toFixed(1)} minutes > ${maxAgeMinutes} minutes`);
+        return false;
+    }
+    
+    return signaturesMatch;
+    
+} catch (error) {
+    console.error('Webhook verification error:', error);
+    return false;
+}
 }
 
 function isFundSlug(s: string): s is FundSlug {
@@ -107,11 +111,11 @@ export type CheckoutWebhookPayload = {
   currency: string
   status: string
   metadata?: Record<string, string>
-  settlement?: {
+  settlement: {
     totalAmount: string
     feeAmount: string
     netAmount: string
-    currency?: string
+    currency: string
   }
   network?: string
 }

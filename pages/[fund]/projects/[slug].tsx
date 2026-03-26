@@ -42,6 +42,8 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
   const leaderboardQuery = trpc.leaderboard.getLeaderboard.useQuery({
     fundSlug: fundSlug || 'general',
     projectSlug: project.slug,
+  }, {
+    refetchOnWindowFocus: false,
   })
 
   const totalFiatAmount =

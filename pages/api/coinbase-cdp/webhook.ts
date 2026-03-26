@@ -52,29 +52,24 @@ async function handleCheckoutPaid(body: CheckoutWebhookPayload, res: NextApiResp
   }
 
   const shouldGivePointsBack = metadata.givePointsBack === 'true'
-
-  const grossFiatAmount = Number(body.amount)
-
+  const grossCryptoAmount = Number(body.amount)
+  const netCryptoAmount = shouldGivePointsBack
+    ? grossCryptoAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
+    : grossCryptoAmount
+  const grossFiatAmount = Number(body.settlement.totalAmount)
   const netFiatAmount = shouldGivePointsBack
     ? grossFiatAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
     : grossFiatAmount
 
   const pointsToGive = shouldGivePointsBack ? Math.floor(grossFiatAmount / POINTS_PER_USD) : 0
+  const rate = grossFiatAmount / grossCryptoAmount
 
-  const totalStr = body.settlement?.totalAmount ?? body.amount
-  const netStr = body.settlement?.netAmount ?? body.amount
-  const settlementTotal = Number(totalStr)
-  const settlementNet = Number(netStr)
   const cryptoPayments: DonationCryptoPayments = [
     {
       cryptoCode: body.currency,
-      grossAmount: totalStr,
-      netAmount: String(
-        shouldGivePointsBack
-          ? settlementNet * NET_DONATION_AMOUNT_WITH_POINTS_RATE
-          : settlementNet
-      ),
-      rate: settlementTotal > 0 ? String(settlementNet / settlementTotal) : '1',
+      grossAmount: String(grossCryptoAmount),
+      netAmount: String(netCryptoAmount),
+      rate: String(rate.toFixed(2)),
     },
   ]
 
