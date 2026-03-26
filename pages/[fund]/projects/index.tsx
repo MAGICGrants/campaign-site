@@ -19,7 +19,7 @@ const AllProjects: NextPage<{ projects: ProjectItem[] }> = ({ projects }) => {
   return (
     <>
       <Head>
-        <title>{funds[fundSlug].title} - Projects</title>
+        <title>{`${funds[fundSlug].title} - Projects`}</title>
       </Head>
 
       <section className="flex flex-col items-center">

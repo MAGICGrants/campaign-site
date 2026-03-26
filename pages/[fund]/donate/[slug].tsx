@@ -153,7 +153,7 @@ function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
   return (
     <>
       <Head>
-        <title>Donate to {project.title}</title>
+        <title>{`Donate to ${project.title}`}</title>
       </Head>
       <div className="max-w-[540px] mx-auto p-6 space-y-6 rounded-lg bg-white">
         <div className="py-4 flex flex-col space-y-6">

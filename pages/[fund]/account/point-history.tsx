@@ -26,7 +26,7 @@ function PointHistory() {
   return (
     <>
       <Head>
-        <title>{funds[fundSlug!].title} - Point History</title>
+        <title>{`${funds[fundSlug!].title} - Point History`}</title>
       </Head>
 
       <div className="w-full max-w-5xl mx-auto flex flex-col">

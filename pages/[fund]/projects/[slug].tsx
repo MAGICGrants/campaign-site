@@ -76,7 +76,7 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
     <>
       <Head>
         <title>
-          {project.title} - {funds[project.fund].title}
+          {`${project.title} - ${funds[project.fund].title}`}
         </title>
       </Head>
 
