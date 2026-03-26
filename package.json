@@ -111,7 +111,8 @@
     "@types/react-modal": "^3.16.3",
     "autoprefixer": "^10.4.27",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.1.7",
+    "eslint-config-next": "^16.2.1",
+    "eslint-plugin-import": "^2.32.0",
     "npm-watch": "^0.13.0",
     "prettier": "^3.8.1",
     "prisma": "^6.19.2",
@@ -128,5 +129,8 @@
       ],
       "extensions": "js,jsx,tsx,ts,css,scss,md"
     }
+  },
+  "overrides": {
+    "eslint-plugin-import": "$eslint-plugin-import"
   }
 }
