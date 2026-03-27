@@ -103,11 +103,11 @@ services:
       - btcpay_postgres_datadir:/var/lib/postgresql
 
   magic-app:
-    image: node:24-slim
+    image: node:24-alpine3.22
     container_name: magic-app
     restart: unless-stopped
     working_dir: /app
-    command: sh -c 'apt update && apt install -y openssl && npm run dev'
+    command: npm run dev
     ports:
       - 3000:3000
     volumes:

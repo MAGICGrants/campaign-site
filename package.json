@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "watch": "npm-watch",
-    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org magic-grants --project campaign-site ./out && sentry-cli sourcemaps upload --org magic-grants --project campaign-site ./out"
+    "sentry:sourcemaps": "npx @sentry/cli sourcemaps inject --org magic-grants --project campaign-site ./out && npx @sentry/cli sourcemaps upload --org magic-grants --project campaign-site ./out"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.45.0",

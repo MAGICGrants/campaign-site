@@ -2,11 +2,7 @@
   "compilerOptions": {
     "module": "ESNext",
     "target": "es2023",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "ES2023"
-    ],
+    "lib": ["dom", "dom.iterable", "ES2023"],
     "moduleResolution": "node",
     "allowJs": true,
     "skipLibCheck": true,
@@ -28,14 +24,6 @@
     // This improves issue grouping in Sentry.
     "sourceRoot": "/"
   },
-  "include": [
-    "next-env.d.ts",
-    "auth.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "env.mjs"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["next-env.d.ts", "auth.d.ts", "**/*.ts", "**/*.tsx", "env.mjs"],
+  "exclude": ["node_modules"]
 }
