@@ -11,7 +11,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: v2
+    environment: staging
 
     steps:
       - uses: actions/checkout@v4
