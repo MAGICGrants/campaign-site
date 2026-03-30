@@ -7,7 +7,7 @@ http {
 
     server {
         listen 80;
-        server_name donate.magicgrants.org;
+        server_name ${NGINX_SERVER_NAME};
 
         location / {
             proxy_pass http://magic-app:3000;
