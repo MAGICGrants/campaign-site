@@ -1,7 +1,21 @@
 services:
-  magic-staging-keycloak:
+  magic-services-cloudflared:
+    image: cloudflare/cloudflared:2026.3.0
+    container_name: magic-services-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+      REAL_IP_HEADER: Cf-Connecting-Ip
+    networks:
+      - app
+    depends_on:
+      - magic-keycloak
+      - magic-btcpayserver
+
+  magic-keycloak:
     image: quay.io/keycloak/keycloak:25.0.6
-    container_name: magic-staging-keycloak
+    container_name: magic-keycloak
     restart: unless-stopped
     command: start-dev
     ports:
@@ -14,15 +28,15 @@ services:
     networks:
       - app
 
-  magic-staging-btcpayserver:
+  magic-btcpayserver:
     restart: unless-stopped
-    container_name: magic-staging-btcpayserver
+    container_name: magic-btcpayserver
     image: btcpayserver/btcpayserver:2.3.5
     environment:
-      BTCPAY_POSTGRES: User ID=postgres;Host=magic-staging-btcpay-postgres;Port=5432;Application Name=btcpayserver;Database=btcpayserver${NBITCOIN_NETWORK:-regtest}
-      BTCPAY_EXPLORERPOSTGRES: User ID=postgres;Host=magic-staging-btcpay-postgres;Port=5432;Application Name=btcpayserver;MaxPoolSize=80;Database=nbxplorer${NBITCOIN_NETWORK:-regtest}
+      BTCPAY_POSTGRES: User ID=postgres;Host=magic-btcpay-postgres;Port=5432;Application Name=btcpayserver;Database=btcpayserver${NBITCOIN_NETWORK:-regtest}
+      BTCPAY_EXPLORERPOSTGRES: User ID=postgres;Host=magic-btcpay-postgres;Port=5432;Application Name=btcpayserver;MaxPoolSize=80;Database=nbxplorer${NBITCOIN_NETWORK:-regtest}
       BTCPAY_NETWORK: ${NBITCOIN_NETWORK:-regtest}
-      BTCPAY_BTCEXPLORERURL: http://magic-staging-nbxplorer:32838
+      BTCPAY_BTCEXPLORERURL: http://magic-nbxplorer:32838
       BTCPAY_CHEATMODE: true
       BTCPAY_BIND: 0.0.0.0:49392
       BTCPAY_VERBOSE: true
@@ -39,9 +53,9 @@ services:
     networks:
       - app
 
-  magic-staging-bitcoind:
+  magic-bitcoind:
     restart: unless-stopped
-    container_name: magic-staging-bitcoind
+    container_name: magic-bitcoind
     image: btcpayserver/bitcoin:30.2
     environment:
       BITCOIN_NETWORK: ${NBITCOIN_NETWORK:-regtest}
@@ -62,9 +76,9 @@ services:
     networks:
       - app
 
-  magic-staging-nbxplorer:
+  magic-nbxplorer:
     restart: unless-stopped
-    container_name: magic-staging-nbxplorer
+    container_name: magic-nbxplorer
     image: nicolasdorier/nbxplorer:2.6.1
     environment:
       NBXPLORER_NETWORK: ${NBITCOIN_NETWORK:-regtest}
@@ -72,20 +86,20 @@ services:
       NBXPLORER_NOAUTH: true
       NBXPLORER_EXPOSERPC: true
       NBXPLORER_CHAINS: btc
-      NBXPLORER_BTCRPCURL: http://magic-staging-bitcoind:43782/
-      NBXPLORER_BTCNODEENDPOINT: magic-staging-bitcoind:39388
+      NBXPLORER_BTCRPCURL: http://magic-bitcoind:43782/
+      NBXPLORER_BTCNODEENDPOINT: magic-bitcoind:39388
       NBXPLORER_BTCRPCUSER: magic
       NBXPLORER_BTCRPCPASSWORD: magic
-      NBXPLORER_POSTGRES: User ID=postgres;Host=magic-staging-btcpay-postgres;Port=5432;Application Name=btcpayserver;MaxPoolSize=80;Database=nbxplorer${NBITCOIN_NETWORK:-regtest}
+      NBXPLORER_POSTGRES: User ID=postgres;Host=magic-btcpay-postgres;Port=5432;Application Name=btcpayserver;MaxPoolSize=80;Database=nbxplorer${NBITCOIN_NETWORK:-regtest}
     volumes:
       - nbxplorer_datadir:/datadir
       - bitcoin_datadir:/root/.bitcoin
     networks:
       - app
 
-  magic-staging-btcpay-postgres:
+  magic-btcpay-postgres:
     restart: unless-stopped
-    container_name: magic-staging-btcpay-postgres
+    container_name: magic-btcpay-postgres
     shm_size: 256mb
     image: btcpayserver/postgres:18.1
     command: ['-c', 'random_page_cost=1.0', '-c', 'shared_preload_libraries=pg_stat_statements']

@@ -1,6 +1,6 @@
 services:
   magic-cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.3.0
     container_name: magic-cloudflared
     restart: unless-stopped
     command: tunnel --no-autoupdate run
