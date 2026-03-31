@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+      TUNNEL_TOKEN: ${CLOUDFLARE_STAGING_SERVICES_TUNNEL_TOKEN}
       REAL_IP_HEADER: Cf-Connecting-Ip
     networks:
       - app

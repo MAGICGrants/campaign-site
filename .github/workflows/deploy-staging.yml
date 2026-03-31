@@ -29,6 +29,7 @@ jobs:
             echo "Building and starting..."
 
             CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }} \
+            CLOUDFLARE_STAGING_SERVICES_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_STAGING_SERVICES_TUNNEL_TOKEN }} \
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
             DATABASE_URL=${{ secrets.DATABASE_URL }} \
             NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} \
