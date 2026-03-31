@@ -21,6 +21,8 @@ jobs:
       - name: Deploy
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }} << 'EOF'
+            set -e
+
             export HISTFILE=/dev/null
             cd campaign-site
             git checkout staging
@@ -30,6 +32,9 @@ jobs:
 
             export DOCKER_NETWORK_NAME="${{ vars.DOCKER_NETWORK_NAME }}"
             docker network inspect "$DOCKER_NETWORK_NAME" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK_NAME"
+
+            # PEM / multi-line values break inline VAR=value; store Coinbase private key as base64 in GitHub (openssl base64 -A -in key.pem | tr -d '\n').
+            export COINBASE_CDP_API_KEY_PRIVATE_KEY="$(printf '%s' '${{ secrets.COINBASE_CDP_API_KEY_PRIVATE_KEY_B64 }}' | base64 -d)"
 
             CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }} \
             CLOUDFLARE_STAGING_SERVICES_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_STAGING_SERVICES_TUNNEL_TOKEN }} \
@@ -65,7 +70,6 @@ jobs:
             PRIVACYGUIDES_DISCOURSE_MEMBERSHIP_GROUP_ID=${{ secrets.PRIVACYGUIDES_DISCOURSE_MEMBERSHIP_GROUP_ID }} \
             ATTESTATION_PRIVATE_KEY_HEX=${{ secrets.ATTESTATION_PRIVATE_KEY_HEX }} \
             COINBASE_CDP_API_KEY_ID=${{ secrets.COINBASE_CDP_API_KEY_ID }} \
-            COINBASE_CDP_API_KEY_PRIVATE_KEY=${{ secrets.COINBASE_CDP_API_KEY_PRIVATE_KEY }} \
             COINBASE_CDP_WEBHOOK_SECRET=${{ secrets.COINBASE_CDP_WEBHOOK_SECRET }} \
             KRAKEN_API_KEY=${{ secrets.KRAKEN_API_KEY }} \
             KRAKEN_API_SECRET=${{ secrets.KRAKEN_API_SECRET }} \
