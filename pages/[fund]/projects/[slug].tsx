@@ -209,7 +209,7 @@ const Project: NextPage<SingleProjectPageProps> = ({ project, donationStats }) =
             </div>
           </div>
 
-          <Markdown content={content || ''} />
+          <Markdown content={content || ''} className="col-span-2" />
         </PageHeading>
       </div>
     </>
