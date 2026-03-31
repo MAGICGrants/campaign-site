@@ -8,7 +8,9 @@ export const env = createEnv({
    * Will throw if you access these variables on the client.
    */
   server: {
+    NODE_ENV: z.enum(['development', 'production']),
     DATABASE_URL: z.url(),
+    STAGING_MODE_ENABLED: z.enum(['', 'true']).default(''),
     APP_URL: z.url(),
     NEXTAUTH_SECRET: z.string().min(32),
     USER_SETTINGS_JWT_SECRET: z.string().min(32),
@@ -61,8 +63,8 @@ export const env = createEnv({
 
     GEMINI_API_KEY: z.string().min(1),
 
-    KRAKEN_API_KEY: z.string().min(1),
-    KRAKEN_API_SECRET: z.string().min(1),
+    KRAKEN_API_KEY: z.string().optional(),
+    KRAKEN_API_SECRET: z.string().optional(),
   },
   /*
    * Environment variables available on the client (and server).
@@ -85,7 +87,9 @@ export const env = createEnv({
    * 💡 You'll get type errors if not all variables from `server` & `client` are included here.
    */
   runtimeEnv: {
+    NODE_ENV: process.env.NODE_ENV,
     DATABASE_URL: process.env.DATABASE_URL,
+    STAGING_MODE_ENABLED: process.env.STAGING_MODE_ENABLED,
     APP_URL: process.env.APP_URL,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     USER_SETTINGS_JWT_SECRET: process.env.USER_SETTINGS_JWT_SECRET,

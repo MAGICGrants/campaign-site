@@ -29,10 +29,9 @@ type ListCheckoutsResponse = {
   nextPageToken?: string
 }
 
-
 function generateCdpJwt(requestMethod: string, requestHost: string, requestPath: string): string {
-  const algorithm = 'ES256';
-  const uri = `${requestMethod} ${requestHost}${requestPath}`;
+  const algorithm = 'ES256'
+  const uri = `${requestMethod} ${requestHost}${requestPath}`
 
   const payload = {
     iss: 'cdp',
@@ -40,16 +39,16 @@ function generateCdpJwt(requestMethod: string, requestHost: string, requestPath:
     exp: Math.floor(Date.now() / 1000) + 120,
     sub: env.COINBASE_CDP_API_KEY_ID,
     uri,
-  };
+  }
 
   const header = {
     alg: algorithm,
     kid: env.COINBASE_CDP_API_KEY_ID,
     nonce: crypto.randomBytes(16).toString('hex'),
-  };
+  }
 
-  return jwt.sign(payload, env.COINBASE_CDP_API_KEY_PRIVATE_KEY, { algorithm, header });
-};
+  return jwt.sign(payload, env.COINBASE_CDP_API_KEY_PRIVATE_KEY, { algorithm, header })
+}
 
 export async function getCoinbaseCdpCheckouts(): Promise<CoinbaseCdpCheckout[]> {
   if (!env.COINBASE_CDP_API_KEY_ID || !env.COINBASE_CDP_API_KEY_PRIVATE_KEY) {
@@ -64,7 +63,9 @@ export async function getCoinbaseCdpCheckouts(): Promise<CoinbaseCdpCheckout[]> 
 
   do {
     const uri =
-      process.env.NODE_ENV === 'development' ? '/sandbox/api/v1/checkouts' : '/api/v1/checkouts'
+      env.NODE_ENV === 'development' || env.STAGING_MODE_ENABLED === 'true'
+        ? '/sandbox/api/v1/checkouts'
+        : '/api/v1/checkouts'
     const token = generateCdpJwt('GET', 'business.coinbase.com', uri)
     const params = new URLSearchParams({ pageSize: '100', status: 'COMPLETED' })
     if (pageToken) params.set('pageToken', pageToken)
@@ -123,12 +124,20 @@ type CreateCheckoutResponse = {
  * Creates a Checkout on Coinbase Business (`POST /checkouts`).
  * @see https://docs.cdp.coinbase.com/api-reference/business-api/rest-api/checkouts/create-checkout
  */
-export async function createCoinbaseCheckout({ amountUsd, metadata }: { amountUsd: number; metadata: DonationMetadata }): Promise<{
+export async function createCoinbaseCheckout({
+  amountUsd,
+  metadata,
+}: {
+  amountUsd: number
+  metadata: DonationMetadata
+}): Promise<{
   url: string
   id: string
 }> {
   const uri =
-    process.env.NODE_ENV === 'development' ? '/sandbox/api/v1/checkouts' : '/api/v1/checkouts'
+    env.NODE_ENV === 'development' || env.STAGING_MODE_ENABLED === 'true'
+      ? '/sandbox/api/v1/checkouts'
+      : '/api/v1/checkouts'
   const token = generateCdpJwt('POST', 'business.coinbase.com', uri)
 
   const amountStr = amountUsd.toFixed(2)
@@ -143,8 +152,14 @@ export async function createCoinbaseCheckout({ amountUsd, metadata }: { amountUs
       description,
       metadata: donationMetadataToCheckoutMetadata(metadata),
       // Coinbase won't let you use localhost URLs here
-      successRedirectUrl: env.NODE_ENV === 'production' ? `${env.APP_URL}/${metadata.fundSlug}/thankyou` : 'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExMDBrcjJhcm0xZnBhbjlqY2o4NW9ydnV2eWRwZWJpODJpaDhmM2U3MyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/5xtDarmwsuR9sDRObyU/giphy.gif',
-      failRedirectUrl: env.NODE_ENV === 'production' ? `${env.APP_URL}/${metadata.fundSlug}` : 'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExMDBrcjJhcm0xZnBhbjlqY2o4NW9ydnV2eWRwZWJpODJpaDhmM2U3MyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/5xtDarmwsuR9sDRObyU/giphy.gif',
+      successRedirectUrl:
+        env.NODE_ENV === 'production'
+          ? `${env.APP_URL}/${metadata.fundSlug}/thankyou`
+          : 'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExMDBrcjJhcm0xZnBhbjlqY2o4NW9ydnV2eWRwZWJpODJpaDhmM2U3MyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/5xtDarmwsuR9sDRObyU/giphy.gif',
+      failRedirectUrl:
+        env.NODE_ENV === 'production'
+          ? `${env.APP_URL}/${metadata.fundSlug}`
+          : 'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExMDBrcjJhcm0xZnBhbjlqY2o4NW9ydnV2eWRwZWJpODJpaDhmM2U3MyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/5xtDarmwsuR9sDRObyU/giphy.gif',
     },
     {
       headers: {

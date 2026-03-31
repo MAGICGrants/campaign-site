@@ -28,6 +28,9 @@ jobs:
             git pull
             echo "Building and starting..."
 
+            export DOCKER_NETWORK_NAME="${{ vars.DOCKER_NETWORK_NAME }}"
+            docker network inspect "$DOCKER_NETWORK_NAME" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK_NAME"
+
             CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }} \
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
             DATABASE_URL=${{ secrets.DATABASE_URL }} \
@@ -67,5 +70,14 @@ jobs:
             KRAKEN_API_SECRET=${{ secrets.KRAKEN_API_SECRET }} \
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }} \
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
+            NEXT_PUBLIC_TURNSTILE_SITEKEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITEKEY }} \
+            NEXT_PUBLIC_MONERO_APPLICATION_RECIPIENT=${{ vars.NEXT_PUBLIC_MONERO_APPLICATION_RECIPIENT }} \
+            NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT=${{ vars.NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT }} \
+            NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT=${{ vars.NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT }} \
+            NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT=${{ vars.NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT }} \
+            NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX=${{ vars.NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX }} \
+            STAGING_MODE_ENABLED=${{ vars.STAGING_MODE_ENABLED }} \
+            DOCKER_NETWORK_NAME=$DOCKER_NETWORK_NAME \
+            NGINX_SERVER_NAME=${{ vars.NGINX_SERVER_NAME }} \
             docker compose -f docker-compose.prod.yml up -d --build
           EOF

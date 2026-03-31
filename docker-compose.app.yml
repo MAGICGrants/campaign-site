@@ -33,10 +33,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_TURNSTILE_SITEKEY: ${NEXT_PUBLIC_TURNSTILE_SITEKEY:-0x4AAAAAAA11o5rNvbUuAWSJ}
+        NEXT_PUBLIC_MONERO_APPLICATION_RECIPIENT: ${NEXT_PUBLIC_MONERO_APPLICATION_RECIPIENT:-monerofund@magicgrants.org}
+        NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT: ${NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT:-firofund@magicgrants.org}
+        NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT: ${NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT:-privacyguidesfund@magicgrants.org}
+        NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT: ${NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT:-info@magicgrants.org}
+        NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX: ${NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX:-25aa6f5740f2a885b2605672586845af2a7afd01f4c0c69f59acd0c619c1a5c2}
     container_name: magic-app
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      STAGING_MODE_ENABLED: ${STAGING_MODE_ENABLED}
       APP_URL: ${APP_URL:-https://donate.magicgrants.org}
       DATABASE_URL: ${DATABASE_URL}
 
@@ -128,4 +136,4 @@ volumes:
 networks:
   app:
     external: true
-    name: ${DOCKER_NETWORK_NAME:-magic-prod-network}
+    name: ${DOCKER_NETWORK_NAME}
