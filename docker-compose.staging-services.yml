@@ -1,21 +1,17 @@
 services:
-  magic-redis:
-    container_name: magic-redis
-    image: redis:7-alpine
+  magic-services-cloudflared:
+    image: cloudflare/cloudflared:2026.3.0
+    container_name: magic-services-cloudflared
     restart: unless-stopped
-
-  magic-postgres:
-    image: postgres:16-alpine
-    container_name: magic-postgres
-    restart: unless-stopped
-    ports:
-      - 5432:5432
+    command: tunnel --no-autoupdate run
     environment:
-      POSTGRES_USER: magic
-      POSTGRES_DB: magic
-      POSTGRES_PASSWORD: magic
-    volumes:
-      - magic_postgres_data:/var/lib/postgresql/data
+      TUNNEL_TOKEN: ${CLOUDFLARE_STAGING_SERVICES_TUNNEL_TOKEN}
+      REAL_IP_HEADER: Cf-Connecting-Ip
+    networks:
+      - app
+    depends_on:
+      - magic-keycloak
+      - magic-btcpayserver
 
   magic-keycloak:
     image: quay.io/keycloak/keycloak:25.0.6
@@ -27,6 +23,10 @@ services:
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks:
+      - app
 
   magic-btcpayserver:
     restart: unless-stopped
@@ -50,6 +50,8 @@ services:
       - btcpay_pluginsdir:/root/.btcpayserver/Plugins
     ports:
       - 49392:49392
+    networks:
+      - app
 
   magic-bitcoind:
     restart: unless-stopped
@@ -70,7 +72,9 @@ services:
       - 43782:43782
       - 39388:39388
     volumes:
-    - bitcoin_datadir:/home/bitcoin/.bitcoin
+      - bitcoin_datadir:/home/bitcoin/.bitcoin
+    networks:
+      - app
 
   magic-nbxplorer:
     restart: unless-stopped
@@ -90,6 +94,8 @@ services:
     volumes:
       - nbxplorer_datadir:/datadir
       - bitcoin_datadir:/root/.bitcoin
+    networks:
+      - app
 
   magic-btcpay-postgres:
     restart: unless-stopped
@@ -101,17 +107,8 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - btcpay_postgres_datadir:/var/lib/postgresql
-
-  magic-app:
-    image: node:24-alpine3.22
-    container_name: magic-app
-    restart: unless-stopped
-    working_dir: /app
-    command: npm run dev
-    ports:
-      - 3000:3000
-    volumes:
-      - .:/app
+    networks:
+      - app
 
 volumes:
   btcpay_datadir:
@@ -119,4 +116,3 @@ volumes:
   bitcoin_datadir:
   nbxplorer_datadir:
   btcpay_postgres_datadir:
-  magic_postgres_data:

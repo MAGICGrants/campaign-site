@@ -1,0 +1,139 @@
+services:
+  magic-cloudflared:
+    image: cloudflare/cloudflared:2026.3.0
+    container_name: magic-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+      REAL_IP_HEADER: Cf-Connecting-Ip
+    networks:
+      - app
+    depends_on:
+      - magic-nginx
+
+  magic-nginx:
+    image: nginx:1
+    container_name: magic-nginx
+    restart: unless-stopped
+    ports:
+      - 80:80
+    environment:
+      NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-donate.magicgrants.org}
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+    entrypoint: ['/bin/sh', '-c']
+    command: "envsubst '$${NGINX_SERVER_NAME}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && exec nginx -g 'daemon off;'"
+    networks:
+      - app
+    depends_on:
+      - magic-app
+
+  magic-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_TURNSTILE_SITEKEY: ${NEXT_PUBLIC_TURNSTILE_SITEKEY:-0x4AAAAAAA11o5rNvbUuAWSJ}
+        NEXT_PUBLIC_MONERO_APPLICATION_RECIPIENT: ${NEXT_PUBLIC_MONERO_APPLICATION_RECIPIENT:-monerofund@magicgrants.org}
+        NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT: ${NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT:-firofund@magicgrants.org}
+        NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT: ${NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT:-privacyguidesfund@magicgrants.org}
+        NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT: ${NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT:-info@magicgrants.org}
+        NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX: ${NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX:-25aa6f5740f2a885b2605672586845af2a7afd01f4c0c69f59acd0c619c1a5c2}
+    container_name: magic-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      STAGING_MODE_ENABLED: ${STAGING_MODE_ENABLED}
+      APP_URL: ${APP_URL:-https://donate.magicgrants.org}
+      DATABASE_URL: ${DATABASE_URL}
+
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://donate.magicgrants.org}
+      NEXTAUTH_URL_INTERNAL: http://localhost:3000
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      USER_SETTINGS_JWT_SECRET: ${USER_SETTINGS_JWT_SECRET}
+      TURNSTILE_SECRET: ${TURNSTILE_SECRET}
+      NEXT_PUBLIC_TURNSTILE_SITEKEY: 0x4AAAAAAA11o5rNvbUuAWSJ
+
+      STRAPI_API_URL: ${STRAPI_API_URL}
+      STRAPI_API_TOKEN: ${STRAPI_API_TOKEN}
+
+      SMTP_HOST: email-smtp.us-east-2.amazonaws.com
+      SMTP_PORT: 587
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SES_VERIFIED_SENDER: ${SES_VERIFIED_SENDER:-info@ses.magicgrants.org}
+
+      STRIPE_MONERO_SECRET_KEY: ${STRIPE_MONERO_SECRET_KEY}
+      STRIPE_MONERO_WEBHOOK_SECRET: ${STRIPE_MONERO_WEBHOOK_SECRET}
+      STRIPE_FIRO_SECRET_KEY: ${STRIPE_FIRO_SECRET_KEY}
+      STRIPE_FIRO_WEBHOOK_SECRET: ${STRIPE_FIRO_WEBHOOK_SECRET}
+      STRIPE_PRIVACY_GUIDES_SECRET_KEY: ${STRIPE_PRIVACY_GUIDES_SECRET_KEY}
+      STRIPE_PRIVACY_GUIDES_WEBHOOK_SECRET: ${STRIPE_PRIVACY_GUIDES_WEBHOOK_SECRET}
+      STRIPE_GENERAL_SECRET_KEY: ${STRIPE_GENERAL_SECRET_KEY}
+      STRIPE_GENERAL_WEBHOOK_SECRET: ${STRIPE_GENERAL_WEBHOOK_SECRET}
+
+      PRINTFUL_API_KEY: ${PRINTFUL_API_KEY}
+      PRINTFUL_WEBHOOK_SECRET: ${PRINTFUL_WEBHOOK_SECRET}
+
+      KEYCLOAK_URL: ${KEYCLOAK_URL}
+      KEYCLOAK_CLIENT_ID: app
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_REALM_NAME: magic
+
+      BTCPAY_URL: ${BTCPAY_URL}
+      BTCPAY_EXTERNAL_URL: ${BTCPAY_EXTERNAL_URL:-https://btcpay.magicgrants.org}
+      BTCPAY_API_KEY: ${BTCPAY_API_KEY}
+      BTCPAY_STORE_ID: ${BTCPAY_STORE_ID}
+      BTCPAY_WEBHOOK_SECRET: ${BTCPAY_WEBHOOK_SECRET}
+
+      PRIVACYGUIDES_DISCOURSE_URL: ${PRIVACYGUIDES_DISCOURSE_URL}
+      PRIVACYGUIDES_DISCOURSE_CONNECT_SECRET: ${PRIVACYGUIDES_DISCOURSE_CONNECT_SECRET}
+      PRIVACYGUIDES_DISCOURSE_API_KEY: ${PRIVACYGUIDES_DISCOURSE_API_KEY}
+      PRIVACYGUIDES_DISCOURSE_API_USERNAME: ${PRIVACYGUIDES_DISCOURSE_API_USERNAME}
+      PRIVACYGUIDES_DISCOURSE_MEMBERSHIP_GROUP_ID: ${PRIVACYGUIDES_DISCOURSE_MEMBERSHIP_GROUP_ID}
+
+      ATTESTATION_PRIVATE_KEY_HEX: ${ATTESTATION_PRIVATE_KEY_HEX}
+
+      COINBASE_CDP_API_KEY_ID: ${COINBASE_CDP_API_KEY_ID}
+      COINBASE_CDP_API_KEY_PRIVATE_KEY: ${COINBASE_CDP_API_KEY_PRIVATE_KEY}
+      COINBASE_CDP_WEBHOOK_SECRET: ${COINBASE_CDP_WEBHOOK_SECRET}
+
+      KRAKEN_API_KEY: ${KRAKEN_API_KEY}
+      KRAKEN_API_SECRET: ${KRAKEN_API_SECRET}
+
+      SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN}
+
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    depends_on:
+      - magic-postgres
+    networks:
+      - app
+
+  magic-redis:
+    container_name: magic-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - app
+
+  magic-postgres:
+    image: postgres:16-alpine
+    container_name: magic-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: magic
+      POSTGRES_DB: magic
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - 'postgres_data:/var/lib/postgresql/data'
+    networks:
+      - app
+
+volumes:
+  postgres_data:
+
+networks:
+  app:
+    external: true
+    name: ${DOCKER_NETWORK_NAME}

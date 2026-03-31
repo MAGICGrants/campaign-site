@@ -1,4 +1,4 @@
-import { SVGProps, useEffect, useRef, useState } from 'react'
+import { JSX, SVGProps, useEffect, useRef, useState } from 'react'
 import { GetStaticPropsContext } from 'next'
 import Link from 'next/link'
 import Head from 'next/head'
@@ -66,7 +66,7 @@ function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
     .object({
       name: z.string().optional(),
       email: z.string().email().optional(),
-      amount: z.coerce.number().min(1).max(MAX_AMOUNT),
+      amount: z.coerce.number<number>().min(1).max(MAX_AMOUNT),
       paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
       taxDeductible: z.enum(['yes', 'no']),
       givePointsBack: z.enum(['yes', 'no']),
@@ -89,7 +89,7 @@ function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
 
   const { toast } = useToast()
 
-  const form = useForm<FormInputs>({
+  const form = useForm<z.input<typeof schema>, any, z.output<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -153,7 +153,7 @@ function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
   return (
     <>
       <Head>
-        <title>Donate to {project.title}</title>
+        <title>{`Donate to ${project.title}`}</title>
       </Head>
       <div className="max-w-[540px] mx-auto p-6 space-y-6 rounded-lg bg-white">
         <div className="py-4 flex flex-col space-y-6">
@@ -367,7 +367,7 @@ function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
                         className="flex flex-col"
                       >
                         <FormItem className="flex items-start space-x-3 space-y-0">
-                          <FormControl className="flex-shrink-0">
+                          <FormControl className="shrink-0">
                             <RadioGroupItem value="yes" />
                           </FormControl>
 

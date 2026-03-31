@@ -1,9 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import getRawBody from 'raw-body'
-import crypto from 'crypto'
 
 import { env } from '../../../env.mjs'
-import { DonationCryptoPayments, DonationMetadata } from '../../../server/types'
+import { DonationCryptoPayments } from '../../../server/types'
 import { prisma } from '../../../server/services'
 import { log } from '../../../utils/logging'
 import dayjs from 'dayjs'
@@ -12,66 +11,32 @@ import { givePointsToUser } from '../../../server/utils/perks'
 import { addUserToPgMembersGroup } from '../../../utils/pg-forum-connection'
 import { getDonationAttestation, getMembershipAttestation } from '../../../server/utils/attestation'
 import { sendDonationConfirmationEmail } from '../../../server/utils/mailing'
+import {
+  checkoutMetadataToDonationMetadata,
+  verifyCoinbaseCdpHookSignature,
+  type CheckoutWebhookPayload,
+} from '../../../server/utils/coinbase-checkout-webhook'
 
 export const config = {
   api: {
     bodyParser: false,
   },
 }
-
-type WebhookBody = {
-  id: string
-  scheduled_for: string
-  attempt_number: number
-  event: {
-    id: string
-    resource: string
-    type: string
-    api_version: string
-    created_at: string
-    data: {
-      code: string
-      id: string
-      resource: string
-      name: string
-      description: string
-      hosted_url: string
-      created_at: string
-      expires_at: string
-      support_email: string
-      pricing_type: string
-      pricing: {
-        local: {
-          amount: string
-          currency: string
-        }
-        settlement: {
-          amount: string
-          currency: string
-        }
-      }
-      pwcb_only: boolean
-      offchain_eligible: boolean
-      coinbase_managed_merchant: boolean
-      collected_email: boolean
-      fee_rate: number
-      metadata: DonationMetadata
-    }
+async function handleCheckoutPaid(body: CheckoutWebhookPayload, res: NextApiResponse) {
+  const metadata = checkoutMetadataToDonationMetadata(body.metadata)
+  if (!metadata || !metadata.projectSlug) {
+    log('warn', '[Coinbase CDP webhook] Missing or invalid metadata on checkout event')
+    return
   }
-}
 
-async function handleDonationOrMembership(body: WebhookBody, res: NextApiResponse) {
-  if (!body.event.data.metadata || JSON.stringify(body.event.data.metadata) === '{}') return
-
-  const metadata: DonationMetadata = body.event.data.metadata
-  const chargeId = body.event.data.id
+  const checkoutId = body.id
 
   const existingDonation = await prisma.donation.findFirst({
-    where: { coinbaseChargeId: chargeId },
+    where: { coinbaseChargeId: checkoutId },
   })
 
   if (existingDonation) {
-    log('warn', `[Coinbase webhook] Attempted to process already processed charge ${chargeId}.`)
+    log('warn', `[Coinbase CDP webhook] Already processed checkout ${checkoutId}`)
     return
   }
 
@@ -87,33 +52,31 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
   }
 
   const shouldGivePointsBack = metadata.givePointsBack === 'true'
-
-  const grossFiatAmount = Number(body.event.data.pricing.local.amount)
-
+  const grossCryptoAmount = Number(body.amount)
+  const netCryptoAmount = shouldGivePointsBack
+    ? grossCryptoAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
+    : grossCryptoAmount
+  const grossFiatAmount = Number(body.settlement.totalAmount)
   const netFiatAmount = shouldGivePointsBack
     ? grossFiatAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
     : grossFiatAmount
 
   const pointsToGive = shouldGivePointsBack ? Math.floor(grossFiatAmount / POINTS_PER_USD) : 0
+  const rate = grossFiatAmount / grossCryptoAmount
 
-  const settlementAmount = Number(body.event.data.pricing.settlement.amount)
   const cryptoPayments: DonationCryptoPayments = [
     {
-      cryptoCode: body.event.data.pricing.settlement.currency,
-      grossAmount: body.event.data.pricing.settlement.amount,
-      netAmount: String(
-        shouldGivePointsBack
-          ? settlementAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
-          : settlementAmount
-      ),
-      rate: String(settlementAmount / grossFiatAmount),
+      cryptoCode: body.currency,
+      grossAmount: String(grossCryptoAmount),
+      netAmount: String(netCryptoAmount),
+      rate: String(rate.toFixed(2)),
     },
   ]
 
   const donation = await prisma.donation.create({
     data: {
       userId: metadata.userId,
-      coinbaseChargeId: chargeId,
+      coinbaseChargeId: checkoutId,
       projectName: metadata.projectName,
       projectSlug: metadata.projectSlug,
       fundSlug: metadata.fundSlug,
@@ -129,25 +92,23 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
     },
   })
 
-  // Add points
   if (shouldGivePointsBack && metadata.userId) {
     try {
       await givePointsToUser({ pointsToGive, donation })
     } catch (error) {
-      log('error', `[Coinbase webhook] Failed to give points for charge ${chargeId}. Rolling back.`)
+      log('error', `[Coinbase CDP webhook] Failed to give points for checkout ${checkoutId}. Rolling back.`)
       await prisma.donation.delete({ where: { id: donation.id } })
       throw error
     }
   }
 
-  // Add PG forum user to membership group
   if (metadata.isMembership && metadata.fundSlug === 'privacyguides' && metadata.userId) {
     try {
       await addUserToPgMembersGroup(metadata.userId)
     } catch (error) {
       log(
         'warn',
-        `[Coinbase webhook] Could not add user ${metadata.userId} to PG forum members group. Charge: ${chargeId}. NOT rolling back. Continuing... Cause:`
+        `[Coinbase CDP webhook] Could not add user ${metadata.userId} to PG forum members group. Checkout: ${checkoutId}. NOT rolling back. Continuing... Cause:`
       )
       console.error(error)
     }
@@ -191,7 +152,7 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
     } catch (error) {
       log(
         'warn',
-        `[Coinbase webhook] Failed to send donation confirmation email for charge ${chargeId}. NOT rolling back. Cause:`
+        `[Coinbase CDP webhook] Failed to send donation confirmation email for checkout ${checkoutId}. NOT rolling back. Cause:`
       )
       console.error(error)
     }
@@ -205,45 +166,42 @@ async function handleDonationOrMembership(body: WebhookBody, res: NextApiRespons
       res.revalidate(`/${metadata.fundSlug}/projects/${metadata.projectSlug}`),
     ])
   } catch (err) {
-    log('warn', `[Coinbase webhook] Failed to revalidate pages for charge ${chargeId}.`)
+    log('warn', `[Coinbase CDP webhook] Failed to revalidate pages for checkout ${checkoutId}.`)
   }
 
-  log('info', `[Coinbase webhook] Successfully processed charge ${chargeId}!`)
+  log('info', `[Coinbase CDP webhook] Successfully processed checkout ${checkoutId}`)
 }
 
-async function handleCoinbaseCommerceWebhook(req: NextApiRequest, res: NextApiResponse) {
+async function handleCoinbaseCdpWebhook(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST'])
     res.status(405).end(`Method ${req.method} Not Allowed`)
     return
   }
 
-  if (typeof req.headers['x-cc-webhook-signature'] !== 'string') {
-    res.status(400).json({ success: false })
-    return
-  }
+  const rawBuffer = await getRawBody(req)
+  const rawBody = Buffer.from(rawBuffer).toString('utf8')
 
-  const rawBody = await getRawBody(req)
-  const body: WebhookBody = JSON.parse(Buffer.from(rawBody).toString('utf8'))
+  const signatureHeader =
+    typeof req.headers['x-hook0-signature'] === 'string'
+      ? req.headers['x-hook0-signature']
+      : typeof req.headers['X-Hook0-Signature'] === 'string'
+        ? (req.headers['X-Hook0-Signature'] as string)
+        : undefined
 
-  const expectedSigHash = crypto
-    .createHmac('sha256', env.COINBASE_COMMERCE_WEBHOOK_SECRET)
-    .update(rawBody)
-    .digest('hex')
-
-  const incomingSigHash = req.headers['x-cc-webhook-signature'] as string
-
-  if (expectedSigHash !== incomingSigHash) {
-    console.error('Invalid signature')
+  if (!verifyCoinbaseCdpHookSignature(rawBody, signatureHeader, env.COINBASE_CDP_WEBHOOK_SECRET, req.headers)) {
+    console.error('Invalid Coinbase CDP webhook signature')
     res.status(401).json({ success: false })
     return
   }
 
-  if (body.event.type === 'charge:confirmed') {
-    await handleDonationOrMembership(body, res)
+  const body = JSON.parse(rawBody) as CheckoutWebhookPayload
+
+  if (body.eventType === 'checkout.payment.success') {
+    await handleCheckoutPaid(body, res)
   }
 
   res.status(200).json({ success: true })
 }
 
-export default handleCoinbaseCommerceWebhook
+export default handleCoinbaseCdpWebhook

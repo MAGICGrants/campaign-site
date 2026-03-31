@@ -1,6 +1,7 @@
 import { AxiosResponse } from 'axios'
 import { geminiApi } from '../services'
 import { log } from '../../utils/logging'
+import { env } from '../../env.mjs'
 
 type GeminiGenerateContentBody = { contents: { parts: { text: string }[] }[] }
 type GeminiGenerateContentRes = AxiosResponse<{
@@ -8,6 +9,11 @@ type GeminiGenerateContentRes = AxiosResponse<{
 }>
 
 export async function isNameProfane(name: string) {
+  if (process.env.NODE_ENV === 'development' && !env.GEMINI_API_KEY) {
+    log('warn', 'GEMINI_API_KEY is not set. Continuing assuming name is not profane.')
+    return false
+  }
+
   const prompt = `We need you to review the name that the user provided: '${name}'.
     We need you to respond in json with a binary response of '0' (for no) or '1' (for yes) if you
     think that it violates the criteria, and provide a reason. We want to filter profanity and

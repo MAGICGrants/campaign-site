@@ -48,7 +48,7 @@ function MyMemberships() {
   return (
     <>
       <Head>
-        <title>{funds[fundSlug].title} - My Memberships</title>
+        <title>{`${funds[fundSlug].title} - My Memberships`}</title>
       </Head>
 
       <div className="w-full max-w-5xl mx-auto flex flex-col">

@@ -1,5 +1,9 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+import tailwindcssAnimate from 'tailwindcss-animate'
+import tailwindcssTypography from '@tailwindcss/typography'
+import tailwindcssAspectRatio from '@tailwindcss/aspect-ratio'
+
+export default {
   content: [
     './pages/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
@@ -145,8 +149,8 @@ module.exports = {
     },
   },
   plugins: [
-    require('tailwindcss-animate'),
-    require('@tailwindcss/typography'),
-    require('@tailwindcss/aspect-ratio'),
+    tailwindcssAnimate,
+    tailwindcssTypography,
+    tailwindcssAspectRatio,
   ],
 }

@@ -8,13 +8,16 @@ export const env = createEnv({
    * Will throw if you access these variables on the client.
    */
   server: {
-    APP_URL: z.string().url(),
+    NODE_ENV: z.enum(['development', 'production']),
+    DATABASE_URL: z.url(),
+    STAGING_MODE_ENABLED: z.enum(['', 'true']).default(''),
+    APP_URL: z.url(),
     NEXTAUTH_SECRET: z.string().min(32),
     USER_SETTINGS_JWT_SECRET: z.string().min(32),
 
     TURNSTILE_SECRET: z.string().min(1),
 
-    STRAPI_API_URL: z.string().url(),
+    STRAPI_API_URL: z.url(),
     STRAPI_API_TOKEN: z.string().length(256),
     STRAPI_CDN_HOST: z.string().min(1).optional(),
 
@@ -22,7 +25,7 @@ export const env = createEnv({
     SMTP_PORT: z.string().min(1),
     SMTP_USER: z.string().min(1),
     SMTP_PASS: z.string().min(1),
-    SES_VERIFIED_SENDER: z.string().email(),
+    SES_VERIFIED_SENDER: z.email(),
 
     STRIPE_MONERO_SECRET_KEY: z.string().min(1),
     STRIPE_MONERO_WEBHOOK_SECRET: z.string().min(1),
@@ -33,13 +36,13 @@ export const env = createEnv({
     STRIPE_GENERAL_SECRET_KEY: z.string().min(1),
     STRIPE_GENERAL_WEBHOOK_SECRET: z.string().min(1),
 
-    KEYCLOAK_URL: z.string().url(),
+    KEYCLOAK_URL: z.url(),
     KEYCLOAK_CLIENT_ID: z.string().min(1),
     KEYCLOAK_CLIENT_SECRET: z.string().min(1),
     KEYCLOAK_REALM_NAME: z.string().min(1),
 
-    BTCPAY_URL: z.string().url(),
-    BTCPAY_EXTERNAL_URL: z.string().url(),
+    BTCPAY_URL: z.url(),
+    BTCPAY_EXTERNAL_URL: z.url(),
     BTCPAY_API_KEY: z.string().min(1),
     BTCPAY_STORE_ID: z.string().min(1),
     BTCPAY_WEBHOOK_SECRET: z.string().min(1),
@@ -47,22 +50,21 @@ export const env = createEnv({
     PRINTFUL_WEBHOOK_SECRET: z.string().min(32),
     PRINTFUL_API_KEY: z.string().min(1),
 
-    PRIVACYGUIDES_DISCOURSE_URL: z.string().url(),
+    PRIVACYGUIDES_DISCOURSE_URL: z.url(),
     PRIVACYGUIDES_DISCOURSE_CONNECT_SECRET: z.string(),
     PRIVACYGUIDES_DISCOURSE_API_KEY: z.string(),
     PRIVACYGUIDES_DISCOURSE_API_USERNAME: z.string(),
     PRIVACYGUIDES_DISCOURSE_MEMBERSHIP_GROUP_ID: z.string(),
     ATTESTATION_PRIVATE_KEY_HEX: z.string().min(1),
 
-    COINBASE_COMMERCE_API_KEY: z.string().min(1),
-    COINBASE_COMMERCE_WEBHOOK_SECRET: z.string().min(1),
-    COINBASE_CDP_API_KEY_ID: z.string().optional(),
-    COINBASE_CDP_API_KEY_PRIVATE_KEY: z.string().optional(),
+    COINBASE_CDP_API_KEY_ID: z.string().min(1),
+    COINBASE_CDP_API_KEY_PRIVATE_KEY: z.string().min(1),
+    COINBASE_CDP_WEBHOOK_SECRET: z.string().min(1),
 
     GEMINI_API_KEY: z.string().min(1),
 
-    KRAKEN_API_KEY: z.string().min(1),
-    KRAKEN_API_SECRET: z.string().min(1),
+    KRAKEN_API_KEY: z.string().optional(),
+    KRAKEN_API_SECRET: z.string().optional(),
   },
   /*
    * Environment variables available on the client (and server).
@@ -70,12 +72,11 @@ export const env = createEnv({
    * 💡 You'll get type errors if these are not prefixed with NEXT_PUBLIC_.
    */
   client: {
-    NEXT_PUBLIC_STRAPI_URL:
-      process.env.NODE_ENV === 'production' ? z.string().url().optional() : z.string().url(),
-    NEXT_PUBLIC_MONERO_APPLICATION_RECIPIENT: z.string().email(),
-    NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT: z.string().email(),
-    NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT: z.string().email(),
-    NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT: z.string().email(),
+    NEXT_PUBLIC_STRAPI_URL: process.env.NODE_ENV === 'production' ? z.url().optional() : z.url(),
+    NEXT_PUBLIC_MONERO_APPLICATION_RECIPIENT: z.email(),
+    NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT: z.email(),
+    NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT: z.email(),
+    NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT: z.email(),
     NEXT_PUBLIC_TURNSTILE_SITEKEY: z.string().min(1),
     NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX: z.string().min(1),
   },
@@ -86,6 +87,9 @@ export const env = createEnv({
    * 💡 You'll get type errors if not all variables from `server` & `client` are included here.
    */
   runtimeEnv: {
+    NODE_ENV: process.env.NODE_ENV,
+    DATABASE_URL: process.env.DATABASE_URL,
+    STAGING_MODE_ENABLED: process.env.STAGING_MODE_ENABLED,
     APP_URL: process.env.APP_URL,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     USER_SETTINGS_JWT_SECRET: process.env.USER_SETTINGS_JWT_SECRET,
@@ -147,10 +151,9 @@ export const env = createEnv({
     ATTESTATION_PRIVATE_KEY_HEX: process.env.ATTESTATION_PRIVATE_KEY_HEX,
     NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX: process.env.NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX,
 
-    COINBASE_COMMERCE_API_KEY: process.env.COINBASE_COMMERCE_API_KEY,
-    COINBASE_COMMERCE_WEBHOOK_SECRET: process.env.COINBASE_COMMERCE_WEBHOOK_SECRET,
     COINBASE_CDP_API_KEY_ID: process.env.COINBASE_CDP_API_KEY_ID,
     COINBASE_CDP_API_KEY_PRIVATE_KEY: process.env.COINBASE_CDP_API_KEY_PRIVATE_KEY,
+    COINBASE_CDP_WEBHOOK_SECRET: process.env.COINBASE_CDP_WEBHOOK_SECRET,
 
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 

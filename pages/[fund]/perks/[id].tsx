@@ -126,6 +126,23 @@ const schema = z
     }
   })
 
+// Same shape as schema but no validation - used when perk doesn't need shipping
+const noShippingSchema = z.object({
+  _shippingStateOptionsLength: z.number(),
+  _useAccountMailingAddress: z.boolean(),
+  shipping: z.object({
+    addressLine1: z.string(),
+    addressLine2: z.string(),
+    city: z.string(),
+    stateCode: z.string(),
+    countryCode: z.string(),
+    zip: z.string(),
+    phone: z.string(),
+    taxNumber: z.string(),
+  }),
+  printfulSyncVariantId: z.string().optional(),
+})
+
 type PerkPurchaseInputs = z.infer<typeof schema>
 
 type CostEstimate = { product: number; shipping: number; tax: number; total: number }
@@ -143,8 +160,8 @@ function Perk({ perk, balance }: Props) {
     { enabled: !!perk.printfulProductId && !!balance, refetchOnWindowFocus: false }
   )
 
-  const form = useForm<PerkPurchaseInputs>({
-    resolver: zodResolver(perk.needsShippingAddress ? schema : z.object({})),
+  const form = useForm<z.input<typeof schema>, any, z.output<typeof schema>>({
+    resolver: zodResolver(perk.needsShippingAddress ? schema : noShippingSchema),
     mode: 'all',
     defaultValues: {
       _shippingStateOptionsLength: 0,
@@ -746,7 +763,7 @@ export async function getServerSideProps({ params, req, res }: GetServerSideProp
   }
 
   const idRegex = /^[0-9a-z]{24}$/
-  
+
   if (!idRegex.test(`${params?.id!}`)) {
     return { redirect: { destination: `/${params?.fund!}/perks` } }
   }

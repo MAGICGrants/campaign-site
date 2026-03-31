@@ -36,7 +36,7 @@ function Login() {
   const { toast } = useToast()
   const router = useRouter()
   const fundSlug = useFundSlug()
-  const turnstileRef = useRef<TurnstileInstance | null>()
+  const turnstileRef = useRef<TurnstileInstance | null>(null)
 
   const form = useForm<LoginFormInputs>({
     resolver: zodResolver(schema),

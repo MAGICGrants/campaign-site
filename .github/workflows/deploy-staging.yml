@@ -1,9 +1,9 @@
-name: Deploy app to donate.magicgrants.org
+name: Deploy app to staging.donate.magicgrants.org
 
 on:
   push:
     branches:
-      - master
+      - staging
 
 permissions:
   contents: read
@@ -11,7 +11,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: v2
+    environment: staging
 
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }} << 'EOF'
             export HISTFILE=/dev/null
             cd campaign-site
-            git checkout master
+            git checkout staging
             echo "Pulling changes..."
             git pull
             echo "Building and starting..."
@@ -32,6 +32,7 @@ jobs:
             docker network inspect "$DOCKER_NETWORK_NAME" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK_NAME"
 
             CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }} \
+            CLOUDFLARE_STAGING_SERVICES_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_STAGING_SERVICES_TUNNEL_TOKEN }} \
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
             DATABASE_URL=${{ secrets.DATABASE_URL }} \
             NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} \
@@ -79,5 +80,5 @@ jobs:
             STAGING_MODE_ENABLED=${{ vars.STAGING_MODE_ENABLED }} \
             DOCKER_NETWORK_NAME=$DOCKER_NETWORK_NAME \
             NGINX_SERVER_NAME=${{ vars.NGINX_SERVER_NAME }} \
-            docker compose -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.app.yml -f docker-compose.staging-services.yml up -d --build
           EOF
