@@ -6,7 +6,6 @@ import { Donation, FundSlug } from '@prisma/client'
 
 import { fundSlugs } from './funds'
 import { ProjectItem } from './types'
-import { prisma } from '../server/services'
 import { DonationCryptoPayments } from '../server/types'
 
 const directories: Record<FundSlug, string> = {
@@ -85,6 +84,7 @@ export async function getProjectBySlug(
     let donations: Donation[] = []
 
     try {
+      const { prisma } = await import('../server/services')
       donations = await prisma.donation.findMany({
         where: { projectSlug: project.slug, fundSlug: project.fund },
       })
