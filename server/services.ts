@@ -1,4 +1,5 @@
 import { FundSlug, PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import Stripe from 'stripe'
 import KeycloakAdminClient from '@keycloak/keycloak-admin-client'
 import nodemailer from 'nodemailer'
@@ -6,13 +7,17 @@ import axios, { isAxiosError } from 'axios'
 
 import { env } from '../env.mjs'
 
+const pgAdapter = new PrismaPg({
+  connectionString: env.DATABASE_URL,
+})
+
 const globalForPrisma = global as unknown as { prisma: PrismaClient }
 
 const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    // log: process.env.NODE_ENV === 'production' ? ['error'] : ['query', 'info', 'warn', 'error'],
-    log: ['error'],
+    adapter: pgAdapter,
+    log: process.env.NODE_ENV === 'production' ? ['error'] : ['info', 'warn', 'error'],
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
@@ -69,10 +74,7 @@ function toCoinbaseCdpError(error: unknown): Error {
   }
   const { response, message } = error
   if (response) {
-    const body =
-      typeof response.data === 'string'
-        ? response.data
-        : JSON.stringify(response.data)
+    const body = typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
     const err = new Error(`HTTP ${response.status}: ${body}`)
     ;(err as Error & { status?: number }).status = response.status
     return err
