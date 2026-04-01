@@ -63,7 +63,6 @@ import { Checkbox } from '../../../components/ui/checkbox'
 import { useFundSlug } from '../../../utils/use-fund-slug'
 import { trpc } from '../../../utils/trpc'
 import { cn } from '../../../utils/cn'
-import { strapiApi } from '../../../server/services'
 import { GetServerSidePropsContext } from 'next'
 import { getPointsBalance } from '../../../server/utils/perks'
 import { getServerSession } from 'next-auth'
@@ -769,6 +768,7 @@ export async function getServerSideProps({ params, req, res }: GetServerSideProp
   }
 
   try {
+    const { strapiApi } = await import('../../../server/services')
     const [
       balance,
       {

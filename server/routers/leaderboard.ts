@@ -1,8 +1,7 @@
 import { z } from 'zod'
 import { publicProcedure, router } from '../trpc'
 import { fundSlugs } from '../../utils/funds'
-import { keycloak, prisma } from '../services'
-import { authenticateKeycloakClient } from '../utils/keycloak'
+import { prisma } from '../services'
 
 export const leaderboardRouter = router({
   getLeaderboard: publicProcedure

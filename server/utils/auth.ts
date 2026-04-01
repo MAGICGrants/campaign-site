@@ -3,7 +3,6 @@ import { jwtDecode } from 'jwt-decode'
 
 import { env } from '../../env.mjs'
 import { KeycloakJwtPayload } from '../types'
-import { keycloak } from '../services'
 
 export function isUserAdmin(accessToken: string | undefined): boolean {
   if (!accessToken) return false
