@@ -84,5 +84,8 @@ jobs:
             STAGING_MODE_ENABLED=${{ vars.STAGING_MODE_ENABLED }} \
             DOCKER_NETWORK_NAME=$DOCKER_NETWORK_NAME \
             NGINX_SERVER_NAME=${{ vars.NGINX_SERVER_NAME }} \
+            KEYCLOAK_ADMIN=${{ secrets.KEYCLOAK_ADMIN }} \
+            KEYCLOAK_ADMIN_PASSWORD=${{ secrets.KEYCLOAK_ADMIN_PASSWORD }} \
+            KC_HOSTNAME=${{ vars.KC_HOSTNAME }} \
             docker compose -f docker-compose.app.yml -f docker-compose.staging-services.yml up -d --build
           EOF
