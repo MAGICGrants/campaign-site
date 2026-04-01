@@ -24,6 +24,8 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HOSTNAME: ${KC_HOSTNAME}
+      KC_PROXY: edge
+      KC_HTTP_ENABLED: true
     extra_hosts:
       - host.docker.internal:host-gateway
     networks:
