@@ -68,6 +68,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/docs ./docs
 COPY --from=builder --chown=nextjs:nodejs /app/out ./out
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
