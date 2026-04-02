@@ -71,6 +71,14 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Standalone output does not include a full Prisma CLI tree; install the same major as package.json and merge into traced node_modules.
+RUN mkdir -p /tmp/prisma-for-migrate && cd /tmp/prisma-for-migrate \
+  && npm init -y \
+  && npm install prisma@7.6.0 --omit=dev \
+  && cp -r /tmp/prisma-for-migrate/node_modules/. /app/node_modules/ \
+  && rm -rf /tmp/prisma-for-migrate \
+  && chown -R nextjs:nodejs /app/node_modules
+
 USER nextjs
 
 WORKDIR /app

@@ -7,12 +7,7 @@ const nextConfig: NextConfig = {
   // Axios uses package exports: require() resolves to dist/node/axios.cjs, but
   // Next.js output tracing may only follow the ESM path. Force-include the full package.
   outputFileTracingIncludes: {
-    '/**': [
-      'node_modules/axios/**',
-      // Standalone trace does not always pull in the Prisma CLI; needed for `npx prisma migrate deploy`.
-      'node_modules/prisma/**',
-      'node_modules/.prisma/**',
-    ],
+    '/**': ['node_modules/axios/**'],
   },
   images: {
     remotePatterns: [
