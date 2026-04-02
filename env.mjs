@@ -79,6 +79,7 @@ export const env = createEnv({
     NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT: z.email(),
     NEXT_PUBLIC_TURNSTILE_SITEKEY: z.string().min(1),
     NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX: z.string().min(1),
+    NEXT_PUBLIC_SENTRY_DSN: z.url(),
   },
   /*
    * Due to how Next.js bundles environment variables on Edge and Client,
@@ -150,6 +151,7 @@ export const env = createEnv({
 
     ATTESTATION_PRIVATE_KEY_HEX: process.env.ATTESTATION_PRIVATE_KEY_HEX,
     NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX: process.env.NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX,
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
     COINBASE_CDP_API_KEY_ID: process.env.COINBASE_CDP_API_KEY_ID,
     COINBASE_CDP_API_KEY_PRIVATE_KEY: process.env.COINBASE_CDP_API_KEY_PRIVATE_KEY,
