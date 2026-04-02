@@ -71,13 +71,6 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-RUN mkdir -p /tmp/prisma-for-migrate && cd /tmp/prisma-for-migrate \
-  && npm init -y \
-  && npm install prisma@6.19.2 --omit=dev \
-  && cp -r /tmp/prisma-for-migrate/node_modules/. /app/node_modules/ \
-  && rm -rf /tmp/prisma-for-migrate \
-  && chown -R nextjs:nodejs /app/node_modules
-
 USER nextjs
 
 WORKDIR /app
@@ -85,13 +78,7 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-
-# Install Prisma CLI
-RUN mkdir /home/nextjs/.npm-global
-ENV PATH=/home/nextjs/.npm-global/bin:$PATH
-ENV NPM_CONFIG_PREFIX=/home/nextjs/.npm-global
 ENV PRISMA_BINARY_TARGETS='["native", "rhel-openssl-1.0.x"]'
-RUN npm cache clean --force
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
