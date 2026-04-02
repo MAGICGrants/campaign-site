@@ -13,7 +13,8 @@ services:
       - magic-nginx
 
   magic-nginx:
-    image: nginx:1
+    # Entrypoint uses `sed` to substitute `${NGINX_SERVER_NAME}` only (POSIX; no gettext).
+    image: nginx:stable-trixie
     container_name: magic-nginx
     restart: unless-stopped
     ports:
@@ -22,8 +23,8 @@ services:
       NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-donate.magicgrants.org}
     volumes:
       - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
-    entrypoint: ['/bin/sh', '-c']
-    command: "envsubst '$${NGINX_SERVER_NAME}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && exec nginx -g 'daemon off;'"
+      - ./docker/nginx-entrypoint.sh:/scripts/nginx-entrypoint.sh:ro
+    entrypoint: ['/bin/sh', '/scripts/nginx-entrypoint.sh']
     networks:
       - app
     depends_on:
