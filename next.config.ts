@@ -27,8 +27,8 @@ export default withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
-  org: 'campaign-site',
-  project: 'magic-grants',
+  org: env.SENTRY_ORG,
+  project: env.SENTRY_PROJECT,
 
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,

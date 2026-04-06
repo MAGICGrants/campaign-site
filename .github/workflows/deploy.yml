@@ -93,6 +93,8 @@ jobs:
             export SMTP_PORT="${{ vars.SMTP_PORT }}"
             export STAGING_MODE_ENABLED="${{ vars.STAGING_MODE_ENABLED }}"
             export STRAPI_CDN_HOST="${{ vars.STRAPI_CDN_HOST }}"
+            export SENTRY_ORG="${{ vars.SENTRY_ORG }}"
+            export SENTRY_PROJECT="${{ vars.SENTRY_PROJECT }}"
 
             # --- Staging only (docker-compose.staging-services.yml + staging app tunnel) ---
             if [ "${{ github.ref_name }}" = "staging" ]; then

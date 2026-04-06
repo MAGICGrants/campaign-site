@@ -63,6 +63,9 @@ export const env = createEnv({
 
     GEMINI_API_KEY: z.string().min(1),
 
+    SENTRY_ORG: z.string().min(1),
+    SENTRY_PROJECT: z.string().min(1),
+
     KRAKEN_API_KEY: z.string().optional(),
     KRAKEN_API_SECRET: z.string().optional(),
   },
@@ -158,6 +161,9 @@ export const env = createEnv({
     COINBASE_CDP_WEBHOOK_SECRET: process.env.COINBASE_CDP_WEBHOOK_SECRET,
 
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+
+    SENTRY_ORG: process.env.SENTRY_ORG,
+    SENTRY_PROJECT: process.env.SENTRY_PROJECT,
 
     KRAKEN_API_KEY: process.env.KRAKEN_API_KEY,
     KRAKEN_API_SECRET: process.env.KRAKEN_API_SECRET,
