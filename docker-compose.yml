@@ -70,7 +70,7 @@ services:
       - 43782:43782
       - 39388:39388
     volumes:
-    - bitcoin_datadir:/home/bitcoin/.bitcoin
+      - bitcoin_datadir:/home/bitcoin/.bitcoin
 
   magic-nbxplorer:
     restart: unless-stopped
