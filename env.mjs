@@ -19,7 +19,7 @@ export const env = createEnv({
 
     STRAPI_API_URL: z.url(),
     STRAPI_API_TOKEN: z.string().length(256),
-    STRAPI_CDN_HOST: z.string().min(1).optional(),
+    STRAPI_CDN_HOST: z.string().min(1),
 
     SMTP_HOST: z.string().min(1),
     SMTP_PORT: z.string().min(1),

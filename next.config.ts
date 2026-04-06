@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import { withSentryConfig } from '@sentry/nextjs'
+import { env } from './env.mjs'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -10,9 +11,7 @@ const nextConfig: NextConfig = {
     '/**': ['node_modules/axios/**'],
   },
   images: {
-    remotePatterns: [
-      { hostname: process.env.STRAPI_CDN_HOST || 'magic-strapi.nbg1.your-objectstorage.com' },
-    ],
+    remotePatterns: [{ hostname: env.STRAPI_CDN_HOST }],
   },
   webpack: (config, options) => {
     config.module.rules.push({
@@ -45,7 +44,7 @@ export default withSentryConfig(nextConfig, {
   // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
   // side errors will fail.
   tunnelRoute: '/monitoring',
-  
+
   webpack: {
     // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
     // See the following for more information:
@@ -55,7 +54,7 @@ export default withSentryConfig(nextConfig, {
 
     treeshake: {
       // Automatically tree-shake Sentry logger statements to reduce bundle size
-      removeDebugLogging: true
-    }
-  }
+      removeDebugLogging: true,
+    },
+  },
 })
