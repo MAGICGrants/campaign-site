@@ -44,6 +44,7 @@ services:
         NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN}
         SENTRY_ORG: ${SENTRY_ORG}
         SENTRY_PROJECT: ${SENTRY_PROJECT}
+        STRAPI_CDN_HOST: ${STRAPI_CDN_HOST}
     container_name: magic-app
     restart: unless-stopped
     environment:
