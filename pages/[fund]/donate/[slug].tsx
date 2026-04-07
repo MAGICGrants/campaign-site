@@ -1,4 +1,4 @@
-import { JSX, SVGProps, useEffect, useRef, useState } from 'react'
+import { JSX, SVGProps, useEffect, useMemo } from 'react'
 import { GetStaticPropsContext } from 'next'
 import Link from 'next/link'
 import Head from 'next/head'
@@ -10,7 +10,7 @@ import { FundSlug } from '@prisma/client'
 import { z } from 'zod'
 import Image from 'next/image'
 
-import { MAX_AMOUNT } from '../../../config'
+import { donationPageFormSchema } from '../../../utils/zod-common'
 import { trpc } from '../../../utils/trpc'
 import Spinner from '../../../components/Spinner'
 import { useToast } from '../../../components/ui/use-toast'
@@ -62,30 +62,9 @@ function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
 
   let PlaceholderImage = project ? placeholderImages[project.fund] : placeholderImages.general
 
-  const schema = z
-    .object({
-      name: z.string().optional(),
-      email: z.string().email().optional(),
-      amount: z.coerce.number<number>().min(1).max(MAX_AMOUNT),
-      paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
-      taxDeductible: z.enum(['yes', 'no']),
-      givePointsBack: z.enum(['yes', 'no']),
-      showDonorNameOnLeaderboard: z.enum(['yes', 'no']),
-    })
-    .refine(
-      (data) => (!isAuthed && data.showDonorNameOnLeaderboard === 'yes' ? !!data.name : true),
-      { message: 'Name is required when you want it to be on the leaderboard.', path: ['name'] }
-    )
-    .refine((data) => (!isAuthed && data.taxDeductible === 'yes' ? !!data.name : true), {
-      message: 'Name is required when the donation is tax deductible.',
-      path: ['name'],
-    })
-    .refine((data) => (!isAuthed && data.taxDeductible === 'yes' ? !!data.email : true), {
-      message: 'Email is required when the donation is tax deductible.',
-      path: ['email'],
-    })
+  const schema = useMemo(() => donationPageFormSchema(isAuthed), [isAuthed])
 
-  type FormInputs = z.infer<typeof schema>
+  type FormInputs = z.infer<ReturnType<typeof donationPageFormSchema>>
 
   const { toast } = useToast()
 

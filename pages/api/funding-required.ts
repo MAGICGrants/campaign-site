@@ -3,6 +3,8 @@ import { FundSlug } from '@prisma/client'
 import { z } from 'zod'
 import dayjs from 'dayjs'
 
+import '../../utils/zod-locale'
+
 import { getProjects } from '../../utils/md'
 import { env } from '../../env.mjs'
 import { btcpayApi, prisma } from '../../server/services'
@@ -210,7 +212,7 @@ async function handle(
     projects.map(async (project): Promise<ResponseBody[0]> => {
       const addresses: ProjectAddresses = project.isFunded
         ? { btc: null, xmr: null, ltc: null }
-        : (await getProjectAddresses(project)) ?? (await createProjectAddresses(project))
+        : ((await getProjectAddresses(project)) ?? (await createProjectAddresses(project)))
 
       const targetAmountBtc = project.goal / (rates.BTC || 0)
       const targetAmountXmr = project.goal / (rates.XMR || 0)

@@ -11,14 +11,11 @@ import { KeycloakJwtPayload, UserSettingsJwtPayload } from '../types'
 import { keycloak, prisma, privacyGuidesDiscourseApi, transporter } from '../services'
 import { authenticateKeycloakClient } from '../utils/keycloak'
 import { fundSlugs } from '../../utils/funds'
+import { zEmailNormalized } from '../../utils/zod-common'
 
 export const accountRouter = router({
   changeProfile: protectedProcedure
-    .input(
-      z.object({
-        company: z.string(),
-      })
-    )
+    .input(z.object({ company: z.string().trim().max(200) }))
     .mutation(async ({ input, ctx }) => {
       await authenticateKeycloakClient()
 
@@ -44,7 +41,12 @@ export const accountRouter = router({
     }),
 
   changePassword: protectedProcedure
-    .input(z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(1) }))
+    .input(
+      z.object({
+        currentPassword: z.string().min(1),
+        newPassword: z.string().min(8).max(128),
+      })
+    )
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.session.user.sub
       const email = ctx.session.user.email
@@ -103,7 +105,12 @@ export const accountRouter = router({
     }),
 
   requestEmailChange: protectedProcedure
-    .input(z.object({ fundSlug: z.enum(fundSlugs), newEmail: z.string().email() }))
+    .input(
+      z.object({
+        fundSlug: z.enum(fundSlugs),
+        newEmail: zEmailNormalized,
+      })
+    )
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.session.user.sub
       const email = ctx.session.user.email
@@ -159,12 +166,12 @@ export const accountRouter = router({
   changeMailingAddress: protectedProcedure
     .input(
       z.object({
-        addressLine1: z.string().min(1),
-        addressLine2: z.string(),
-        city: z.string().min(1),
-        state: z.string(),
-        country: z.string().min(1),
-        zip: z.string().min(1),
+        addressLine1: z.string().trim().min(1).max(200),
+        addressLine2: z.string().trim().max(200),
+        city: z.string().trim().min(1).max(200),
+        state: z.string().trim().max(200),
+        country: z.string().trim().min(1).max(200),
+        zip: z.string().trim().min(1).max(32),
       })
     )
     .mutation(async ({ input, ctx }) => {

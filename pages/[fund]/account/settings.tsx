@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, ExternalLinkIcon } from 'lucide-react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import Head from 'next/head'
 
 import {
@@ -34,16 +33,23 @@ import {
 import { cn } from '../../../utils/cn'
 import { Label } from '../../../components/ui/label'
 import CustomLink from '../../../components/CustomLink'
+import { z } from 'zod'
 
-const changeProfileFormSchema = z.object({ company: z.string() })
+import { zEmailNormalized } from '../../../utils/zod-common'
 
-const changeEmailFormSchema = z.object({ newEmail: z.string().email() })
+const changeProfileFormSchema = z.object({
+  company: z.string().trim().max(200),
+})
+
+const changeEmailFormSchema = z.object({
+  newEmail: zEmailNormalized,
+})
 
 const changePasswordFormSchema = z
   .object({
-    currentPassword: z.string().min(8),
-    newPassword: z.string().min(8),
-    confirmNewPassword: z.string().min(8),
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(8).max(128),
+    confirmNewPassword: z.string().min(8).max(128),
   })
   .refine((data) => data.newPassword === data.confirmNewPassword, {
     message: 'Passwords do not match.',
@@ -52,13 +58,13 @@ const changePasswordFormSchema = z
 
 const changeMailingAddressFormSchema = z
   .object({
-    addressLine1: z.string().min(1),
-    addressLine2: z.string(),
-    city: z.string().min(1),
-    state: z.string(),
-    country: z.string().min(1),
-    zip: z.string().min(1),
-    _addressStateOptionsLength: z.number(),
+    addressLine1: z.string().trim().min(1).max(200),
+    addressLine2: z.string().trim().max(200),
+    city: z.string().trim().min(1).max(200),
+    state: z.string().trim().max(200),
+    country: z.string().trim().min(1).max(200),
+    zip: z.string().trim().min(1).max(32),
+    _addressStateOptionsLength: z.number().int().min(0),
   })
   .superRefine((data, ctx) => {
     if (!data.state && data._addressStateOptionsLength) {
@@ -67,7 +73,6 @@ const changeMailingAddressFormSchema = z
         code: 'custom',
         message: 'State is required.',
       })
-      return
     }
   })
 
@@ -120,6 +125,7 @@ function Settings() {
       city: '',
       state: '',
       country: '',
+      _addressStateOptionsLength: 0,
     },
     mode: 'all',
   })
