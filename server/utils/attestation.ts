@@ -30,8 +30,8 @@ Date: ${dayjs(donation.createdAt).format('YYYY-M-D')}
 Verify this attestation at donate.magicgrants.org/${donation.fundSlug}/verify-attestation`
 
   const signature = await ed.signAsync(
-    Buffer.from(message, 'utf-8').toString('hex'),
-    env.ATTESTATION_PRIVATE_KEY_HEX
+    Buffer.from(message, 'utf-8'),
+    Buffer.from(env.ATTESTATION_PRIVATE_KEY_HEX, 'hex')
   )
 
   const signatureHex = Buffer.from(signature).toString('hex')
@@ -68,8 +68,8 @@ Period end: ${dayjs(donation.membershipExpiresAt).format('YYYY-M-D')}
 Verify this attestation at donate.magicgrants.org/${donation.fundSlug}/verify-attestation`
 
   const signature = await ed.signAsync(
-    Buffer.from(message, 'utf-8').toString('hex'),
-    env.ATTESTATION_PRIVATE_KEY_HEX
+    Buffer.from(message, 'utf-8'),
+    Buffer.from(env.ATTESTATION_PRIVATE_KEY_HEX, 'hex')
   )
 
   const signatureHex = Buffer.from(signature).toString('hex')

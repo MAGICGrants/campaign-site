@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "lib": ["dom", "dom.iterable", "ES2023"],
     "module": "ESNext",
+    "target": "es2023",
+    "lib": ["dom", "dom.iterable", "ES2023"],
     "moduleResolution": "Bundler",
     "allowJs": true,
     "skipLibCheck": true,
@@ -15,11 +15,10 @@
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "sourceMap": true,
     "inlineSources": true,
-
     // Set `sourceRoot` to  "/" to strip the build path prefix
     // from generated source code references.
     // This improves issue grouping in Sentry.

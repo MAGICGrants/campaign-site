@@ -617,7 +617,7 @@ export default function AccountingPage() {
                 </SelectTrigger>
               </PopoverTrigger>
             </Select>
-            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1" align="start">
+            <PopoverContent className="w-(--radix-popover-trigger-width) p-1" align="start">
               <div className="max-h-72 overflow-auto">
                 {SOURCE_OPTIONS.map((opt) => {
                   const isSelected = selectedSources.includes(opt.value)

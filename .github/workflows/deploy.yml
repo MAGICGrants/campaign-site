@@ -1,9 +1,10 @@
-name: Deploy app to donate.magicgrants.org
+name: Deploy app
 
 on:
   push:
     branches:
       - master
+      - staging
 
 permissions:
   contents: read
@@ -11,62 +12,97 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: v2
+    # master → Environment `v2` (prod); staging → Environment `staging`
+    environment: ${{ github.ref_name == 'master' && 'v2' || 'staging' }}
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: webfactory/ssh-agent@v0.9.0
+      - uses: actions/checkout@v6
+      - uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Deploy
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }} << 'EOF'
+            set -e
+
             export HISTFILE=/dev/null
             cd campaign-site
-            git checkout master
+            git checkout ${{ github.ref_name }}
             echo "Pulling changes..."
             git pull
             echo "Building and starting..."
 
-            CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }} \
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
-            DATABASE_URL=${{ secrets.DATABASE_URL }} \
-            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} \
-            USER_SETTINGS_JWT_SECRET=${{ secrets.USER_SETTINGS_JWT_SECRET }} \
-            TURNSTILE_SECRET=${{ secrets.TURNSTILE_SECRET }} \
-            STRAPI_API_URL=${{ secrets.STRAPI_API_URL }} \
-            STRAPI_API_TOKEN=${{ secrets.STRAPI_API_TOKEN }} \
-            SMTP_USER=${{ secrets.SMTP_USER }} \
-            SMTP_PASS=${{ secrets.SMTP_PASS }} \
-            STRIPE_MONERO_SECRET_KEY=${{ secrets.STRIPE_MONERO_SECRET_KEY }} \
-            STRIPE_MONERO_WEBHOOK_SECRET=${{ secrets.STRIPE_MONERO_WEBHOOK_SECRET }} \
-            STRIPE_FIRO_SECRET_KEY=${{ secrets.STRIPE_FIRO_SECRET_KEY }} \
-            STRIPE_FIRO_WEBHOOK_SECRET=${{ secrets.STRIPE_FIRO_WEBHOOK_SECRET }} \
-            STRIPE_PRIVACY_GUIDES_SECRET_KEY=${{ secrets.STRIPE_PRIVACY_GUIDES_SECRET_KEY }} \
-            STRIPE_PRIVACY_GUIDES_WEBHOOK_SECRET=${{ secrets.STRIPE_PRIVACY_GUIDES_WEBHOOK_SECRET }} \
-            STRIPE_GENERAL_SECRET_KEY=${{ secrets.STRIPE_GENERAL_SECRET_KEY }} \
-            STRIPE_GENERAL_WEBHOOK_SECRET=${{ secrets.STRIPE_GENERAL_WEBHOOK_SECRET }} \
-            PRINTFUL_API_KEY=${{ secrets.PRINTFUL_API_KEY }} \
-            PRINTFUL_WEBHOOK_SECRET=${{ secrets.PRINTFUL_WEBHOOK_SECRET }} \
-            KEYCLOAK_URL=${{ secrets.KEYCLOAK_URL }} \
-            KEYCLOAK_CLIENT_SECRET=${{ secrets.KEYCLOAK_CLIENT_SECRET }} \
-            BTCPAY_URL=${{ secrets.BTCPAY_URL }} \
-            BTCPAY_API_KEY=${{ secrets.BTCPAY_API_KEY }} \
-            BTCPAY_STORE_ID=${{ secrets.BTCPAY_STORE_ID }} \
-            BTCPAY_WEBHOOK_SECRET=${{ secrets.BTCPAY_WEBHOOK_SECRET }} \
-            PRIVACYGUIDES_DISCOURSE_URL=${{ secrets.PRIVACYGUIDES_DISCOURSE_URL }} \
-            PRIVACYGUIDES_DISCOURSE_CONNECT_SECRET=${{ secrets.PRIVACYGUIDES_DISCOURSE_CONNECT_SECRET }} \
-            PRIVACYGUIDES_DISCOURSE_API_KEY=${{ secrets.PRIVACYGUIDES_DISCOURSE_API_KEY }} \
-            PRIVACYGUIDES_DISCOURSE_API_USERNAME=${{ secrets.PRIVACYGUIDES_DISCOURSE_API_USERNAME }} \
-            PRIVACYGUIDES_DISCOURSE_MEMBERSHIP_GROUP_ID=${{ secrets.PRIVACYGUIDES_DISCOURSE_MEMBERSHIP_GROUP_ID }} \
-            ATTESTATION_PRIVATE_KEY_HEX=${{ secrets.ATTESTATION_PRIVATE_KEY_HEX }} \
-            COINBASE_COMMERCE_API_KEY=${{ secrets.COINBASE_COMMERCE_API_KEY }} \
-            COINBASE_COMMERCE_WEBHOOK_SECRET=${{ secrets.COINBASE_COMMERCE_WEBHOOK_SECRET }} \
-            COINBASE_CDP_API_KEY_ID=${{ secrets.COINBASE_CDP_API_KEY_ID }} \
-            COINBASE_CDP_API_KEY_PRIVATE_KEY=${{ secrets.COINBASE_CDP_API_KEY_PRIVATE_KEY }} \
-            KRAKEN_API_KEY=${{ secrets.KRAKEN_API_KEY }} \
-            KRAKEN_API_SECRET=${{ secrets.KRAKEN_API_SECRET }} \
-            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }} \
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
-            docker compose -f docker-compose.prod.yml up -d --build
+            export DOCKER_NETWORK_NAME="${{ vars.DOCKER_NETWORK_NAME }}"
+            docker network inspect "$DOCKER_NETWORK_NAME" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK_NAME"
+
+            # PEM / multi-line values break inline VAR=value; store Coinbase private key as base64 in GitHub (openssl base64 -A -in key.pem | tr -d '\n').
+            export COINBASE_CDP_API_KEY_PRIVATE_KEY="$(printf '%s' '${{ secrets.COINBASE_CDP_API_KEY_PRIVATE_KEY_B64 }}' | base64 -d)"
+
+            # --- Shared: Environment secrets (prod + staging) ---
+            export ATTESTATION_PRIVATE_KEY_HEX="${{ secrets.ATTESTATION_PRIVATE_KEY_HEX }}"
+            export BTCPAY_API_KEY="${{ secrets.BTCPAY_API_KEY }}"
+            export BTCPAY_STORE_ID="${{ secrets.BTCPAY_STORE_ID }}"
+            export BTCPAY_URL="${{ secrets.BTCPAY_URL }}"
+            export BTCPAY_WEBHOOK_SECRET="${{ secrets.BTCPAY_WEBHOOK_SECRET }}"
+            export CLOUDFLARE_TUNNEL_TOKEN="${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}"
+            export COINBASE_CDP_API_KEY_ID="${{ secrets.COINBASE_CDP_API_KEY_ID }}"
+            export COINBASE_CDP_WEBHOOK_SECRET="${{ secrets.COINBASE_CDP_WEBHOOK_SECRET }}"
+            export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+            export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
+            export KEYCLOAK_CLIENT_SECRET="${{ secrets.KEYCLOAK_CLIENT_SECRET }}"
+            export KEYCLOAK_URL="${{ secrets.KEYCLOAK_URL }}"
+            export KRAKEN_API_KEY="${{ secrets.KRAKEN_API_KEY }}"
+            export KRAKEN_API_SECRET="${{ secrets.KRAKEN_API_SECRET }}"
+            export NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}"
+            export POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+            export PRINTFUL_API_KEY="${{ secrets.PRINTFUL_API_KEY }}"
+            export PRINTFUL_WEBHOOK_SECRET="${{ secrets.PRINTFUL_WEBHOOK_SECRET }}"
+            export PRIVACYGUIDES_DISCOURSE_API_KEY="${{ secrets.PRIVACYGUIDES_DISCOURSE_API_KEY }}"
+            export PRIVACYGUIDES_DISCOURSE_API_USERNAME="${{ secrets.PRIVACYGUIDES_DISCOURSE_API_USERNAME }}"
+            export PRIVACYGUIDES_DISCOURSE_CONNECT_SECRET="${{ secrets.PRIVACYGUIDES_DISCOURSE_CONNECT_SECRET }}"
+            export PRIVACYGUIDES_DISCOURSE_MEMBERSHIP_GROUP_ID="${{ secrets.PRIVACYGUIDES_DISCOURSE_MEMBERSHIP_GROUP_ID }}"
+            export PRIVACYGUIDES_DISCOURSE_URL="${{ secrets.PRIVACYGUIDES_DISCOURSE_URL }}"
+            export SENTRY_AUTH_TOKEN="${{ secrets.SENTRY_AUTH_TOKEN }}"
+            export SMTP_PASS="${{ secrets.SMTP_PASS }}"
+            export SMTP_USER="${{ secrets.SMTP_USER }}"
+            export STRAPI_API_TOKEN="${{ secrets.STRAPI_API_TOKEN }}"
+            export STRAPI_API_URL="${{ secrets.STRAPI_API_URL }}"
+            export STRIPE_FIRO_SECRET_KEY="${{ secrets.STRIPE_FIRO_SECRET_KEY }}"
+            export STRIPE_FIRO_WEBHOOK_SECRET="${{ secrets.STRIPE_FIRO_WEBHOOK_SECRET }}"
+            export STRIPE_GENERAL_SECRET_KEY="${{ secrets.STRIPE_GENERAL_SECRET_KEY }}"
+            export STRIPE_GENERAL_WEBHOOK_SECRET="${{ secrets.STRIPE_GENERAL_WEBHOOK_SECRET }}"
+            export STRIPE_MONERO_SECRET_KEY="${{ secrets.STRIPE_MONERO_SECRET_KEY }}"
+            export STRIPE_MONERO_WEBHOOK_SECRET="${{ secrets.STRIPE_MONERO_WEBHOOK_SECRET }}"
+            export STRIPE_PRIVACY_GUIDES_SECRET_KEY="${{ secrets.STRIPE_PRIVACY_GUIDES_SECRET_KEY }}"
+            export STRIPE_PRIVACY_GUIDES_WEBHOOK_SECRET="${{ secrets.STRIPE_PRIVACY_GUIDES_WEBHOOK_SECRET }}"
+            export TURNSTILE_SECRET="${{ secrets.TURNSTILE_SECRET }}"
+            export USER_SETTINGS_JWT_SECRET="${{ secrets.USER_SETTINGS_JWT_SECRET }}"
+
+            # --- Shared: Environment variables (prod + staging) ---
+            export NGINX_SERVER_NAME="${{ vars.NGINX_SERVER_NAME }}"
+            export BTCPAY_EXTERNAL_URL="${{ vars.BTCPAY_EXTERNAL_URL }}"
+            export NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX="${{ vars.NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX }}"
+            export NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT="${{ vars.NEXT_PUBLIC_FIRO_APPLICATION_RECIPIENT }}"
+            export NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT="${{ vars.NEXT_PUBLIC_GENERAL_APPLICATION_RECIPIENT }}"
+            export NEXT_PUBLIC_MONERO_APPLICATION_RECIPIENT="${{ vars.NEXT_PUBLIC_MONERO_APPLICATION_RECIPIENT }}"
+            export NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT="${{ vars.NEXT_PUBLIC_PRIVACY_GUIDES_APPLICATION_RECIPIENT }}"
+            export NEXT_PUBLIC_SENTRY_DSN="${{ vars.NEXT_PUBLIC_SENTRY_DSN }}"
+            export NEXT_PUBLIC_TURNSTILE_SITEKEY="${{ vars.NEXT_PUBLIC_TURNSTILE_SITEKEY }}"
+            export SES_VERIFIED_SENDER="${{ vars.SES_VERIFIED_SENDER }}"
+            export SMTP_HOST="${{ vars.SMTP_HOST }}"
+            export SMTP_PORT="${{ vars.SMTP_PORT }}"
+            export STAGING_MODE_ENABLED="${{ vars.STAGING_MODE_ENABLED }}"
+            export STRAPI_CDN_HOST="${{ vars.STRAPI_CDN_HOST }}"
+            export SENTRY_ORG="${{ vars.SENTRY_ORG }}"
+            export SENTRY_PROJECT="${{ vars.SENTRY_PROJECT }}"
+
+            # --- Staging only (docker-compose.staging-services.yml + staging app tunnel) ---
+            if [ "${{ github.ref_name }}" = "staging" ]; then
+              export CLOUDFLARE_STAGING_SERVICES_TUNNEL_TOKEN="${{ secrets.CLOUDFLARE_STAGING_SERVICES_TUNNEL_TOKEN }}"
+              export KEYCLOAK_ADMIN="${{ secrets.KEYCLOAK_ADMIN }}"
+              export KEYCLOAK_ADMIN_PASSWORD="${{ secrets.KEYCLOAK_ADMIN_PASSWORD }}"
+              export KC_HOSTNAME="${{ vars.KC_HOSTNAME }}"
+            fi
+
+            ${{ github.ref_name == 'master' && 'docker compose -f docker-compose.prod.yml up -d --build' || 'docker compose -f docker-compose.app.yml -f docker-compose.staging-services.yml up -d --build' }}
           EOF

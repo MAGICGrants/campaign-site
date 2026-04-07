@@ -1,18 +1,23 @@
 import { FundSlug, PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import Stripe from 'stripe'
 import KeycloakAdminClient from '@keycloak/keycloak-admin-client'
 import nodemailer from 'nodemailer'
-import axios from 'axios'
+import axios, { isAxiosError } from 'axios'
 
 import { env } from '../env.mjs'
+
+const pgAdapter = new PrismaPg({
+  connectionString: env.DATABASE_URL,
+})
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient }
 
 const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    // log: process.env.NODE_ENV === 'production' ? ['error'] : ['query', 'info', 'warn', 'error'],
-    log: ['error'],
+    adapter: pgAdapter,
+    log: process.env.NODE_ENV === 'production' ? ['error'] : ['info', 'warn', 'error'],
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
@@ -47,10 +52,12 @@ const printfulApi = axios.create({
 })
 
 const stripe: Record<FundSlug, Stripe> = {
-  monero: new Stripe(env.STRIPE_MONERO_SECRET_KEY, { apiVersion: '2024-04-10' }),
-  firo: new Stripe(env.STRIPE_FIRO_SECRET_KEY, { apiVersion: '2024-04-10' }),
-  privacyguides: new Stripe(env.STRIPE_PRIVACY_GUIDES_SECRET_KEY, { apiVersion: '2024-04-10' }),
-  general: new Stripe(env.STRIPE_GENERAL_SECRET_KEY, { apiVersion: '2024-04-10' }),
+  monero: new Stripe(env.STRIPE_MONERO_SECRET_KEY, { apiVersion: '2026-02-25.clover' }),
+  firo: new Stripe(env.STRIPE_FIRO_SECRET_KEY, { apiVersion: '2026-02-25.clover' }),
+  privacyguides: new Stripe(env.STRIPE_PRIVACY_GUIDES_SECRET_KEY, {
+    apiVersion: '2026-02-25.clover',
+  }),
+  general: new Stripe(env.STRIPE_GENERAL_SECRET_KEY, { apiVersion: '2026-02-25.clover' }),
 }
 
 const privacyGuidesDiscourseApi = axios.create({
@@ -61,15 +68,29 @@ const privacyGuidesDiscourseApi = axios.create({
   },
 })
 
-const coinbaseCommerceApi = axios.create({
-  baseURL: 'https://api.commerce.coinbase.com',
-  headers: { 'X-CC-Api-Key': env.COINBASE_COMMERCE_API_KEY },
+function toCoinbaseCdpError(error: unknown): Error {
+  if (!isAxiosError(error)) {
+    return error instanceof Error ? error : new Error(String(error))
+  }
+  const { response, message } = error
+  if (response) {
+    const body = typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
+    const err = new Error(`HTTP ${response.status}: ${body}`)
+    ;(err as Error & { status?: number }).status = response.status
+    return err
+  }
+  return new Error(message || 'Coinbase CDP request failed')
+}
+
+/** Coinbase CDP Business API — use full paths on requests (see `coinbase-cdp.ts`). */
+const coinbaseCdpApi = axios.create({
+  baseURL: 'https://business.coinbase.com',
 })
 
-const coinbaseCdpApi = axios.create({
-  baseURL: 'https://business.coinbase.com/api/v1',
-  // Bearer token is generated on every request
-})
+coinbaseCdpApi.interceptors.response.use(
+  (res) => res,
+  (error) => Promise.reject(toCoinbaseCdpError(error))
+)
 
 const geminiApi = axios.create({
   baseURL: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`,
@@ -84,7 +105,6 @@ export {
   printfulApi,
   stripe,
   privacyGuidesDiscourseApi,
-  coinbaseCommerceApi,
   coinbaseCdpApi,
   geminiApi,
 }

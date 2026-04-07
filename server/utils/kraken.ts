@@ -153,6 +153,12 @@ function generateNonce(): string {
   return String(nonce)
 }
 
+function isKrakenConfigured(): boolean {
+  const key = env.KRAKEN_API_KEY?.trim()
+  const secret = env.KRAKEN_API_SECRET?.trim()
+  return Boolean(key && secret)
+}
+
 function getKrakenSignature(path: string, postData: string, nonce: string): string {
   const secret = env.KRAKEN_API_SECRET!
   const sha256Hash = crypto
@@ -239,8 +245,9 @@ function isUsdPair(pair: string): boolean {
 }
 
 export async function getClosedSellOrders(start: Date): Promise<KrakenSellOrder[]> {
-  if (!env.KRAKEN_API_KEY || !env.KRAKEN_API_SECRET) {
-    throw new Error('Kraken API credentials not configured')
+  if (!isKrakenConfigured()) {
+    console.log('[accounting] Kraken API credentials not configured; skipping closed sell orders fetch.')
+    return []
   }
 
   const allOrders: KrakenSellOrder[] = []
@@ -316,8 +323,9 @@ function normalizeAssetCode(asset: string): string | null {
 }
 
 export async function getDeposits(start: Date): Promise<KrakenDeposit[]> {
-  if (!env.KRAKEN_API_KEY || !env.KRAKEN_API_SECRET) {
-    throw new Error('Kraken API credentials not configured')
+  if (!isKrakenConfigured()) {
+    console.log('[accounting] Kraken API credentials not configured; skipping deposits fetch.')
+    return []
   }
 
   const allDeposits: KrakenDeposit[] = []

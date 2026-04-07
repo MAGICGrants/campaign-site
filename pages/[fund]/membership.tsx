@@ -58,7 +58,7 @@ const paymentMethodOptions = [
 
 const schema = z
   .object({
-    amount: z.coerce.number(),
+    amount: z.coerce.number<number>(),
     paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
     term: z.enum(['monthly', 'annually']),
     taxDeductible: z.enum(['yes', 'no']),
@@ -91,7 +91,7 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
 
   const { toast } = useToast()
 
-  const form = useForm<FormInputs>({
+  const form = useForm<z.input<typeof schema>, any, z.output<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
       amount: 10,
@@ -384,7 +384,7 @@ function MembershipPage({ fund: fundSlug, project }: Props) {
                         className="flex flex-col"
                       >
                         <FormItem className="flex items-start space-x-3 space-y-0">
-                          <FormControl className="flex-shrink-0">
+                          <FormControl className="shrink-0">
                             <RadioGroupItem value="yes" />
                           </FormControl>
 
