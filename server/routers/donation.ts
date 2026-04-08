@@ -5,13 +5,7 @@ import { z } from 'zod'
 import UserRepresentation from '@keycloak/keycloak-admin-client/lib/defs/userRepresentation'
 
 import { protectedProcedure, publicProcedure, router } from '../trpc'
-import {
-  CURRENCY,
-  MAX_AMOUNT,
-  ANNUALLY_MEMBERSHIP_MIN_PRICE_USD,
-  MIN_AMOUNT,
-  MONTHLY_MEMBERSHIP_MIN_PRICE_USD,
-} from '../../config'
+import { CURRENCY, MAX_AMOUNT } from '../../config'
 import { env } from '../../env.mjs'
 import { btcpayApi, keycloak, prisma, stripe as _stripe } from '../services'
 import { authenticateKeycloakClient } from '../utils/keycloak'
@@ -21,17 +15,58 @@ import { fundSlugToCustomerIdAttr } from '../utils/funds'
 import { getDonationAttestation, getMembershipAttestation } from '../utils/attestation'
 import { createCoinbaseCheckout } from '../utils/coinbase-cdp'
 import { isNameProfane } from '../utils/profanity'
+import {
+  refineMembershipAmount,
+  zDonationAmount,
+  zDonationEmail,
+  zGuestDonorName,
+  zProjectName,
+  zProjectSlug,
+} from '../../utils/zod-common'
+
+function assertGuestDonationFields(
+  input: {
+    name: string | null
+    email: string | null
+    taxDeductible: boolean
+    showDonorNameOnLeaderboard: boolean
+  },
+  userId: string | null
+) {
+  if (userId) return
+
+  if (input.showDonorNameOnLeaderboard && !input.name) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Name is required when you want it to be on the leaderboard.',
+    })
+  }
+
+  if (input.taxDeductible && !input.name) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Name is required when the donation is tax deductible.',
+    })
+  }
+
+  if (input.taxDeductible && !input.email) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Email is required when the donation is tax deductible.',
+    })
+  }
+}
 
 export const donationRouter = router({
   donateWithFiat: publicProcedure
     .input(
       z.object({
-        name: z.string().min(1).nullable(),
-        email: z.string().email().nullable(),
-        projectName: z.string().min(1),
-        projectSlug: z.string().min(1),
+        name: zGuestDonorName,
+        email: zDonationEmail,
+        projectName: zProjectName,
+        projectSlug: zProjectSlug,
         fundSlug: z.enum(fundSlugs),
-        amount: z.number().min(MIN_AMOUNT).max(MAX_AMOUNT),
+        amount: zDonationAmount,
         taxDeductible: z.boolean(),
         givePointsBack: z.boolean(),
         showDonorNameOnLeaderboard: z.boolean(),
@@ -40,26 +75,7 @@ export const donationRouter = router({
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.session?.user.sub || null
 
-      if (!userId && input.showDonorNameOnLeaderboard && !input.name) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Name is required when you want it to be on the leaderboard.',
-        })
-      }
-
-      if (!userId && input.taxDeductible && !input.name) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Name is required when the donation is tax deductible.',
-        })
-      }
-
-      if (!userId && input.taxDeductible && !input.email) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Email is required when the donation is tax deductible.',
-        })
-      }
+      assertGuestDonationFields(input, userId)
 
       let email = input.email
       let name = input.name
@@ -146,12 +162,12 @@ export const donationRouter = router({
     .input(
       z.object({
         paymentMethod: z.enum(['btc', 'xmr', 'ltc', 'evm']),
-        name: z.string().trim().min(1).nullable(),
-        email: z.string().trim().email().nullable(),
-        projectName: z.string().min(1),
-        projectSlug: z.string().min(1),
+        name: zGuestDonorName,
+        email: zDonationEmail,
+        projectName: zProjectName,
+        projectSlug: zProjectSlug,
         fundSlug: z.enum(fundSlugs),
-        amount: z.number().min(MIN_AMOUNT).max(MAX_AMOUNT),
+        amount: zDonationAmount,
         taxDeductible: z.boolean(),
         givePointsBack: z.boolean(),
         showDonorNameOnLeaderboard: z.boolean(),
@@ -162,6 +178,8 @@ export const donationRouter = router({
       let name = input.name
       const userId = ctx.session?.user.sub || null
       let nameIsProfane = false
+
+      assertGuestDonationFields(input, userId)
 
       if (userId) {
         await authenticateKeycloakClient()
@@ -223,32 +241,20 @@ export const donationRouter = router({
 
   payMembershipWithFiat: protectedProcedure
     .input(
-      z.object({
-        fundSlug: z.enum(fundSlugs),
-        amount: z.number(),
-        term: z.enum(['monthly', 'annually']),
-        recurring: z.boolean(),
-        taxDeductible: z.boolean(),
-        givePointsBack: z.boolean(),
-      })
+      z
+        .object({
+          fundSlug: z.enum(fundSlugs),
+          amount: z.number().min(0).max(MAX_AMOUNT),
+          term: z.enum(['monthly', 'annually']),
+          recurring: z.boolean(),
+          taxDeductible: z.boolean(),
+          givePointsBack: z.boolean(),
+        })
+        .superRefine(refineMembershipAmount)
     )
     .mutation(async ({ input, ctx }) => {
       const stripe = _stripe[input.fundSlug]
       const userId = ctx.session.user.sub
-
-      if (input.term === 'monthly' && input.amount < MONTHLY_MEMBERSHIP_MIN_PRICE_USD) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Min. monthly amount is $${MONTHLY_MEMBERSHIP_MIN_PRICE_USD}.`,
-        })
-      }
-
-      if (input.term === 'annually' && input.amount < ANNUALLY_MEMBERSHIP_MIN_PRICE_USD) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Min. anually amount is $${ANNUALLY_MEMBERSHIP_MIN_PRICE_USD}.`,
-        })
-      }
 
       const userHasMembership = await prisma.donation.findFirst({
         where: {
@@ -363,30 +369,18 @@ export const donationRouter = router({
 
   payMembershipWithCrypto: protectedProcedure
     .input(
-      z.object({
-        paymentMethod: z.enum(['btc', 'xmr', 'ltc', 'evm']),
-        fundSlug: z.enum(fundSlugs),
-        amount: z.number(),
-        term: z.enum(['monthly', 'annually']),
-        taxDeductible: z.boolean(),
-        givePointsBack: z.boolean(),
-      })
+      z
+        .object({
+          paymentMethod: z.enum(['btc', 'xmr', 'ltc', 'evm']),
+          fundSlug: z.enum(fundSlugs),
+          amount: z.number().min(0).max(MAX_AMOUNT),
+          term: z.enum(['monthly', 'annually']),
+          taxDeductible: z.boolean(),
+          givePointsBack: z.boolean(),
+        })
+        .superRefine(refineMembershipAmount)
     )
     .mutation(async ({ input, ctx }) => {
-      if (input.term === 'monthly' && input.amount < MONTHLY_MEMBERSHIP_MIN_PRICE_USD) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Min. monthly amount is $${MONTHLY_MEMBERSHIP_MIN_PRICE_USD}.`,
-        })
-      }
-
-      if (input.term === 'annually' && input.amount < ANNUALLY_MEMBERSHIP_MIN_PRICE_USD) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Min. anually amount is $${ANNUALLY_MEMBERSHIP_MIN_PRICE_USD}.`,
-        })
-      }
-
       const userId = ctx.session.user.sub
 
       const userHasMembership = await prisma.donation.findFirst({
@@ -566,7 +560,17 @@ export const donationRouter = router({
     }),
 
   getMembershipAttestation: protectedProcedure
-    .input(z.object({ donationId: z.string().optional(), subscriptionId: z.string().optional() }))
+    .input(
+      z
+        .object({
+          donationId: z.string().min(1).optional(),
+          subscriptionId: z.string().min(1).optional(),
+        })
+        .refine((data) => Boolean(data.subscriptionId) !== Boolean(data.donationId), {
+          message: 'Provide exactly one of donationId or subscriptionId.',
+          path: ['donationId'],
+        })
+    )
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.session.user.sub
 
@@ -577,7 +581,7 @@ export const donationRouter = router({
               membershipExpiresAt: { not: null },
               userId,
             }
-          : { id: input.donationId, membershipExpiresAt: { not: null }, userId },
+          : { id: input.donationId!, membershipExpiresAt: { not: null }, userId },
         orderBy: { membershipExpiresAt: 'desc' },
       })
 

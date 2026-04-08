@@ -10,11 +10,7 @@ import Image from 'next/image'
 import Head from 'next/head'
 import { z } from 'zod'
 
-import {
-  MAX_AMOUNT,
-  ANNUALLY_MEMBERSHIP_MIN_PRICE_USD,
-  MONTHLY_MEMBERSHIP_MIN_PRICE_USD,
-} from '../../config'
+import { membershipFormSchema } from '../../utils/zod-common'
 import Spinner from '../../components/Spinner'
 import { trpc } from '../../utils/trpc'
 import { useToast } from '../../components/ui/use-toast'
@@ -44,6 +40,7 @@ import MoneroLogo from '../../components/MoneroLogo'
 import BitcoinLogo from '../../components/BitcoinLogo'
 import LitecoinLogo from '../../components/LitecoinLogo'
 import EvmIcon from '../../components/EvmIcon'
+import { ANNUALLY_MEMBERSHIP_MIN_PRICE_USD, MONTHLY_MEMBERSHIP_MIN_PRICE_USD } from '../../config'
 
 type QueryParams = { fund: FundSlug; slug: string }
 type Props = { project: ProjectItem } & QueryParams
@@ -56,32 +53,7 @@ const paymentMethodOptions = [
   { label: 'EVMs', icon: EvmIcon, value: 'evm' },
 ] as const
 
-const schema = z
-  .object({
-    amount: z.coerce.number<number>(),
-    paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
-    term: z.enum(['monthly', 'annually']),
-    taxDeductible: z.enum(['yes', 'no']),
-    recurring: z.enum(['yes', 'no']),
-    givePointsBack: z.enum(['yes', 'no']),
-  })
-  .superRefine((data, ctx) => {
-    if (data.term === 'monthly' && data.amount < MONTHLY_MEMBERSHIP_MIN_PRICE_USD) {
-      ctx.addIssue({
-        path: ['amount'],
-        code: 'custom',
-        message: `Min. amount is $${MONTHLY_MEMBERSHIP_MIN_PRICE_USD}.`,
-      })
-    }
-
-    if (data.term === 'annually' && data.amount < ANNUALLY_MEMBERSHIP_MIN_PRICE_USD) {
-      ctx.addIssue({
-        path: ['amount'],
-        code: 'custom',
-        message: `Min. amount is $${ANNUALLY_MEMBERSHIP_MIN_PRICE_USD}.`,
-      })
-    }
-  })
+const schema = membershipFormSchema
 
 type FormInputs = z.infer<typeof schema>
 

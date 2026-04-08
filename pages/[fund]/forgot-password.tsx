@@ -22,10 +22,11 @@ import Spinner from '../../components/Spinner'
 import { env } from '../../env.mjs'
 import { authOptions } from '../api/auth/[...nextauth]'
 import { useFundSlug } from '../../utils/use-fund-slug'
+import { zEmailNormalized } from '../../utils/zod-common'
 
 const schema = z.object({
   turnstileToken: z.string().min(1),
-  email: z.string().email(),
+  email: zEmailNormalized,
 })
 
 type PasswordResetFormInputs = z.infer<typeof schema>
@@ -35,7 +36,11 @@ function ForgotPassword() {
   const fundSlug = useFundSlug()
   const turnstileRef = useRef<TurnstileInstance | null>(null)
 
-  const form = useForm<PasswordResetFormInputs>({ resolver: zodResolver(schema) })
+  const form = useForm<PasswordResetFormInputs>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: '', turnstileToken: '' },
+    mode: 'onTouched',
+  })
 
   const requestPasswordResetMutation = trpc.auth.requestPasswordReset.useMutation()
 

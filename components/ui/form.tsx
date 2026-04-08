@@ -8,6 +8,7 @@ import {
   FieldValues,
   FormProvider,
   useFormContext,
+  useFormState,
 } from 'react-hook-form'
 
 import { cn } from '../../utils/cn'
@@ -22,7 +23,7 @@ type FormFieldContextValue<
   name: TName
 }
 
-const FormFieldContext = React.createContext<FormFieldContextValue>({} as FormFieldContextValue)
+const FormFieldContext = React.createContext<FormFieldContextValue | null>(null)
 
 const FormField = <
   TFieldValues extends FieldValues = FieldValues,
@@ -40,20 +41,29 @@ const FormField = <
 const useFormField = () => {
   const fieldContext = React.useContext(FormFieldContext)
   const itemContext = React.useContext(FormItemContext)
-  const { getFieldState, formState } = useFormContext()
+  const { control, getFieldState } = useFormContext()
 
-  const fieldState = getFieldState(fieldContext.name)
-  // console.log(fieldState, fieldContext.name)
-
-  if (!fieldContext) {
-    throw new Error('useFormField should be used within <FormField>')
+  if (!itemContext) {
+    throw new Error('useFormField should be used within <FormItem>')
   }
+
+  const name = fieldContext?.name
+  const formState = useFormState({ control, name, exact: true })
+  const fieldState = name
+    ? getFieldState(name, formState)
+    : {
+        invalid: false,
+        isDirty: false,
+        isTouched: false,
+        isValidating: false,
+        error: undefined,
+      }
 
   const { id } = itemContext
 
   return {
     id,
-    name: fieldContext.name,
+    name,
     formItemId: `${id}-form-item`,
     formDescriptionId: `${id}-form-item-description`,
     formMessageId: `${id}-form-item-message`,
@@ -65,7 +75,7 @@ type FormItemContextValue = {
   id: string
 }
 
-const FormItemContext = React.createContext<FormItemContextValue>({} as FormItemContextValue)
+const FormItemContext = React.createContext<FormItemContextValue | null>(null)
 
 const FormItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {
@@ -81,7 +91,7 @@ const FormItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEl
 FormItem.displayName = 'FormItem'
 
 const FormLabel = React.forwardRef<
-  React.ElementRef<typeof LabelPrimitive.Root>,
+  React.ComponentRef<typeof LabelPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>
 >(({ className, ...props }, ref) => {
   const { error, formItemId } = useFormField()
@@ -98,7 +108,7 @@ const FormLabel = React.forwardRef<
 FormLabel.displayName = 'FormLabel'
 
 const FormControl = React.forwardRef<
-  React.ElementRef<typeof Slot>,
+  React.ComponentRef<typeof Slot>,
   React.ComponentPropsWithoutRef<typeof Slot>
 >(({ ...props }, ref) => {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
@@ -136,12 +146,11 @@ const FormMessage = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
-  const { error, formMessageId, name, ...rest } = useFormField()
-  const {
-    formState: { errors },
-  } = useFormContext()
+  const { error, formMessageId } = useFormField()
 
-  const body = error ? String(errors[name]?.message) : children
+  // Use `error.message` from getFieldState — `errors[name]` breaks for nested paths like
+  // `address.city` because RHF stores errors at `errors.address.city`, not `errors['address.city']`.
+  const body = error ? error.message : children
 
   if (!body) {
     return null

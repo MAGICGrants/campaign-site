@@ -19,12 +19,13 @@ import { toast } from '../../../components/ui/use-toast'
 import { trpc } from '../../../utils/trpc'
 import { useFundSlug } from '../../../utils/use-fund-slug'
 import Spinner from '../../../components/Spinner'
+import { zEmailNormalized } from '../../../utils/zod-common'
 
 const schema = z
   .object({
-    email: z.string().email(),
-    password: z.string().min(8),
-    confirmPassword: z.string().min(8),
+    email: zEmailNormalized,
+    password: z.string().min(8).max(128),
+    confirmPassword: z.string().min(8).max(128),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match.',
@@ -39,6 +40,7 @@ function ResetPassword() {
 
   const form = useForm<ResetPasswordFormInputs>({
     resolver: zodResolver(schema),
+    defaultValues: { email: '', password: '', confirmPassword: '' },
   })
 
   const resetPasswordMutation = trpc.auth.resetPassword.useMutation()

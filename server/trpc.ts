@@ -1,8 +1,8 @@
+import '../utils/zod-locale'
 import { TRPCError, initTRPC } from '@trpc/server'
 import { CreateNextContextOptions } from '@trpc/server/adapters/next'
 import { getServerSession } from 'next-auth/next'
 import superjson from 'superjson'
-import util from 'util'
 import { authOptions } from '../pages/api/auth/[...nextauth]'
 
 export const createContext = async (opts: CreateNextContextOptions) => {
