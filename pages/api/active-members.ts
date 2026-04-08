@@ -1,10 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next'
+import { FundSlug } from '@prisma/client'
 import { z } from 'zod'
-import { env } from '../../env.mjs'
+import dayjs from 'dayjs'
 import { prisma } from '../../server/services'
 import { fundSlugs } from '../../utils/funds'
-import { FundSlug } from '@prisma/client'
-import dayjs from 'dayjs'
+
+import '../../utils/zod-locale'
 
 const querySchema = z.object({ fund: z.enum(fundSlugs) })
 

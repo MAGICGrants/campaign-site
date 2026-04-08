@@ -23,7 +23,7 @@ function VerifyDonation() {
   const form = useForm<AttestationInputs>({
     resolver: zodResolver(schema),
     defaultValues: { message: '', signature: '' },
-    mode: 'all',
+    mode: 'onTouched',
   })
 
   const message = form.watch('message')

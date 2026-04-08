@@ -97,7 +97,7 @@ const schema = z
     if (data.shipping.countryCode === 'BR') {
       if (data.shipping.taxNumber.length < 1) {
         ctx.addIssue({
-          path: ['shippingTaxNumber'],
+          path: ['shipping', 'taxNumber'],
           code: 'custom',
           message: 'CPF is required.',
         })
@@ -106,7 +106,7 @@ const schema = z
 
       if (!cpfRegex.test(data.shipping.taxNumber)) {
         ctx.addIssue({
-          path: ['shippingTaxNumber'],
+          path: ['shipping', 'taxNumber'],
           code: 'custom',
           message: 'Invalid CPF.',
         })
@@ -117,7 +117,7 @@ const schema = z
   .superRefine((data, ctx) => {
     if (!data.shipping.stateCode && data._shippingStateOptionsLength) {
       ctx.addIssue({
-        path: ['shippingState'],
+        path: ['shipping', 'stateCode'],
         code: 'custom',
         message: 'State is required.',
       })
