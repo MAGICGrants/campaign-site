@@ -40,6 +40,7 @@ function ResetPassword() {
 
   const form = useForm<ResetPasswordFormInputs>({
     resolver: zodResolver(schema),
+    defaultValues: { email: '', password: '', confirmPassword: '' },
   })
 
   const resetPasswordMutation = trpc.auth.resetPassword.useMutation()

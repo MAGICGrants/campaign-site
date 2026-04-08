@@ -36,7 +36,11 @@ function ForgotPassword() {
   const fundSlug = useFundSlug()
   const turnstileRef = useRef<TurnstileInstance | null>(null)
 
-  const form = useForm<PasswordResetFormInputs>({ resolver: zodResolver(schema) })
+  const form = useForm<PasswordResetFormInputs>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: '', turnstileToken: '' },
+    mode: 'onTouched',
+  })
 
   const requestPasswordResetMutation = trpc.auth.requestPasswordReset.useMutation()
 
