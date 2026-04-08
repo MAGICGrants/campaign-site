@@ -72,6 +72,7 @@ function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
+      email: '',
       amount: '' as unknown as number, // a trick to get trigger to work when amount is empty
       taxDeductible: 'no',
       givePointsBack: 'no',
