@@ -127,13 +127,6 @@ export const zProjectName = z.string().trim().min(1).max(200)
 
 export const zProjectSlug = z.string().trim().min(1).max(120)
 
-export const zFormDonorName = z.union([
-  z.literal(''),
-  z.string().trim().min(1).max(200).regex(personNameRegex, personNameFormatMessage),
-])
-
-export const zFormDonorEmail = z.union([z.literal(''), zEmailNormalized])
-
 export function refineMembershipAmount(
   data: { term: 'monthly' | 'annually'; amount: number },
   ctx: z.RefinementCtx
@@ -167,8 +160,17 @@ export const membershipFormSchema = z
 export function donationPageFormSchema(isAuthed: boolean) {
   return z
     .object({
-      name: zFormDonorName,
-      email: zFormDonorEmail,
+      name: z.union([
+        z.literal(''),
+        z.string().trim().min(1).max(200).regex(personNameRegex, personNameFormatMessage),
+      ]),
+      email: z
+        .string()
+        .trim()
+        .transform((s) => s.toLowerCase())
+        .refine((email) => email === '' || z.email().safeParse(email).success, {
+          message: 'Enter a valid email address.',
+        }),
       amount: z.coerce.number<number>().min(MIN_AMOUNT).max(MAX_AMOUNT),
       paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
       taxDeductible: z.enum(['yes', 'no']),
