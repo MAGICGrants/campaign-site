@@ -97,13 +97,13 @@ function Settings() {
   const changeProfileForm = useForm<ChangeProfileFormInputs>({
     resolver: zodResolver(changeProfileFormSchema),
     defaultValues: { company: '' },
-    mode: 'all',
+    mode: 'onTouched',
   })
 
   const changeEmailForm = useForm<ChangeEmailFormInputs>({
     resolver: zodResolver(changeEmailFormSchema),
     defaultValues: { newEmail: '' },
-    mode: 'all',
+    mode: 'onTouched',
   })
 
   const changePasswordForm = useForm<ChangePasswordFormInputs>({
@@ -113,7 +113,7 @@ function Settings() {
       newPassword: '',
       confirmNewPassword: '',
     },
-    mode: 'all',
+    mode: 'onTouched',
   })
 
   const changeMailingAddressForm = useForm<ChangeMailingAddressFormInputs>({
@@ -127,7 +127,7 @@ function Settings() {
       country: '',
       _addressStateOptionsLength: 0,
     },
-    mode: 'all',
+    mode: 'onTouched',
   })
 
   const addressCountryOptions = (getCountriesQuery.data || []).map((country) => ({

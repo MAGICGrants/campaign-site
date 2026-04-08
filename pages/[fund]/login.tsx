@@ -43,7 +43,7 @@ function Login() {
     resolver: zodResolver(schema),
     defaultValues: { email: '', password: '', turnstileToken: '' },
     shouldFocusError: false,
-    mode: 'all',
+    mode: 'onTouched',
   })
 
   useEffect(() => {

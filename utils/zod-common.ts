@@ -41,7 +41,7 @@ export const registerAddressSchema = z
   .superRefine((data, ctx) => {
     if (!data.state && data._addressStateOptionsLength) {
       ctx.addIssue({
-        path: ['shippingState'],
+        path: ['state'],
         code: 'custom',
         message: 'State is required.',
       })
@@ -76,35 +76,35 @@ export function applyRegisterRefinements<T extends z.ZodTypeAny>(schema: T) {
     .superRefine((data, ctx) => {
       const d = data as RegisterAddressRefinement
       if (d._addMailingAddress) {
-        if (!d.address.addressLine1) {
+        if (!d.address.addressLine1?.trim()) {
           ctx.addIssue({
-            path: ['shipping.addressLine1'],
+            path: ['address', 'addressLine1'],
             code: 'custom',
-            message: 'Address line 1 is required.',
+            message: 'This field is required.',
           })
         }
 
-        if (!d.address.country) {
+        if (!d.address.country?.trim()) {
           ctx.addIssue({
-            path: ['shipping.country'],
+            path: ['address', 'country'],
             code: 'custom',
-            message: 'Country is required.',
+            message: 'This field is required.',
           })
         }
 
-        if (!d.address.city) {
+        if (!d.address.city?.trim()) {
           ctx.addIssue({
-            path: ['shipping.city'],
+            path: ['address', 'city'],
             code: 'custom',
-            message: 'City is required.',
+            message: 'This field is required.',
           })
         }
 
-        if (!d.address.zip) {
+        if (!d.address.zip?.trim()) {
           ctx.addIssue({
-            path: ['shipping.zip'],
+            path: ['address', 'zip'],
             code: 'custom',
-            message: 'Postal code is required.',
+            message: 'This field is required.',
           })
         }
       }

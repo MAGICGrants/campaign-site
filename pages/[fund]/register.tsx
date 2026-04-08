@@ -72,7 +72,7 @@ function RegisterFormModal() {
 
   const form = useForm<RegisterFormInputs>({
     resolver: zodResolver(schema),
-    mode: 'all',
+    mode: 'onTouched',
     defaultValues: {
       firstName: '',
       lastName: '',
