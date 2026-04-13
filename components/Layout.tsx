@@ -1,7 +1,9 @@
 import { ReactNode, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import { signOut, useSession } from 'next-auth/react'
 import { Inter } from 'next/font/google'
 
+import AdminNav from './admin/AdminNav'
 import SectionContainer from './SectionContainer'
 import Footer from './Footer'
 import Header from './Header'
@@ -14,8 +16,10 @@ interface Props {
 const inter = Inter({ subsets: ['latin'] })
 
 const LayoutWrapper = ({ children }: Props) => {
+  const router = useRouter()
   const fundSlug = useFundSlug()
   const { data: session } = useSession()
+  const isAdminRoute = router.pathname.startsWith('/admin')
 
   useEffect(() => {
     if (session?.error === 'RefreshAccessTokenError') {
@@ -40,7 +44,10 @@ const LayoutWrapper = ({ children }: Props) => {
       <SectionContainer>
         <div className="flex h-screen flex-col justify-between">
           <Header />
-          <main className="flex flex-col items-start grow">{children}</main>
+          <main className="flex w-full flex-col items-start grow">
+            {isAdminRoute && <AdminNav />}
+            {children}
+          </main>
           <Footer />
         </div>
       </SectionContainer>
