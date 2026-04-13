@@ -236,6 +236,7 @@ export const accountingRouter = router({
         rate: string
         fiatAmount: number
         fee: number | null
+        cryptoProcessorFee: string | null
         krakenDeposits: unknown
         krakenOrders: unknown
         totalRealizedUsd: number
@@ -270,7 +271,8 @@ export const accountingRouter = router({
             cryptoCode: r.cryptoCode,
             rate: r.rate,
             fiatAmount: r.fiatAmount,
-            fee: null as number | null,
+            fee: r.source === 'coinbase' ? r.fiatProcessorFee ?? null : null,
+            cryptoProcessorFee: r.source === 'coinbase' ? r.cryptoProcessorFee ?? null : null,
             krakenDeposits: r.krakenDeposits,
             krakenOrders: r.krakenOrders,
             totalRealizedUsd: r.totalRealizedUsd,
@@ -332,6 +334,7 @@ export const accountingRouter = router({
                 rate: '1',
                 fiatAmount: grossFiatAmount,
                 fee,
+                cryptoProcessorFee: null,
                 krakenDeposits: null,
                 krakenOrders: null,
                 totalRealizedUsd: netFiatAmount,
@@ -369,6 +372,7 @@ export const accountingRouter = router({
                 rate: '1',
                 fiatAmount: grossFiatAmount,
                 fee,
+                cryptoProcessorFee: null,
                 krakenDeposits: null,
                 krakenOrders: null,
                 totalRealizedUsd: netFiatAmount,

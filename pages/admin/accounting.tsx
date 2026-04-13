@@ -108,9 +108,55 @@ type AccountingRecord = {
   rate: string
   fiatAmount: number
   fee: number | null
+  cryptoProcessorFee?: string | null
   krakenDeposits: MatchedDeposit[] | null
   krakenOrders: MatchedOrder[] | null
   totalRealizedUsd: number
+}
+
+/** Fields needed for net amount / net USD (avoids coupling to full row + kraken JSON types). */
+type NetAmountRow = Pick<
+  AccountingRecord,
+  'source' | 'cryptoAmount' | 'cryptoCode' | 'rate' | 'fiatAmount' | 'fee' | 'cryptoProcessorFee'
+>
+
+function formatNetAmountDisplay(record: NetAmountRow): string {
+  if (record.source === 'stripe') return '—'
+  if (record.source === 'coinbase') {
+    const gross = Number(record.cryptoAmount)
+    const fee = Number(record.cryptoProcessorFee ?? 0)
+    const net = Math.max(0, gross - fee)
+    return `${net.toFixed(3)} ${record.cryptoCode}`
+  }
+  return `${Number(record.cryptoAmount).toFixed(3)} ${record.cryptoCode}`
+}
+
+function formatNetUsdDisplay(record: NetAmountRow): string {
+  if (record.source === 'stripe') {
+    const net = record.fee != null ? record.fiatAmount - record.fee : record.fiatAmount
+    return usdFormat.format(net)
+  }
+  if (record.source === 'coinbase') {
+    return usdFormat.format(record.fiatAmount - (record.fee ?? 0))
+  }
+  return usdFormat.format(Number(record.cryptoAmount) * Number(record.rate))
+}
+
+function netUsdNumericCsv(record: NetAmountRow): string {
+  if (record.source === 'stripe') {
+    const n = record.fee != null ? record.fiatAmount - record.fee : record.fiatAmount
+    return n.toFixed(2)
+  }
+  if (record.source === 'coinbase') {
+    return (record.fiatAmount - (record.fee ?? 0)).toFixed(2)
+  }
+  return (Number(record.cryptoAmount) * Number(record.rate)).toFixed(2)
+}
+
+/** CSV: net in crypto, or '-' when not applicable (e.g. Stripe). */
+function netAmountCryptoCsv(record: NetAmountRow): string {
+  if (record.source === 'stripe') return '-'
+  return formatNetAmountDisplay(record).replace(/—/g, '-')
 }
 
 function exportToCsv(
@@ -128,7 +174,8 @@ function exportToCsv(
     'amount',
     'asset',
     'amountUsd',
-    'fee',
+    'netAmount',
+    'netAmountCrypto',
     'depositIds',
     'orderIds',
     'realizedUsd',
@@ -140,7 +187,6 @@ function exportToCsv(
       record.source === 'stripe'
         ? record.fiatAmount
         : Number(record.cryptoAmount) * Number(record.rate)
-    const feeStr = record.source === 'stripe' && record.fee != null ? record.fee.toFixed(2) : '-'
     return [
       dayjs.utc(record.paymentReceivedAt).format('YYYY-MM-DD HH:mm:ss') + ' GMT',
       record.source,
@@ -152,7 +198,8 @@ function exportToCsv(
       record.cryptoAmount,
       record.cryptoCode,
       amountUsd.toFixed(2),
-      feeStr,
+      netUsdNumericCsv(record),
+      netAmountCryptoCsv(record),
       record.source === 'stripe' ? '-' : deposits.map((d) => d.txid).join(';'),
       record.source === 'stripe' ? '-' : orders.map((o) => o.orderId).join(';'),
       record.totalRealizedUsd.toFixed(2),
@@ -551,6 +598,13 @@ export default function AccountingPage() {
 
   const records = listByMonthQuery.data ?? []
 
+  const showCoinbaseNetColumns = useMemo(
+    () => records.some((r) => r.source === 'coinbase'),
+    [records]
+  )
+
+  const donationTableColSpan = showCoinbaseNetColumns ? 12 : 10
+
   const summaryByFund = useMemo(() => {
     const byFund = new Map<string, { fundTitle: string; invoiceSum: number; depositSum: number }>()
     for (const record of records) {
@@ -740,7 +794,12 @@ export default function AccountingPage() {
                   <TableHead className="text-foreground">Invoice ID</TableHead>
                   <TableHead className="text-foreground">Amount</TableHead>
                   <TableHead className="text-foreground">Amount USD</TableHead>
-                  <TableHead className="text-foreground">Fee</TableHead>
+                  {showCoinbaseNetColumns && (
+                    <>
+                      <TableHead className="text-foreground">Net amount</TableHead>
+                      <TableHead className="text-foreground">Net amount USD</TableHead>
+                    </>
+                  )}
                   <TableHead className="text-foreground">Deposits</TableHead>
                   <TableHead className="text-foreground">Orders</TableHead>
                   <TableHead className="text-foreground">Realized</TableHead>
@@ -749,13 +808,19 @@ export default function AccountingPage() {
               <TableBody>
                 {listByMonthQuery.isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell
+                      colSpan={donationTableColSpan}
+                      className="text-center py-8 text-muted-foreground"
+                    >
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : records.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell
+                      colSpan={donationTableColSpan}
+                      className="text-center py-8 text-muted-foreground"
+                    >
                       No records for this month
                     </TableCell>
                   </TableRow>
@@ -799,9 +864,12 @@ export default function AccountingPage() {
                         </TableCell>
                         <TableCell>{cryptoFormatted}</TableCell>
                         <TableCell>{usdFormat.format(amountUsd)}</TableCell>
-                        <TableCell>
-                          {isStripe && record.fee != null ? usdFormat.format(record.fee) : '-'}
-                        </TableCell>
+                        {showCoinbaseNetColumns && (
+                          <>
+                            <TableCell>{formatNetAmountDisplay(record)}</TableCell>
+                            <TableCell>{formatNetUsdDisplay(record)}</TableCell>
+                          </>
+                        )}
                         <TableCell>
                           {isStripe ? (
                             '-'
