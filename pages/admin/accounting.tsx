@@ -9,7 +9,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
@@ -32,6 +31,11 @@ import {
   TooltipTrigger,
 } from '../../components/ui/tooltip'
 import { FundBadge } from '../../components/admin/FundBadge'
+import {
+  SortableTableHead,
+  sortRows,
+  useSortableColumn,
+} from '../../components/admin/sortable-table'
 import { cn } from '../../utils/cn'
 import { trpc } from '../../utils/trpc'
 import { DonationSource } from '@prisma/client'
@@ -308,6 +312,24 @@ function DepositsDialog({
   onOpenChange: (open: boolean) => void
   deposits: MatchedDeposit[]
 }) {
+  const sort = useSortableColumn('time')
+  const sortedDeposits = useMemo(
+    () =>
+      sortRows(
+        deposits,
+        sort.columnKey,
+        sort.direction,
+        {
+          time: (d) => new Date(d.time),
+          txid: (d) => d.txid,
+          amount: (d) => d.depositAmount,
+          networkFee: (d) => d.networkFee,
+          matched: (d) => d.matchedCrypto,
+        }
+      ),
+    [deposits, sort.columnKey, sort.direction]
+  )
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90vh] overflow-auto">
@@ -318,15 +340,50 @@ function DepositsDialog({
           <Table className="w-full min-w-max">
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>Time</TableHead>
-                <TableHead>TXID</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Network Fee</TableHead>
-                <TableHead>Matched Amount</TableHead>
+                <SortableTableHead
+                  columnKey="time"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Time
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="txid"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  TXID
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="amount"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Amount
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="networkFee"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Network Fee
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="matched"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Matched Amount
+                </SortableTableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {deposits.map((d, i) => (
+              {sortedDeposits.map((d, i) => (
                 <TableRow key={`${d.txid}-${i}`}>
                   <TableCell>{dayjs(d.time).format('lll')}</TableCell>
                   <TableCell>
@@ -356,6 +413,25 @@ function OrdersDialog({
   onOpenChange: (open: boolean) => void
   orders: MatchedOrder[]
 }) {
+  const sort = useSortableColumn('time')
+  const sortedOrders = useMemo(
+    () =>
+      sortRows(
+        orders,
+        sort.columnKey,
+        sort.direction,
+        {
+          time: (o) => new Date(o.closedAt),
+          orderId: (o) => o.orderId,
+          pair: (o) => o.pair,
+          amount: (o) => o.volExec,
+          fee: (o) => o.fee,
+          matched: (o) => o.matchedCrypto,
+        }
+      ),
+    [orders, sort.columnKey, sort.direction]
+  )
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90vh] overflow-auto">
@@ -366,16 +442,58 @@ function OrdersDialog({
           <Table className="w-full min-w-max">
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>Close Time</TableHead>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Pair</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Fee</TableHead>
-                <TableHead>Matched Amount</TableHead>
+                <SortableTableHead
+                  columnKey="time"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Close Time
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="orderId"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Order ID
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="pair"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Pair
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="amount"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Amount
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="fee"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Fee
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="matched"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Matched Amount
+                </SortableTableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((o) => {
+              {sortedOrders.map((o) => {
                 const cryptoCode = o.pair.replace(/Z?USD$/i, '')
                 return (
                   <TableRow key={o.orderId}>
@@ -666,6 +784,60 @@ export default function AccountingPage() {
     }))
   }, [records])
 
+  const summarySort = useSortableColumn('fund')
+  const sortedSummaryByFund = useMemo(
+    () =>
+      sortRows(
+        summaryByFund,
+        summarySort.columnKey,
+        summarySort.direction,
+        {
+          fund: (r) => r.fundSlug,
+          invoiceSum: (r) => r.invoiceSum,
+          depositSum: (r) => r.depositSum,
+          difference: (r) => r.difference,
+        }
+      ),
+    [summaryByFund, summarySort.columnKey, summarySort.direction]
+  )
+
+  const donationsSort = useSortableColumn('time')
+  const sortedRecords = useMemo(() => {
+    type Row = (typeof records)[number]
+    const accessors: Record<string, (r: Row) => unknown> = {
+      time: (r) => r.paymentReceivedAt,
+      source: (r) => r.source,
+      fund: (r) => r.fundSlug ?? '',
+      project: (r) => r.projectName ?? '',
+      invoice: (r) => r.invoiceId ?? '',
+      amount: (r) => (r.source === 'stripe' ? 0 : Number(r.cryptoAmount)),
+      amountUsd: (r) =>
+        r.source === 'stripe' ? r.fiatAmount : Number(r.cryptoAmount) * Number(r.rate),
+      netAmount: (r) => {
+        if (r.source === 'stripe') return 0
+        if (r.source === 'coinbase') {
+          const gross = Number(r.cryptoAmount)
+          const fee = Number(r.cryptoProcessorFee ?? 0)
+          return Math.max(0, gross - fee)
+        }
+        return Number(r.cryptoAmount)
+      },
+      netUsd: (r) => {
+        if (r.source === 'stripe') {
+          return r.fee != null ? r.fiatAmount - r.fee : r.fiatAmount
+        }
+        if (r.source === 'coinbase') {
+          return r.fiatAmount - (r.fee ?? 0)
+        }
+        return Number(r.cryptoAmount) * Number(r.rate)
+      },
+      deposits: (r) => ((r.krakenDeposits as MatchedDeposit[] | null) ?? []).length,
+      orders: (r) => ((r.krakenOrders as MatchedOrder[] | null) ?? []).length,
+      realized: (r) => r.totalRealizedUsd,
+    }
+    return sortRows(records, donationsSort.columnKey, donationsSort.direction, accessors)
+  }, [records, donationsSort.columnKey, donationsSort.direction])
+
   return (
     <TooltipProvider delayDuration={0}>
       <>
@@ -785,14 +957,42 @@ export default function AccountingPage() {
               <Table className="w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-foreground">Fund</TableHead>
-                    <TableHead className="text-foreground">Invoice Sum</TableHead>
-                    <TableHead className="text-foreground">Deposit Sum</TableHead>
-                    <TableHead className="text-foreground">Difference</TableHead>
+                    <SortableTableHead
+                      columnKey="fund"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Fund
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="invoiceSum"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Invoice Sum
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="depositSum"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Deposit Sum
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="difference"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Difference
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summaryByFund.map((row) => (
+                  {sortedSummaryByFund.map((row) => (
                     <TableRow key={row.fundSlug}>
                       <TableCell>
                         <FundBadge fundSlug={row.fundSlug} />
@@ -820,22 +1020,106 @@ export default function AccountingPage() {
             <Table className="min-w-[800px] w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="text-foreground">Time</TableHead>
-                  <TableHead className="text-foreground">Source</TableHead>
-                  <TableHead className="text-foreground">Fund</TableHead>
-                  <TableHead className="text-foreground">Project</TableHead>
-                  <TableHead className="text-foreground">Invoice ID</TableHead>
-                  <TableHead className="text-foreground">Amount</TableHead>
-                  <TableHead className="text-foreground">Amount USD</TableHead>
+                  <SortableTableHead
+                    columnKey="time"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Time
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="source"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Source
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="fund"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Fund
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="project"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Project
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="invoice"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Invoice ID
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="amount"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Amount
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="amountUsd"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Amount USD
+                  </SortableTableHead>
                   {showCoinbaseNetColumns && (
                     <>
-                      <TableHead className="text-foreground">Net amount</TableHead>
-                      <TableHead className="text-foreground">Net amount USD</TableHead>
+                      <SortableTableHead
+                        columnKey="netAmount"
+                        currentKey={donationsSort.columnKey}
+                        direction={donationsSort.direction}
+                        onToggle={donationsSort.toggle}
+                      >
+                        Net amount
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="netUsd"
+                        currentKey={donationsSort.columnKey}
+                        direction={donationsSort.direction}
+                        onToggle={donationsSort.toggle}
+                      >
+                        Net amount USD
+                      </SortableTableHead>
                     </>
                   )}
-                  <TableHead className="text-foreground">Deposits</TableHead>
-                  <TableHead className="text-foreground">Orders</TableHead>
-                  <TableHead className="text-foreground">Realized</TableHead>
+                  <SortableTableHead
+                    columnKey="deposits"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Deposits
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="orders"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Orders
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="realized"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Realized
+                  </SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -858,7 +1142,7 @@ export default function AccountingPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  records.map((record) => {
+                  sortedRecords.map((record) => {
                     const deposits = (record.krakenDeposits as MatchedDeposit[] | null) ?? []
                     const orders = (record.krakenOrders as MatchedOrder[] | null) ?? []
                     const amountUsd =

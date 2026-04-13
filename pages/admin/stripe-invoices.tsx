@@ -8,7 +8,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
@@ -22,6 +21,11 @@ import {
 import { Copy, Download } from 'lucide-react'
 
 import { FundBadge } from '../../components/admin/FundBadge'
+import {
+  SortableTableHead,
+  sortRows,
+  useSortableColumn,
+} from '../../components/admin/sortable-table'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 import { funds } from '../../utils/funds'
@@ -229,6 +233,44 @@ export default function StripeInvoicesPage() {
     }))
   }, [filteredInvoices])
 
+  const summarySort = useSortableColumn('fund')
+  const sortedSummary = useMemo(
+    () =>
+      sortRows(
+        summary,
+        summarySort.columnKey,
+        summarySort.direction,
+        {
+          fund: (r) => r.fundSlug,
+          amount: (r) => r.grossSum,
+          fee: (r) => r.feeSum,
+          net: (r) => r.netSum,
+        }
+      ),
+    [summary, summarySort.columnKey, summarySort.direction]
+  )
+
+  const invoicesSort = useSortableColumn('time')
+  const sortedFilteredInvoices = useMemo(
+    () =>
+      sortRows(
+        filteredInvoices,
+        invoicesSort.columnKey,
+        invoicesSort.direction,
+        {
+          time: (r) => r.createdAt,
+          fund: (r) => r.fundSlug,
+          project: (r) => r.projectName,
+          payment: (r) => r.paymentId,
+          amount: (r) => r.grossFiatAmount,
+          fee: (r) => r.fee,
+          net: (r) => r.netFiatAmount,
+          recurring: (r) => (r.isRecurring ? 1 : 0),
+        }
+      ),
+    [filteredInvoices, invoicesSort.columnKey, invoicesSort.direction]
+  )
+
   return (
     <>
       <Head>
@@ -292,14 +334,42 @@ export default function StripeInvoicesPage() {
               <Table className="w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-foreground">Fund</TableHead>
-                    <TableHead className="text-foreground">Amount</TableHead>
-                    <TableHead className="text-foreground">Fee</TableHead>
-                    <TableHead className="text-foreground">Net</TableHead>
+                    <SortableTableHead
+                      columnKey="fund"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Fund
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="amount"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Amount
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="fee"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Fee
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="net"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Net
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summary.map((row) => (
+                  {sortedSummary.map((row) => (
                     <TableRow key={row.fundSlug}>
                       <TableCell>
                         <FundBadge fundSlug={row.fundSlug} />
@@ -331,14 +401,70 @@ export default function StripeInvoicesPage() {
             <Table className="min-w-[800px] w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-foreground">Time</TableHead>
-                    <TableHead className="text-foreground">Fund</TableHead>
-                    <TableHead className="text-foreground">Project</TableHead>
-                    <TableHead className="text-foreground">Payment ID</TableHead>
-                    <TableHead className="text-foreground">Amount</TableHead>
-                    <TableHead className="text-foreground">Fee</TableHead>
-                    <TableHead className="text-foreground">Net</TableHead>
-                    <TableHead className="text-foreground">Recurring</TableHead>
+                    <SortableTableHead
+                      columnKey="time"
+                      currentKey={invoicesSort.columnKey}
+                      direction={invoicesSort.direction}
+                      onToggle={invoicesSort.toggle}
+                    >
+                      Time
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="fund"
+                      currentKey={invoicesSort.columnKey}
+                      direction={invoicesSort.direction}
+                      onToggle={invoicesSort.toggle}
+                    >
+                      Fund
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="project"
+                      currentKey={invoicesSort.columnKey}
+                      direction={invoicesSort.direction}
+                      onToggle={invoicesSort.toggle}
+                    >
+                      Project
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="payment"
+                      currentKey={invoicesSort.columnKey}
+                      direction={invoicesSort.direction}
+                      onToggle={invoicesSort.toggle}
+                    >
+                      Payment ID
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="amount"
+                      currentKey={invoicesSort.columnKey}
+                      direction={invoicesSort.direction}
+                      onToggle={invoicesSort.toggle}
+                    >
+                      Amount
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="fee"
+                      currentKey={invoicesSort.columnKey}
+                      direction={invoicesSort.direction}
+                      onToggle={invoicesSort.toggle}
+                    >
+                      Fee
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="net"
+                      currentKey={invoicesSort.columnKey}
+                      direction={invoicesSort.direction}
+                      onToggle={invoicesSort.toggle}
+                    >
+                      Net
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="recurring"
+                      currentKey={invoicesSort.columnKey}
+                      direction={invoicesSort.direction}
+                      onToggle={invoicesSort.toggle}
+                    >
+                      Recurring
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -355,7 +481,7 @@ export default function StripeInvoicesPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredInvoices.map((record) => {
+                  sortedFilteredInvoices.map((record) => {
                     return (
                       <TableRow key={record.id}>
                         <TableCell>{dayjs(record.createdAt).format('lll')}</TableCell>

@@ -8,7 +8,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
@@ -22,6 +21,11 @@ import {
 import { Copy, Download } from 'lucide-react'
 
 import { FundBadge } from '../../components/admin/FundBadge'
+import {
+  SortableTableHead,
+  sortRows,
+  useSortableColumn,
+} from '../../components/admin/sortable-table'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 import { funds } from '../../utils/funds'
@@ -201,6 +205,42 @@ export default function BtcPayPaymentsPage() {
     }))
   }, [filteredPayments])
 
+  const summarySort = useSortableColumn('fund')
+  const sortedSummary = useMemo(
+    () =>
+      sortRows(
+        summaryByFund,
+        summarySort.columnKey,
+        summarySort.direction,
+        {
+          fund: (r) => r.fundSlug,
+          total: (r) => r.sum,
+        }
+      ),
+    [summaryByFund, summarySort.columnKey, summarySort.direction]
+  )
+
+  const paymentsSort = useSortableColumn('time')
+  const sortedFilteredPayments = useMemo(
+    () =>
+      sortRows(
+        filteredPayments,
+        paymentsSort.columnKey,
+        paymentsSort.direction,
+        {
+          time: (r) => r.receivedAt,
+          fund: (r) => r.fundSlug,
+          project: (r) => r.projectName,
+          invoice: (r) => r.invoiceId,
+          amount: (r) => r.cryptoAmount,
+          rate: (r) => Number(r.rate),
+          static: (r) => (r.isStaticGenerated ? 1 : 0),
+          amountUsd: (r) => r.fiatAmount,
+        }
+      ),
+    [filteredPayments, paymentsSort.columnKey, paymentsSort.direction]
+  )
+
   return (
     <>
       <Head>
@@ -260,12 +300,26 @@ export default function BtcPayPaymentsPage() {
               <Table className="w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-foreground">Fund</TableHead>
-                    <TableHead className="text-foreground">Total</TableHead>
+                    <SortableTableHead
+                      columnKey="fund"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Fund
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="total"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Total
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summaryByFund.map((row) => (
+                  {sortedSummary.map((row) => (
                     <TableRow key={row.fundSlug}>
                       <TableCell>
                         <FundBadge fundSlug={row.fundSlug} />
@@ -295,14 +349,70 @@ export default function BtcPayPaymentsPage() {
             <Table className="min-w-[800px] w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="text-foreground">Time</TableHead>
-                  <TableHead className="text-foreground">Fund</TableHead>
-                  <TableHead className="text-foreground">Project</TableHead>
-                  <TableHead className="text-foreground">Invoice ID</TableHead>
-                  <TableHead className="text-foreground">Amount</TableHead>
-                  <TableHead className="text-foreground">Rate</TableHead>
-                  <TableHead className="text-foreground">Static</TableHead>
-                  <TableHead className="text-foreground">Amount USD</TableHead>
+                  <SortableTableHead
+                    columnKey="time"
+                    currentKey={paymentsSort.columnKey}
+                    direction={paymentsSort.direction}
+                    onToggle={paymentsSort.toggle}
+                  >
+                    Time
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="fund"
+                    currentKey={paymentsSort.columnKey}
+                    direction={paymentsSort.direction}
+                    onToggle={paymentsSort.toggle}
+                  >
+                    Fund
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="project"
+                    currentKey={paymentsSort.columnKey}
+                    direction={paymentsSort.direction}
+                    onToggle={paymentsSort.toggle}
+                  >
+                    Project
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="invoice"
+                    currentKey={paymentsSort.columnKey}
+                    direction={paymentsSort.direction}
+                    onToggle={paymentsSort.toggle}
+                  >
+                    Invoice ID
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="amount"
+                    currentKey={paymentsSort.columnKey}
+                    direction={paymentsSort.direction}
+                    onToggle={paymentsSort.toggle}
+                  >
+                    Amount
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="rate"
+                    currentKey={paymentsSort.columnKey}
+                    direction={paymentsSort.direction}
+                    onToggle={paymentsSort.toggle}
+                  >
+                    Rate
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="static"
+                    currentKey={paymentsSort.columnKey}
+                    direction={paymentsSort.direction}
+                    onToggle={paymentsSort.toggle}
+                  >
+                    Static
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="amountUsd"
+                    currentKey={paymentsSort.columnKey}
+                    direction={paymentsSort.direction}
+                    onToggle={paymentsSort.toggle}
+                  >
+                    Amount USD
+                  </SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -319,7 +429,7 @@ export default function BtcPayPaymentsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPayments.map((record) => {
+                  sortedFilteredPayments.map((record) => {
                     const cryptoFormatted = `${record.cryptoAmount} ${record.cryptoCode}`
                     return (
                       <TableRow key={record.paymentId}>

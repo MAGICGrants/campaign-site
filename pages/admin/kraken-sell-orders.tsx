@@ -8,7 +8,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
@@ -21,6 +20,11 @@ import {
 } from '../../components/ui/select'
 import { Copy, Download } from 'lucide-react'
 
+import {
+  SortableTableHead,
+  sortRows,
+  useSortableColumn,
+} from '../../components/admin/sortable-table'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 
@@ -197,10 +201,43 @@ export default function KrakenSellOrdersPage() {
         fee: existing.fee + o.fee,
       })
     }
-    return Array.from(byCurrency.entries())
-      .map(([cryptoCode, data]) => ({ cryptoCode, ...data }))
-      .sort((a, b) => a.cryptoCode.localeCompare(b.cryptoCode))
+    return Array.from(byCurrency.entries()).map(([cryptoCode, data]) => ({ cryptoCode, ...data }))
   }, [orders])
+
+  const summarySort = useSortableColumn('currency')
+  const sortedSummary = useMemo(
+    () =>
+      sortRows(
+        summary,
+        summarySort.columnKey,
+        summarySort.direction,
+        {
+          currency: (r) => r.cryptoCode,
+          totalSold: (r) => r.volExec,
+          totalUsd: (r) => r.cost,
+          totalFee: (r) => r.fee,
+        }
+      ),
+    [summary, summarySort.columnKey, summarySort.direction]
+  )
+
+  const ordersSort = useSortableColumn('time')
+  const sortedOrders = useMemo(
+    () =>
+      sortRows(
+        orders,
+        ordersSort.columnKey,
+        ordersSort.direction,
+        {
+          time: (r) => r.closedAt,
+          amount: (r) => r.vol,
+          execAmount: (r) => r.volExec,
+          fee: (r) => r.fee,
+          orderId: (r) => r.orderId,
+        }
+      ),
+    [orders, ordersSort.columnKey, ordersSort.direction]
+  )
 
   return (
     <>
@@ -239,14 +276,42 @@ export default function KrakenSellOrdersPage() {
               <Table className="w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-foreground">Currency</TableHead>
-                    <TableHead className="text-foreground">Total Sold</TableHead>
-                    <TableHead className="text-foreground">Total USD</TableHead>
-                    <TableHead className="text-foreground">Total Fee</TableHead>
+                    <SortableTableHead
+                      columnKey="currency"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Currency
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="totalSold"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Total Sold
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="totalUsd"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Total USD
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="totalFee"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Total Fee
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summary.map((row) => (
+                  {sortedSummary.map((row) => (
                     <TableRow key={row.cryptoCode}>
                       <TableCell>{row.cryptoCode}</TableCell>
                       <TableCell>
@@ -278,11 +343,46 @@ export default function KrakenSellOrdersPage() {
             <Table className="min-w-[800px] w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="text-foreground">Time</TableHead>
-                  <TableHead className="text-foreground">Amount</TableHead>
-                  <TableHead className="text-foreground">Exec Amount</TableHead>
-                  <TableHead className="text-foreground">Fee</TableHead>
-                  <TableHead className="text-foreground">Order ID</TableHead>
+                  <SortableTableHead
+                    columnKey="time"
+                    currentKey={ordersSort.columnKey}
+                    direction={ordersSort.direction}
+                    onToggle={ordersSort.toggle}
+                  >
+                    Time
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="amount"
+                    currentKey={ordersSort.columnKey}
+                    direction={ordersSort.direction}
+                    onToggle={ordersSort.toggle}
+                  >
+                    Amount
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="execAmount"
+                    currentKey={ordersSort.columnKey}
+                    direction={ordersSort.direction}
+                    onToggle={ordersSort.toggle}
+                  >
+                    Exec Amount
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="fee"
+                    currentKey={ordersSort.columnKey}
+                    direction={ordersSort.direction}
+                    onToggle={ordersSort.toggle}
+                  >
+                    Fee
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="orderId"
+                    currentKey={ordersSort.columnKey}
+                    direction={ordersSort.direction}
+                    onToggle={ordersSort.toggle}
+                  >
+                    Order ID
+                  </SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -299,7 +399,7 @@ export default function KrakenSellOrdersPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  orders.map((record) => {
+                  sortedOrders.map((record) => {
                     const amountUsd = record.volExec > 0 ? (record.vol / record.volExec) * record.cost : 0
                     return (
                       <TableRow key={record.orderId}>

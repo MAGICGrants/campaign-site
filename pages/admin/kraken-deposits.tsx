@@ -8,7 +8,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
@@ -21,6 +20,11 @@ import {
 } from '../../components/ui/select'
 import { Copy, Download } from 'lucide-react'
 
+import {
+  SortableTableHead,
+  sortRows,
+  useSortableColumn,
+} from '../../components/admin/sortable-table'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 
@@ -172,10 +176,40 @@ export default function KrakenDepositsPage() {
       const existing = byCurrency.get(d.cryptoCode) ?? 0
       byCurrency.set(d.cryptoCode, existing + d.amount)
     }
-    return Array.from(byCurrency.entries())
-      .map(([cryptoCode, sum]) => ({ cryptoCode, sum }))
-      .sort((a, b) => a.cryptoCode.localeCompare(b.cryptoCode))
+    return Array.from(byCurrency.entries()).map(([cryptoCode, sum]) => ({ cryptoCode, sum }))
   }, [filteredDeposits])
+
+  const summarySort = useSortableColumn('currency')
+  const sortedSummary = useMemo(
+    () =>
+      sortRows(
+        summary,
+        summarySort.columnKey,
+        summarySort.direction,
+        {
+          currency: (r) => r.cryptoCode,
+          total: (r) => r.sum,
+        }
+      ),
+    [summary, summarySort.columnKey, summarySort.direction]
+  )
+
+  const depositsSort = useSortableColumn('time')
+  const sortedDeposits = useMemo(
+    () =>
+      sortRows(
+        filteredDeposits,
+        depositsSort.columnKey,
+        depositsSort.direction,
+        {
+          time: (r) => r.time,
+          amount: (r) => r.amount,
+          depositId: (r) => r.refid,
+          txHash: (r) => r.txid,
+        }
+      ),
+    [filteredDeposits, depositsSort.columnKey, depositsSort.direction]
+  )
 
   return (
     <>
@@ -223,12 +257,26 @@ export default function KrakenDepositsPage() {
               <Table className="w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-foreground">Currency</TableHead>
-                    <TableHead className="text-foreground">Total</TableHead>
+                    <SortableTableHead
+                      columnKey="currency"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Currency
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="total"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Total
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summary.map((row) => (
+                  {sortedSummary.map((row) => (
                     <TableRow key={row.cryptoCode}>
                       <TableCell>{row.cryptoCode}</TableCell>
                       <TableCell>{formatAmount(row.sum, row.cryptoCode)}</TableCell>
@@ -256,10 +304,38 @@ export default function KrakenDepositsPage() {
             <Table className="min-w-[700px] w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="text-foreground">Time</TableHead>
-                  <TableHead className="text-foreground">Amount</TableHead>
-                  <TableHead className="text-foreground">Deposit ID</TableHead>
-                  <TableHead className="text-foreground">Transaction Hash</TableHead>
+                  <SortableTableHead
+                    columnKey="time"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Time
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="amount"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Amount
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="depositId"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Deposit ID
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="txHash"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Transaction Hash
+                  </SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -276,7 +352,7 @@ export default function KrakenDepositsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredDeposits.map((record) => (
+                  sortedDeposits.map((record) => (
                     <TableRow key={record.refid}>
                       <TableCell>{dayjs(record.time).format('lll')}</TableCell>
                       <TableCell>{formatAmount(record.amount, record.cryptoCode)}</TableCell>
