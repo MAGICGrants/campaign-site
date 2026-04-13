@@ -21,6 +21,7 @@ import {
 } from '../../components/ui/select'
 import { Copy, Download } from 'lucide-react'
 
+import { FundBadge } from '../../components/admin/FundBadge'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 import { funds } from '../../utils/funds'
@@ -300,7 +301,9 @@ export default function StripeInvoicesPage() {
                 <TableBody>
                   {summary.map((row) => (
                     <TableRow key={row.fundSlug}>
-                      <TableCell>{row.fundTitle}</TableCell>
+                      <TableCell>
+                        <FundBadge fundSlug={row.fundSlug} />
+                      </TableCell>
                       <TableCell>{usdFormat.format(row.grossSum)}</TableCell>
                       <TableCell>{usdFormat.format(row.feeSum)}</TableCell>
                       <TableCell>{usdFormat.format(row.netSum)}</TableCell>
@@ -353,13 +356,12 @@ export default function StripeInvoicesPage() {
                   </TableRow>
                 ) : (
                   filteredInvoices.map((record) => {
-                    const fundTitle =
-                      funds[record.fundSlug as keyof typeof funds]?.title?.replace(' Fund', '') ??
-                      record.fundSlug
                     return (
                       <TableRow key={record.id}>
                         <TableCell>{dayjs(record.createdAt).format('lll')}</TableCell>
-                        <TableCell>{fundTitle}</TableCell>
+                        <TableCell>
+                          <FundBadge fundSlug={record.fundSlug} />
+                        </TableCell>
                         <TableCell title={record.projectName}>
                           {record.projectName.length > 20
                             ? `${record.projectName.slice(0, 20)}…`

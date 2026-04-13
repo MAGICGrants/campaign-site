@@ -31,6 +31,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../components/ui/tooltip'
+import { FundBadge } from '../../components/admin/FundBadge'
 import { cn } from '../../utils/cn'
 import { trpc } from '../../utils/trpc'
 import { DonationSource } from '@prisma/client'
@@ -793,7 +794,9 @@ export default function AccountingPage() {
                 <TableBody>
                   {summaryByFund.map((row) => (
                     <TableRow key={row.fundSlug}>
-                      <TableCell>{row.fundTitle}</TableCell>
+                      <TableCell>
+                        <FundBadge fundSlug={row.fundSlug} />
+                      </TableCell>
                       <TableCell>{usdFormat.format(row.invoiceSum)}</TableCell>
                       <TableCell>{usdFormat.format(row.depositSum)}</TableCell>
                       <TableCell>{usdFormat.format(row.difference)}</TableCell>
@@ -875,12 +878,7 @@ export default function AccountingPage() {
                             record.source}
                         </TableCell>
                         <TableCell>
-                          {record.fundSlug && record.fundSlug in funds
-                            ? funds[record.fundSlug as keyof typeof funds].title.replace(
-                                ' Fund',
-                                ''
-                              )
-                            : '—'}
+                          {record.fundSlug ? <FundBadge fundSlug={record.fundSlug} /> : '—'}
                         </TableCell>
                         <TableCell title={record.projectName ?? undefined}>
                           {record.projectName

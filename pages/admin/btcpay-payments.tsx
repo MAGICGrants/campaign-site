@@ -21,6 +21,7 @@ import {
 } from '../../components/ui/select'
 import { Copy, Download } from 'lucide-react'
 
+import { FundBadge } from '../../components/admin/FundBadge'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 import { funds } from '../../utils/funds'
@@ -266,7 +267,9 @@ export default function BtcPayPaymentsPage() {
                 <TableBody>
                   {summaryByFund.map((row) => (
                     <TableRow key={row.fundSlug}>
-                      <TableCell>{row.fundTitle}</TableCell>
+                      <TableCell>
+                        <FundBadge fundSlug={row.fundSlug} />
+                      </TableCell>
                       <TableCell>{usdFormat.format(row.sum)}</TableCell>
                     </TableRow>
                   ))}
@@ -318,13 +321,12 @@ export default function BtcPayPaymentsPage() {
                 ) : (
                   filteredPayments.map((record) => {
                     const cryptoFormatted = `${record.cryptoAmount} ${record.cryptoCode}`
-                    const fundTitle =
-                      funds[record.fundSlug as keyof typeof funds]?.title?.replace(' Fund', '') ??
-                      record.fundSlug
                     return (
                       <TableRow key={record.paymentId}>
                         <TableCell>{dayjs(record.receivedAt).format('lll')}</TableCell>
-                        <TableCell>{fundTitle}</TableCell>
+                        <TableCell>
+                          <FundBadge fundSlug={record.fundSlug} />
+                        </TableCell>
                         <TableCell title={record.projectName}>
                           {record.projectName.length > 20
                             ? `${record.projectName.slice(0, 20)}…`
