@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import dayjs from 'dayjs'
 import localizedFormat from 'dayjs/plugin/localizedFormat'
 import utc from 'dayjs/plugin/utc'
@@ -25,6 +25,12 @@ import { Check, Copy, Download, Plus, Settings2, TableIcon, Trash2 } from 'lucid
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip'
 import { cn } from '../../utils/cn'
 import { trpc } from '../../utils/trpc'
 import { DonationSource } from '@prisma/client'
@@ -242,9 +248,22 @@ function exportSummaryToCsv(
 }
 
 function CopyableText({ text, truncate = false }: { text: string; truncate?: boolean }) {
+  const [copied, setCopied] = useState(false)
+  const hideCopiedRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (hideCopiedRef.current) clearTimeout(hideCopiedRef.current)
+    }
+  }, [])
+
   async function handleCopy() {
     await navigator.clipboard.writeText(text)
+    setCopied(true)
+    if (hideCopiedRef.current) clearTimeout(hideCopiedRef.current)
+    hideCopiedRef.current = setTimeout(() => setCopied(false), 2000)
   }
+
   const displayText =
     truncate && text.length > 10 ? `${text.slice(0, 6)}...${text.slice(-6)}` : text
   return (
@@ -255,16 +274,26 @@ function CopyableText({ text, truncate = false }: { text: string; truncate?: boo
       >
         {displayText}
       </span>
-      <Button
-        type="button"
-        variant="light"
-        size="icon"
-        className="h-7 w-7 shrink-0"
-        onClick={handleCopy}
-        aria-label="Copy"
+      <Tooltip
+        open={copied}
+        onOpenChange={(open) => {
+          if (!open) setCopied(false)
+        }}
       >
-        <Copy className="h-3.5 w-3.5" />
-      </Button>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="light"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={handleCopy}
+            aria-label="Copy"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Copied!</TooltipContent>
+      </Tooltip>
     </div>
   )
 }
@@ -637,12 +666,13 @@ export default function AccountingPage() {
   }, [records])
 
   return (
-    <>
-      <Head>
-        <title>Donation Accounting</title>
-      </Head>
+    <TooltipProvider delayDuration={0}>
+      <>
+        <Head>
+          <title>Donation Accounting</title>
+        </Head>
 
-      <div className="w-full mx-auto flex flex-col space-y-4">
+        <div className="w-full mx-auto flex flex-col space-y-4">
         <h1 className="text-2xl font-bold sm:text-3xl">Donation Accounting</h1>
 
         <div className="ml-auto flex flex-row gap-2 flex-wrap justify-end items-center">
@@ -934,6 +964,7 @@ export default function AccountingPage() {
         orders={ordersDialog.orders}
       />
       <IgnoredItemsDialog open={ignoredItemsDialogOpen} onOpenChange={setIgnoredItemsDialogOpen} />
-    </>
+      </>
+    </TooltipProvider>
   )
 }
