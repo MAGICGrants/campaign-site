@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from '../../components/ui/select'
 import { Check, Copy, Download, Plus, Settings2, TableIcon, Trash2 } from 'lucide-react'
+  import { useSession } from 'next-auth/react'
+  import { DonationSource } from '@prisma/client'
 
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -39,9 +41,9 @@ import {
   useSortableColumn,
 } from '../../components/admin/sortable-table'
 import { cn } from '../../utils/cn'
+
 import { trpc } from '../../utils/trpc'
-import { DonationSource } from '@prisma/client'
-import { funds } from '../../utils/funds'
+import { funds, fundSlugs, type FundStackKey } from '../../utils/funds'
 
 dayjs.extend(localizedFormat)
 dayjs.extend(utc)
@@ -667,6 +669,9 @@ function IgnoredItemsDialog({
 }
 
 export default function AccountingPage() {
+  const { data: session, status: sessionStatus } = useSession()
+  const accountingFunds = session?.user?.accountingFunds ?? []
+
   const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
   const [selectedProject, setSelectedProject] = useState<string>('__all__')
   const [selectedFund, setSelectedFund] = useState<string>('__all__')
@@ -683,6 +688,22 @@ export default function AccountingPage() {
     orders: MatchedOrder[]
   }>({ open: false, orders: [] })
   const [ignoredItemsDialogOpen, setIgnoredItemsDialogOpen] = useState(false)
+
+  const allowedFundKeys = useMemo(() => {
+    const out = new Set<string>(['__all__'])
+    for (const k of accountingFunds) {
+      if (k === 'unknown') out.add('__unknown__')
+      else out.add(k)
+    }
+    return out
+  }, [accountingFunds])
+
+  useEffect(() => {
+    if (sessionStatus !== 'authenticated') return
+    if (!allowedFundKeys.has(selectedFund)) {
+      setSelectedFund('__all__')
+    }
+  }, [sessionStatus, allowedFundKeys, selectedFund])
 
   const availableProjectsQuery = trpc.accounting.listAvailableProjects.useQuery()
   const listByDateRangeQuery = trpc.accounting.listByDateRange.useQuery(
@@ -861,12 +882,19 @@ export default function AccountingPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All funds</SelectItem>
-              <SelectItem value="__unknown__">Unknown</SelectItem>
-              {Object.entries(funds).map(([slug, fund]) => (
-                <SelectItem key={slug} value={slug}>
-                  {fund.title.replace(' Fund', '')}
-                </SelectItem>
-              ))}
+              {accountingFunds.includes('unknown') ? (
+                <SelectItem value="__unknown__">Unknown</SelectItem>
+              ) : null}
+              {fundSlugs
+                .filter((slug) => accountingFunds.includes(slug))
+                .map((slug) => {
+                  const fund = funds[slug]
+                  return (
+                    <SelectItem key={slug} value={slug}>
+                      {fund.title.replace(' Fund', '')}
+                    </SelectItem>
+                  )
+                })}
             </SelectContent>
           </Select>
           <Select value={selectedProject} onValueChange={(v) => setSelectedProject(v)}>
@@ -890,7 +918,12 @@ export default function AccountingPage() {
         </div>
 
         {listByDateRangeQuery.isSuccess && (
-          <AccountingDonationCharts dateFrom={dateFrom} dateTo={dateTo} records={records} />
+          <AccountingDonationCharts
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            records={records}
+            allowedStackKeys={accountingFunds as FundStackKey[]}
+          />
         )}
 
         {records.length > 0 && (

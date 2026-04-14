@@ -5,7 +5,8 @@ declare module 'next-auth' {
     user: {
       sub: string
       email: string
-      isAdmin?: boolean
+      accountingFunds: ('monero' | 'firo' | 'privacyguides' | 'general' | 'unknown')[]
+      canAccessAccounting: boolean
     }
   }
 }

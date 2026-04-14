@@ -4,12 +4,19 @@ import { ADMIN_DATE_RANGE_MAX_DAYS } from '../../utils/adminDateRange'
 import { DonationSource, FundSlug, Prisma } from '@prisma/client'
 import Stripe from 'stripe'
 
-import { adminProcedure, router } from '../trpc'
+import { accountingProcedure, router } from '../trpc'
 import { prisma, stripe } from '../services'
 import { accountingGenerationQueue } from '../queues'
 import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from '../utils/btcpayserver'
 import { getDeposits, getClosedSellOrders } from '../utils/kraken'
 import type { BtcPayPaymentItem, DonationCryptoPayments, StripeInvoiceItem } from '../types'
+import type { AccountingFundAccess } from '../utils/accounting-access'
+import {
+  assertFundSlugAllowed,
+  btcpayFundAllowed,
+  prismaDonationAccountingFundCondition,
+  stripeFundSlugsForQuery,
+} from '../utils/accounting-access'
 
 const FUND_SLUGS: FundSlug[] = ['monero', 'firo', 'privacyguides', 'general']
 
@@ -234,7 +241,7 @@ function findFundingApiRate(
 }
 
 export const accountingRouter = router({
-  listByDateRange: adminProcedure
+  listByDateRange: accountingProcedure
     .input(
       adminDateRangeSchema.extend({
         projectSlug: z.string().optional(),
@@ -242,7 +249,10 @@ export const accountingRouter = router({
         sources: z.array(donationSourceSchema).optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const accountingAccess = (ctx as { accountingAccess: AccountingFundAccess }).accountingAccess
+      assertFundSlugAllowed(accountingAccess, input.fundSlug)
+
       const { start: rangeStart, endExclusive, startTs, endTs } = localDateRangeBounds(
         input.dateFrom,
         input.dateTo
@@ -284,6 +294,8 @@ export const accountingRouter = router({
         }
         if (input.fundSlug) {
           where.fundSlug = input.fundSlug === '__unknown__' ? null : (input.fundSlug as FundSlug)
+        } else {
+          Object.assign(where, prismaDonationAccountingFundCondition(accountingAccess))
         }
 
         const dbRecords = await prisma.donationAccounting.findMany({
@@ -313,11 +325,9 @@ export const accountingRouter = router({
       }
 
       if (includeStripe) {
-        const fundSlugs = FUND_SLUGS.filter(
-          (s) => !input.fundSlug || input.fundSlug === s
-        )
+        const stripeFunds = stripeFundSlugsForQuery(accountingAccess, input.fundSlug)
         const stripeResults = await Promise.allSettled(
-          fundSlugs.map(async (fundSlug) => {
+          stripeFunds.map(async (fundSlug) => {
             const stripeClient = stripe[fundSlug]
             if (!stripeClient) return []
             const fundRecords: (typeof records)[number][] = []
@@ -418,7 +428,7 @@ export const accountingRouter = router({
           if (result.status === 'fulfilled') {
             records.push(...result.value)
           } else {
-            console.error(`[Stripe] Failed to fetch from ${fundSlugs[i]}:`, result.reason)
+            console.error(`[Stripe] Failed to fetch from ${stripeFunds[i]}:`, result.reason)
           }
         }
       }
@@ -427,8 +437,10 @@ export const accountingRouter = router({
       return records
     }),
 
-  listAvailableProjects: adminProcedure.query(async () => {
+  listAvailableProjects: accountingProcedure.query(async ({ ctx }) => {
+    const accountingAccess = (ctx as { accountingAccess: AccountingFundAccess }).accountingAccess
     const records = await prisma.donationAccounting.findMany({
+      where: prismaDonationAccountingFundCondition(accountingAccess),
       select: { projectSlug: true, projectName: true },
       distinct: ['projectSlug'],
       orderBy: { projectName: 'asc' },
@@ -443,8 +455,10 @@ export const accountingRouter = router({
     return projects
   }),
 
-  listAvailableMonths: adminProcedure.query(async () => {
+  listAvailableMonths: accountingProcedure.query(async ({ ctx }) => {
+    const accountingAccess = (ctx as { accountingAccess: AccountingFundAccess }).accountingAccess
     const records = await prisma.donationAccounting.findMany({
+      where: prismaDonationAccountingFundCondition(accountingAccess),
       select: { paymentReceivedAt: true },
       orderBy: { paymentReceivedAt: 'asc' },
     })
@@ -461,9 +475,10 @@ export const accountingRouter = router({
     return Array.from(months.values()).sort((a, b) => a.year - b.year || a.month - b.month)
   }),
 
-  listBtcPayPaymentsByDateRange: adminProcedure
+  listBtcPayPaymentsByDateRange: accountingProcedure
     .input(adminDateRangeSchema)
-    .query(async ({ input }): Promise<BtcPayPaymentItem[]> => {
+    .query(async ({ ctx, input }): Promise<BtcPayPaymentItem[]> => {
+      const accountingAccess = (ctx as { accountingAccess: AccountingFundAccess }).accountingAccess
       const { startTs, endTs } = localDateRangeBounds(input.dateFrom, input.dateTo)
       const invoices = await getBtcPayInvoices({
         startDate: startTs,
@@ -556,10 +571,10 @@ export const accountingRouter = router({
       }
 
       items.sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime())
-      return items
+      return items.filter((item) => btcpayFundAllowed(accountingAccess, item.fundSlug))
     }),
 
-  listKrakenDepositsByDateRange: adminProcedure
+  listKrakenDepositsByDateRange: accountingProcedure
     .input(adminDateRangeSchema)
     .query(async ({ input }) => {
       const { start, endExclusive } = localDateRangeBounds(input.dateFrom, input.dateTo)
@@ -567,7 +582,7 @@ export const accountingRouter = router({
       return allDeposits.filter((d) => d.time >= start && d.time < endExclusive)
     }),
 
-  listKrakenSellOrdersByDateRange: adminProcedure
+  listKrakenSellOrdersByDateRange: accountingProcedure
     .input(adminDateRangeSchema)
     .query(async ({ input }) => {
       const { start, endExclusive } = localDateRangeBounds(input.dateFrom, input.dateTo)
@@ -575,15 +590,17 @@ export const accountingRouter = router({
       return allOrders.filter((o) => o.closedAt >= start && o.closedAt < endExclusive)
     }),
 
-  listStripeInvoicesByDateRange: adminProcedure
+  listStripeInvoicesByDateRange: accountingProcedure
     .input(adminDateRangeSchema)
-    .query(async ({ input }): Promise<StripeInvoiceItem[]> => {
+    .query(async ({ ctx, input }): Promise<StripeInvoiceItem[]> => {
+      const accountingAccess = (ctx as { accountingAccess: AccountingFundAccess }).accountingAccess
       const { startTs, endTs } = localDateRangeBounds(input.dateFrom, input.dateTo)
 
       const items: StripeInvoiceItem[] = []
 
+      const stripeFundsForInvoices = stripeFundSlugsForQuery(accountingAccess, undefined)
       const stripeResults = await Promise.allSettled(
-        FUND_SLUGS.map(async (fundSlug) => {
+        stripeFundsForInvoices.map(async (fundSlug) => {
           const stripeClient = stripe[fundSlug]
           if (!stripeClient) return []
           const fundItems: StripeInvoiceItem[] = []
@@ -673,7 +690,7 @@ export const accountingRouter = router({
         if (result.status === 'fulfilled') {
           items.push(...result.value)
         } else {
-          console.error(`[Stripe] Failed to fetch from ${FUND_SLUGS[i]}:`, result.reason)
+          console.error(`[Stripe] Failed to fetch from ${stripeFundsForInvoices[i]}:`, result.reason)
         }
       }
 
@@ -681,7 +698,7 @@ export const accountingRouter = router({
       return items
     }),
 
-  listAccountingIgnores: adminProcedure.query(async () => {
+  listAccountingIgnores: accountingProcedure.query(async () => {
     const records = await prisma.accountingIgnore.findMany({
       orderBy: [{ type: 'asc' }, { value: 'asc' }],
     })
@@ -693,7 +710,7 @@ export const accountingRouter = router({
     }
   }),
 
-  addAccountingIgnore: adminProcedure
+  addAccountingIgnore: accountingProcedure
     .input(
       z.object({
         type: z.enum(['deposit', 'order']),
@@ -712,7 +729,7 @@ export const accountingRouter = router({
       return { ...record, deletedCount: deleted }
     }),
 
-  removeAccountingIgnore: adminProcedure
+  removeAccountingIgnore: accountingProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
       await prisma.accountingIgnore.delete({ where: { id: input.id } })

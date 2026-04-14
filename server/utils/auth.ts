@@ -3,16 +3,15 @@ import { jwtDecode } from 'jwt-decode'
 
 import { env } from '../../env.mjs'
 import { KeycloakJwtPayload } from '../types'
+import { accountingFundsFromKeycloakGroups, type AccountingFundKey } from './accounting-access'
 
-export function isUserAdmin(accessToken: string | undefined): boolean {
-  if (!accessToken) return false
+export function getAccountingFundsFromAccessToken(accessToken: string | undefined): AccountingFundKey[] {
+  if (!accessToken) return []
   try {
     const payload = jwtDecode<KeycloakJwtPayload>(accessToken)
-    const groups = payload.groups ?? []
-    const hasAdminGroup = groups.some((g) => g === '/site-admin')
-    return hasAdminGroup
+    return accountingFundsFromKeycloakGroups(payload.groups)
   } catch {
-    return false
+    return []
   }
 }
 
@@ -41,6 +40,7 @@ export async function refreshToken(token: JWT): Promise<JWT> {
     const newToken = await response.json()
 
     const jwtPayload: KeycloakJwtPayload = jwtDecode(newToken.access_token)
+    const accountingFunds = accountingFundsFromKeycloakGroups(jwtPayload.groups)
 
     return {
       sub: jwtPayload.sub,
@@ -48,7 +48,7 @@ export async function refreshToken(token: JWT): Promise<JWT> {
       accessToken: newToken.access_token,
       accessTokenExpiresAt: Date.now() + (newToken.expires_in as number) * 1000,
       refreshToken: newToken.refresh_token,
-      isAdmin: isUserAdmin(newToken.access_token),
+      accountingFunds,
     }
   } catch (error) {
     return { ...token, error: 'RefreshAccessTokenError' }

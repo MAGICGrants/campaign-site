@@ -79,11 +79,20 @@ type Row = {
   label: string
 } & Record<FundStackKey, number>
 
+function emptyRow(k: string, label: string, stackKeys: FundStackKey[]): Row {
+  const row: Record<string, unknown> = { bucket: k, label }
+  for (const sk of stackKeys) {
+    row[sk] = 0
+  }
+  return row as Row
+}
+
 function buildRows(
   dateFrom: string,
   dateTo: string,
   records: ChartRecord[],
-  byMonth: boolean
+  byMonth: boolean,
+  stackKeys: FundStackKey[]
 ): { amountData: Row[]; countData: Row[] } {
   const keys = bucketKeys(dateFrom, dateTo, byMonth)
   const amountMap = new Map<string, Row>()
@@ -91,16 +100,8 @@ function buildRows(
 
   for (const k of keys) {
     const label = formatBucketLabel(k, byMonth)
-    const empty: Row = {
-      bucket: k,
-      label,
-      monero: 0,
-      firo: 0,
-      privacyguides: 0,
-      general: 0,
-      unknown: 0,
-    }
-    amountMap.set(k, { ...empty })
+    const empty = emptyRow(k, label, stackKeys)
+    amountMap.set(k, empty)
     countMap.set(k, { ...empty })
   }
 
@@ -109,6 +110,7 @@ function buildRows(
     const bucket = byMonth ? d.format('YYYY-MM') : d.format('YYYY-MM-DD')
     if (!amountMap.has(bucket)) continue
     const fk = fundStackKey(r.fundSlug)
+    if (!stackKeys.includes(fk)) continue
     const a = amountMap.get(bucket)!
     const c = countMap.get(bucket)!
     a[fk] += amountUsd(r)
@@ -129,14 +131,25 @@ type Props = {
   dateFrom: string
   dateTo: string
   records: ChartRecord[]
+  /** Funds the user may view (from Keycloak accounting groups). Order follows `FUND_STACK_KEYS`. */
+  allowedStackKeys: FundStackKey[]
 }
 
-export function AccountingDonationCharts({ dateFrom, dateTo, records }: Props) {
+export function AccountingDonationCharts({ dateFrom, dateTo, records, allowedStackKeys }: Props) {
+  const stackKeys = useMemo(() => {
+    const allowed = new Set(allowedStackKeys)
+    return FUND_STACK_KEYS.filter((k) => allowed.has(k))
+  }, [allowedStackKeys])
+
+  const showLegend = stackKeys.length > 1
+
   const byMonth = useMonthBuckets(dateFrom, dateTo)
-  const { amountData, countData } = useMemo(
-    () => buildRows(dateFrom, dateTo, records, byMonth),
-    [dateFrom, dateTo, records, byMonth]
-  )
+  const { amountData, countData } = useMemo(() => {
+    if (stackKeys.length === 0) {
+      return { amountData: [] as Row[], countData: [] as Row[] }
+    }
+    return buildRows(dateFrom, dateTo, records, byMonth, stackKeys)
+  }, [dateFrom, dateTo, records, byMonth, stackKeys])
 
   const xAxisProps = useMemo(
     () =>
@@ -177,20 +190,27 @@ export function AccountingDonationCharts({ dateFrom, dateTo, records }: Props) {
     []
   )
 
-  const common = (
+  const axes = (
     <>
       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
       <XAxis dataKey="label" tickLine={false} axisLine={false} {...xAxisProps} />
-      <Legend
-        verticalAlign="bottom"
-        align="left"
-        layout="horizontal"
-        iconSize={10}
-        wrapperStyle={legendStyle}
-        formatter={(value) => legendLabel(String(value))}
-      />
     </>
   )
+
+  const legend = showLegend ? (
+    <Legend
+      verticalAlign="bottom"
+      align="left"
+      layout="horizontal"
+      iconSize={10}
+      wrapperStyle={legendStyle}
+      formatter={(value) => legendLabel(String(value))}
+    />
+  ) : null
+
+  if (stackKeys.length === 0) {
+    return null
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -204,7 +224,8 @@ export function AccountingDonationCharts({ dateFrom, dateTo, records }: Props) {
           <div className="h-[320px]" style={chartScrollWidthStyle}>
             <ResponsiveContainer width="100%" height="100%">
             <BarChart data={amountData} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
-              {common}
+              {axes}
+              {legend}
               <YAxis
                 tickLine={false}
                 axisLine={false}
@@ -219,7 +240,7 @@ export function AccountingDonationCharts({ dateFrom, dateTo, records }: Props) {
                 labelFormatter={(_, p) => (p?.[0]?.payload as Row | undefined)?.label ?? ''}
               />
               <BarStack>
-                {FUND_STACK_KEYS.map((key) => (
+                {stackKeys.map((key) => (
                   <Bar key={key} dataKey={key} name={key} fill={FUND_CHART_FILL[key]} stackId="usd" />
                 ))}
               </BarStack>
@@ -235,7 +256,8 @@ export function AccountingDonationCharts({ dateFrom, dateTo, records }: Props) {
           <div className="h-[320px]" style={chartScrollWidthStyle}>
             <ResponsiveContainer width="100%" height="100%">
             <BarChart data={countData} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
-              {common}
+              {axes}
+              {legend}
               <YAxis tickLine={false} axisLine={false} allowDecimals={false} width={48} />
               <Tooltip
                 formatter={(value, name) => [
@@ -245,7 +267,7 @@ export function AccountingDonationCharts({ dateFrom, dateTo, records }: Props) {
                 labelFormatter={(_, p) => (p?.[0]?.payload as Row | undefined)?.label ?? ''}
               />
               <BarStack>
-                {FUND_STACK_KEYS.map((key) => (
+                {stackKeys.map((key) => (
                   <Bar key={key} dataKey={key} name={key} fill={FUND_CHART_FILL[key]} stackId="n" />
                 ))}
               </BarStack>
