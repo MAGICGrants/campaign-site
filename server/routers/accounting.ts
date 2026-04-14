@@ -1,4 +1,6 @@
 import { z } from 'zod'
+
+import { ADMIN_DATE_RANGE_MAX_DAYS } from '../../utils/adminDateRange'
 import { DonationSource, FundSlug, Prisma } from '@prisma/client'
 import Stripe from 'stripe'
 
@@ -166,6 +168,38 @@ async function fetchInvoiceBalanceTransaction(
 
 const donationSourceSchema = z.enum(['btcpayserver', 'coinbase', 'stripe'])
 
+const isoDateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+/** Local calendar dates; end is inclusive (we use endExclusive = day after dateTo at 00:00). */
+export function localDateRangeBounds(dateFrom: string, dateTo: string) {
+  const [y1, m1, d1] = dateFrom.split('-').map(Number)
+  const [y2, m2, d2] = dateTo.split('-').map(Number)
+  const start = new Date(y1, m1 - 1, d1)
+  const endExclusive = new Date(y2, m2 - 1, d2 + 1)
+  return {
+    start,
+    endExclusive,
+    startTs: Math.floor(start.getTime() / 1000),
+    endTs: Math.floor(endExclusive.getTime() / 1000),
+  }
+}
+
+const adminDateRangeSchema = z
+  .object({
+    dateFrom: isoDateString,
+    dateTo: isoDateString,
+  })
+  .refine((v) => v.dateFrom <= v.dateTo, { message: 'dateFrom must be <= dateTo' })
+  .refine(
+    (v) => {
+      const { start, endExclusive } = localDateRangeBounds(v.dateFrom, v.dateTo)
+      const spanDays = (endExclusive.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)
+      // Matches `differenceInCalendarDays(to, from) <= ADMIN_DATE_RANGE_MAX_DAYS` (spanDays = diff + 1).
+      return spanDays <= ADMIN_DATE_RANGE_MAX_DAYS + 1
+    },
+    { message: `Date range cannot exceed ${ADMIN_DATE_RANGE_MAX_DAYS} days` }
+  )
+
 const AMOUNT_TOLERANCE = 1e-6
 
 function findFundingApiRate(
@@ -200,21 +234,19 @@ function findFundingApiRate(
 }
 
 export const accountingRouter = router({
-  listByMonth: adminProcedure
+  listByDateRange: adminProcedure
     .input(
-      z.object({
-        year: z.number().int().min(2000).max(2100),
-        month: z.number().int().min(1).max(12),
+      adminDateRangeSchema.extend({
         projectSlug: z.string().optional(),
         fundSlug: z.string().optional(),
         sources: z.array(donationSourceSchema).optional(),
       })
     )
     .query(async ({ input }) => {
-      const startOfMonth = new Date(input.year, input.month - 1, 1)
-      const startOfNextMonth = new Date(input.year, input.month, 1)
-      const startTs = Math.floor(startOfMonth.getTime() / 1000)
-      const endTs = Math.floor(startOfNextMonth.getTime() / 1000)
+      const { start: rangeStart, endExclusive, startTs, endTs } = localDateRangeBounds(
+        input.dateFrom,
+        input.dateTo
+      )
 
       const includeStripe =
         !input.sources || input.sources.length === 0 || input.sources.includes('stripe')
@@ -244,7 +276,7 @@ export const accountingRouter = router({
 
       if (dbSources.length > 0) {
         const where: Prisma.DonationAccountingWhereInput = {
-          paymentReceivedAt: { gte: startOfMonth, lt: startOfNextMonth },
+          paymentReceivedAt: { gte: rangeStart, lt: endExclusive },
           source: { in: dbSources },
         }
         if (input.projectSlug) {
@@ -429,19 +461,13 @@ export const accountingRouter = router({
     return Array.from(months.values()).sort((a, b) => a.year - b.year || a.month - b.month)
   }),
 
-  listBtcPayPaymentsByMonth: adminProcedure
-    .input(
-      z.object({
-        year: z.number().int().min(2000).max(2100),
-        month: z.number().int().min(1).max(12),
-      })
-    )
+  listBtcPayPaymentsByDateRange: adminProcedure
+    .input(adminDateRangeSchema)
     .query(async ({ input }): Promise<BtcPayPaymentItem[]> => {
-      const startOfMonth = new Date(input.year, input.month - 1, 1)
-      const startOfNextMonth = new Date(input.year, input.month, 1)
+      const { startTs, endTs } = localDateRangeBounds(input.dateFrom, input.dateTo)
       const invoices = await getBtcPayInvoices({
-        startDate: Math.floor(startOfMonth.getTime() / 1000),
-        endDate: Math.floor(startOfNextMonth.getTime() / 1000),
+        startDate: startTs,
+        endDate: endTs,
       })
       const items: BtcPayPaymentItem[] = []
 
@@ -533,46 +559,26 @@ export const accountingRouter = router({
       return items
     }),
 
-  listKrakenDepositsByMonth: adminProcedure
-    .input(
-      z.object({
-        year: z.number().int().min(2000).max(2100),
-        month: z.number().int().min(1).max(12),
-      })
-    )
+  listKrakenDepositsByDateRange: adminProcedure
+    .input(adminDateRangeSchema)
     .query(async ({ input }) => {
-      const startOfMonth = new Date(input.year, input.month - 1, 1)
-      const startOfNextMonth = new Date(input.year, input.month, 1)
-      const allDeposits = await getDeposits(startOfMonth)
-      return allDeposits.filter((d) => d.time >= startOfMonth && d.time < startOfNextMonth)
+      const { start, endExclusive } = localDateRangeBounds(input.dateFrom, input.dateTo)
+      const allDeposits = await getDeposits(start)
+      return allDeposits.filter((d) => d.time >= start && d.time < endExclusive)
     }),
 
-  listKrakenSellOrdersByMonth: adminProcedure
-    .input(
-      z.object({
-        year: z.number().int().min(2000).max(2100),
-        month: z.number().int().min(1).max(12),
-      })
-    )
+  listKrakenSellOrdersByDateRange: adminProcedure
+    .input(adminDateRangeSchema)
     .query(async ({ input }) => {
-      const startOfMonth = new Date(input.year, input.month - 1, 1)
-      const startOfNextMonth = new Date(input.year, input.month, 1)
-      const allOrders = await getClosedSellOrders(startOfMonth)
-      return allOrders.filter((o) => o.closedAt >= startOfMonth && o.closedAt < startOfNextMonth)
+      const { start, endExclusive } = localDateRangeBounds(input.dateFrom, input.dateTo)
+      const allOrders = await getClosedSellOrders(start)
+      return allOrders.filter((o) => o.closedAt >= start && o.closedAt < endExclusive)
     }),
 
-  listStripeInvoicesByMonth: adminProcedure
-    .input(
-      z.object({
-        year: z.number().int().min(2000).max(2100),
-        month: z.number().int().min(1).max(12),
-      })
-    )
+  listStripeInvoicesByDateRange: adminProcedure
+    .input(adminDateRangeSchema)
     .query(async ({ input }): Promise<StripeInvoiceItem[]> => {
-      const startOfMonth = new Date(input.year, input.month - 1, 1)
-      const startOfNextMonth = new Date(input.year, input.month, 1)
-      const startTs = Math.floor(startOfMonth.getTime() / 1000)
-      const endTs = Math.floor(startOfNextMonth.getTime() / 1000)
+      const { startTs, endTs } = localDateRangeBounds(input.dateFrom, input.dateTo)
 
       const items: StripeInvoiceItem[] = []
 

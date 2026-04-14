@@ -11,13 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select'
 import { Copy, Download } from 'lucide-react'
 
 import {
@@ -25,26 +18,12 @@ import {
   sortRows,
   useSortableColumn,
 } from '../../components/admin/sortable-table'
+import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 
 dayjs.extend(localizedFormat)
 dayjs.extend(utc)
-
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
 
 const usdFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -52,10 +31,6 @@ const usdFormat = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
-
-function formatMonthOption(year: number, month: number) {
-  return `${year}-${String(month).padStart(2, '0')}`
-}
 
 function escapeCsvValue(value: string | number): string {
   const str = String(value)
@@ -161,35 +136,14 @@ function CopyableText({ text, truncate = false }: { text: string; truncate?: boo
 }
 
 export default function KrakenSellOrdersPage() {
-  const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState<string>(() =>
-    formatMonthOption(now.getFullYear(), now.getMonth() + 1)
-  )
+  const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
 
-  const [year, month] = useMemo(() => {
-    const [y, m] = selectedMonth.split('-').map(Number)
-    return [y, m] as [number, number]
-  }, [selectedMonth])
-
-  const listOrdersQuery = trpc.accounting.listKrakenSellOrdersByMonth.useQuery(
-    { year, month },
-    { enabled: !!year && !!month }
+  const listOrdersQuery = trpc.accounting.listKrakenSellOrdersByDateRange.useQuery(
+    { dateFrom, dateTo },
+    { enabled: !!dateFrom && !!dateTo }
   )
 
   const orders = listOrdersQuery.data ?? []
-
-  const monthOptions = useMemo(() => {
-    const opts: { value: string; label: string }[] = []
-    const today = new Date()
-    for (let i = 0; i < 24; i++) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-      opts.push({
-        value: formatMonthOption(d.getFullYear(), d.getMonth() + 1),
-        label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
-      })
-    }
-    return opts
-  }, [])
 
   const summary = useMemo(() => {
     const byCurrency = new Map<string, { volExec: number; cost: number; fee: number }>()
@@ -249,18 +203,12 @@ export default function KrakenSellOrdersPage() {
         <h1 className="text-2xl font-bold sm:text-3xl">Kraken Sell Orders</h1>
 
         <div className="ml-auto flex flex-row gap-2 flex-wrap justify-end">
-          <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v)}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AdminDateRangePicker
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
+            className="w-full sm:w-[280px]"
+          />
         </div>
 
         {summary.length > 0 && (
@@ -395,7 +343,7 @@ export default function KrakenSellOrdersPage() {
                 ) : orders.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      No sell orders for this month
+                      No sell orders for this date range
                     </TableCell>
                   </TableRow>
                 ) : (

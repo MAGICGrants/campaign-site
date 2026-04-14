@@ -25,30 +25,12 @@ import {
   sortRows,
   useSortableColumn,
 } from '../../components/admin/sortable-table'
+import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 
 dayjs.extend(localizedFormat)
 dayjs.extend(utc)
-
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
-
-function formatMonthOption(year: number, month: number) {
-  return `${year}-${String(month).padStart(2, '0')}`
-}
 
 function escapeCsvValue(value: string | number): string {
   const str = String(value)
@@ -126,36 +108,15 @@ function CopyableText({ text, truncate = false }: { text: string; truncate?: boo
 }
 
 export default function KrakenDepositsPage() {
-  const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState<string>(() =>
-    formatMonthOption(now.getFullYear(), now.getMonth() + 1)
-  )
+  const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
   const [selectedCurrency, setSelectedCurrency] = useState<string>('__all__')
 
-  const [year, month] = useMemo(() => {
-    const [y, m] = selectedMonth.split('-').map(Number)
-    return [y, m] as [number, number]
-  }, [selectedMonth])
-
-  const listDepositsQuery = trpc.accounting.listKrakenDepositsByMonth.useQuery(
-    { year, month },
-    { enabled: !!year && !!month }
+  const listDepositsQuery = trpc.accounting.listKrakenDepositsByDateRange.useQuery(
+    { dateFrom, dateTo },
+    { enabled: !!dateFrom && !!dateTo }
   )
 
   const allDeposits = listDepositsQuery.data ?? []
-
-  const monthOptions = useMemo(() => {
-    const opts: { value: string; label: string }[] = []
-    const today = new Date()
-    for (let i = 0; i < 24; i++) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-      opts.push({
-        value: formatMonthOption(d.getFullYear(), d.getMonth() + 1),
-        label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
-      })
-    }
-    return opts
-  }, [])
 
   const currencyOptions = useMemo(() => {
     const seen = new Set<string>()
@@ -234,18 +195,12 @@ export default function KrakenDepositsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v)}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AdminDateRangePicker
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
+            className="w-full sm:w-[280px]"
+          />
         </div>
 
         {summary.length > 0 && (
@@ -348,7 +303,7 @@ export default function KrakenDepositsPage() {
                 ) : filteredDeposits.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      No deposits for this month
+                      No deposits for this date range
                     </TableCell>
                   </TableRow>
                 ) : (

@@ -21,6 +21,7 @@ import {
 import { Copy, Download } from 'lucide-react'
 
 import { FundBadge } from '../../components/admin/FundBadge'
+import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
 import {
   SortableTableHead,
   sortRows,
@@ -34,31 +35,12 @@ import type { BtcPayPaymentItem } from '../../server/types'
 dayjs.extend(localizedFormat)
 dayjs.extend(utc)
 
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
-
 const usdFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
-
-function formatMonthOption(year: number, month: number) {
-  return `${year}-${String(month).padStart(2, '0')}`
-}
 
 function escapeCsvValue(value: string | number): string {
   const str = String(value)
@@ -135,37 +117,16 @@ function CopyableText({ text, truncate = false }: { text: string; truncate?: boo
 }
 
 export default function BtcPayPaymentsPage() {
-  const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState<string>(() =>
-    formatMonthOption(now.getFullYear(), now.getMonth() + 1)
-  )
+  const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
   const [selectedProject, setSelectedProject] = useState<string>('__all__')
   const [selectedFund, setSelectedFund] = useState<string>('__all__')
 
-  const [year, month] = useMemo(() => {
-    const [y, m] = selectedMonth.split('-').map(Number)
-    return [y, m] as [number, number]
-  }, [selectedMonth])
-
-  const listPaymentsQuery = trpc.accounting.listBtcPayPaymentsByMonth.useQuery(
-    { year, month },
-    { enabled: !!year && !!month }
+  const listPaymentsQuery = trpc.accounting.listBtcPayPaymentsByDateRange.useQuery(
+    { dateFrom, dateTo },
+    { enabled: !!dateFrom && !!dateTo }
   )
 
   const allPayments = listPaymentsQuery.data ?? []
-
-  const monthOptions = useMemo(() => {
-    const opts: { value: string; label: string }[] = []
-    const today = new Date()
-    for (let i = 0; i < 24; i++) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-      opts.push({
-        value: formatMonthOption(d.getFullYear(), d.getMonth() + 1),
-        label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
-      })
-    }
-    return opts
-  }, [])
 
   const projectOptions = useMemo(() => {
     const seen = new Set<string>()
@@ -277,18 +238,12 @@ export default function BtcPayPaymentsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v)}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AdminDateRangePicker
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
+            className="w-full sm:w-[280px]"
+          />
         </div>
 
         {filteredPayments.length > 0 && (
@@ -425,7 +380,7 @@ export default function BtcPayPaymentsPage() {
                 ) : filteredPayments.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No payments for this month
+                      No payments for this date range
                     </TableCell>
                   </TableRow>
                 ) : (

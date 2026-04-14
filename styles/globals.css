@@ -1,157 +1,168 @@
 @import "tailwindcss";
-@config "../tailwind.config.js";
+@import "tw-animate-css";
 
-/* Register custom colors for Tailwind v4 utilities */
+@plugin "@tailwindcss/typography";
+
 @theme inline {
-  --color-border: hsl(var(--border));
-  --color-ring: hsl(var(--ring));
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
   /* Fund brand colors */
-  --color-monero: hsl(var(--monero));
-  --color-firo: hsl(var(--firo));
-  --color-privacyguides: hsl(var(--privacyguides));
-  --color-general: hsl(var(--general));
+  --color-monero: var(--monero);
+  --color-firo: var(--firo);
+  --color-privacyguides: var(--privacyguides);
+  --color-general: var(--general);
   /* Semantic colors */
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-primary-hover: hsl(var(--primary-hover));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-input: hsl(var(--border));
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-input: var(--input);
+  /* Radius scale */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 @layer base {
   :root {
-    --monero: 24 100% 50%;
-    --firo: 351 69% 36%;
-    --privacyguides: 40 100% 50%;
-    --general: 220 86% 58%;
-    /* Default theme values (monero) - required for @theme utilities before theme class is applied */
-    --background: 24 100% 95%;
-    --foreground: 223 84% 5%;
-    --border: 214.3 31.8% 87%;
-    --ring: 222.2 84% 4.9%;
+    --monero: hsl(24 100% 50%);
+    --firo: hsl(351 69% 36%);
+    --privacyguides: hsl(40 100% 50%);
+    --general: hsl(220 86% 58%);
+
+    --background: hsl(24 100% 95%);
+    --foreground: hsl(223 84% 5%);
+    --border: hsl(214.3 31.8% 87%);
+    --input: hsl(214.3 31.8% 87%);
+    --ring: hsl(222.2 84% 4.9%);
     --primary: var(--monero);
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 24 100% 45%;
-    --muted: 214.3 31.8% 87%;
-    --muted-foreground: 218 11% 65%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --primary-foreground: hsl(0 0% 100%);
+    --primary-hover: hsl(24 100% 45%);
+    --secondary: hsl(210 40% 96.1%);
+    --secondary-foreground: hsl(222.2 47.4% 11.2%);
+    --muted: hsl(214.3 31.8% 87%);
+    --muted-foreground: hsl(218 11% 65%);
+    --accent: hsl(210 40% 96.1%);
+    --accent-foreground: hsl(222.2 47.4% 11.2%);
+    --destructive: hsl(0 84% 60%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(222.2 84% 4.9%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(222.2 84% 4.9%);
+    --radius: 0.5rem;
   }
 
   .monero {
-    --background: 24 100% 95%;
-    --foreground: 223 84% 5%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
+    --background: hsl(24 100% 95%);
+    --foreground: hsl(223 84% 5%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(222.2 84% 4.9%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(222.2 84% 4.9%);
     --primary: var(--monero);
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 24 100% 45%;
-
-    --muted: 214.3 31.8% 87%;
-    --muted-foreground: 218 11% 65%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 87%;
-    --ring: 222.2 84% 4.9%;
-
+    --primary-foreground: hsl(0 0% 100%);
+    --primary-hover: hsl(24 100% 45%);
+    --secondary: hsl(210 40% 96.1%);
+    --secondary-foreground: hsl(222.2 47.4% 11.2%);
+    --muted: hsl(214.3 31.8% 87%);
+    --muted-foreground: hsl(218 11% 65%);
+    --accent: hsl(210 40% 96.1%);
+    --accent-foreground: hsl(222.2 47.4% 11.2%);
+    --destructive: hsl(0 84% 60%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --border: hsl(214.3 31.8% 87%);
+    --input: hsl(214.3 31.8% 87%);
+    --ring: hsl(222.2 84% 4.9%);
     --radius: 0.5rem;
   }
 
   .firo {
-    --background: 351 30% 95%;
-    --foreground: 223 84% 5%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
+    --background: hsl(351 30% 95%);
+    --foreground: hsl(223 84% 5%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(222.2 84% 4.9%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(222.2 84% 4.9%);
     --primary: var(--firo);
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 351 69% 26%;
-
-    --muted: 214.3 31.8% 87%;
-    --muted-foreground: 218 11% 65%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 87%;
-    --ring: 222.2 84% 4.9%;
-
+    --primary-foreground: hsl(0 0% 100%);
+    --primary-hover: hsl(351 69% 26%);
+    --secondary: hsl(210 40% 96.1%);
+    --secondary-foreground: hsl(222.2 47.4% 11.2%);
+    --muted: hsl(214.3 31.8% 87%);
+    --muted-foreground: hsl(218 11% 65%);
+    --accent: hsl(210 40% 96.1%);
+    --accent-foreground: hsl(222.2 47.4% 11.2%);
+    --destructive: hsl(0 84% 60%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --border: hsl(214.3 31.8% 87%);
+    --input: hsl(214.3 31.8% 87%);
+    --ring: hsl(222.2 84% 4.9%);
     --radius: 0.5rem;
   }
 
   .privacyguides {
-    --background: 40 100% 95;
-    --foreground: 223 84% 5%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
+    --background: hsl(40 100% 95%);
+    --foreground: hsl(223 84% 5%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(222.2 84% 4.9%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(222.2 84% 4.9%);
     --primary: var(--privacyguides);
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 40 100% 62%;
-
-    --muted: 214.3 31.8% 87%;
-    --muted-foreground: 218 11% 65%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 87%;
-    --ring: 222.2 84% 4.9%;
-
+    --primary-foreground: hsl(0 0% 100%);
+    --primary-hover: hsl(40 100% 62%);
+    --secondary: hsl(210 40% 96.1%);
+    --secondary-foreground: hsl(222.2 47.4% 11.2%);
+    --muted: hsl(214.3 31.8% 87%);
+    --muted-foreground: hsl(218 11% 65%);
+    --accent: hsl(210 40% 96.1%);
+    --accent-foreground: hsl(222.2 47.4% 11.2%);
+    --destructive: hsl(0 84% 60%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --border: hsl(214.3 31.8% 87%);
+    --input: hsl(214.3 31.8% 87%);
+    --ring: hsl(222.2 84% 4.9%);
     --radius: 0.5rem;
   }
 
   .general {
-    --background: 220 100% 95%;
-    --foreground: 223 84% 5%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
+    --background: hsl(220 100% 95%);
+    --foreground: hsl(223 84% 5%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(222.2 84% 4.9%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(222.2 84% 4.9%);
     --primary: var(--general);
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 220 86% 48%;
-
-    --muted: 214.3 31.8% 87%;
-    --muted-foreground: 218 11% 65%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 87%;
-    --ring: 222.2 84% 4.9%;
-
+    --primary-foreground: hsl(0 0% 100%);
+    --primary-hover: hsl(220 86% 48%);
+    --secondary: hsl(210 40% 96.1%);
+    --secondary-foreground: hsl(222.2 47.4% 11.2%);
+    --muted: hsl(214.3 31.8% 87%);
+    --muted-foreground: hsl(218 11% 65%);
+    --accent: hsl(210 40% 96.1%);
+    --accent-foreground: hsl(222.2 47.4% 11.2%);
+    --destructive: hsl(0 84% 60%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --border: hsl(214.3 31.8% 87%);
+    --input: hsl(214.3 31.8% 87%);
+    --ring: hsl(222.2 84% 4.9%);
     --radius: 0.5rem;
   }
 }
@@ -179,7 +190,18 @@
 }
 
 body {
-  background-color: hsl(var(--background));
+  background-color: var(--background);
+}
+
+/* Fix shadcn calendar: <td> inside flex <tr> needs flex-1 and auto height
+   to avoid circular sizing from aspect-square + h-full + w-full */
+[data-slot="calendar"] td {
+  flex: 1 1 0%;
+  height: auto;
+}
+
+[data-slot="calendar"] {
+  background-color: white;
 }
 
 .task-list-item::before {
@@ -210,6 +232,10 @@ input:-webkit-autofill:focus {
     color 600000s 0s;
 }
 
+.prose {
+  color: theme('--color-gray-700');
+}
+
 .prose > ul > li > p {
   margin-top: 0;
   margin-bottom: 0;
@@ -221,6 +247,72 @@ input:-webkit-autofill:focus {
 
 .prose a {
   @apply text-primary hover:text-primary-hover;
+}
+
+.prose a code {
+  color: theme('--color-pink-500');
+}
+
+.prose h1,
+.prose h2 {
+  font-weight: 700;
+  letter-spacing: theme('--tracking-tight');
+  color: theme('--color-gray-900');
+}
+
+.prose h3 {
+  font-weight: 600;
+  color: theme('--color-gray-900');
+}
+
+.prose h4,
+.prose h5,
+.prose h6 {
+  color: theme('--color-gray-900');
+}
+
+.prose pre {
+  background-color: theme('--color-gray-800');
+}
+
+.prose code {
+  color: theme('--color-pink-500');
+  background-color: theme('--color-gray-100');
+  padding: 2px 4px;
+  border-radius: 0.25rem;
+}
+
+.prose code::before,
+.prose code::after {
+  content: none;
+}
+
+.prose details {
+  background-color: theme('--color-gray-100');
+  padding: 2px 4px;
+  border-radius: 0.25rem;
+}
+
+.prose hr {
+  border-color: theme('--color-gray-200');
+}
+
+.prose ol li::marker {
+  font-weight: 600;
+  color: theme('--color-gray-500');
+}
+
+.prose ul li::marker {
+  background-color: theme('--color-gray-500');
+}
+
+.prose strong {
+  color: theme('--color-gray-600');
+}
+
+.prose blockquote {
+  color: theme('--color-gray-900');
+  border-left-color: theme('--color-gray-200');
 }
 
 form label {

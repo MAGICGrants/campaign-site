@@ -31,6 +31,7 @@ import {
   TooltipTrigger,
 } from '../../components/ui/tooltip'
 import { FundBadge } from '../../components/admin/FundBadge'
+import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
 import {
   SortableTableHead,
   sortRows,
@@ -72,31 +73,12 @@ const SOURCE_OPTIONS: { value: DonationSource; label: string }[] = [
   { value: 'stripe', label: 'Stripe' },
 ]
 
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
-
 const usdFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
-
-function formatMonthOption(year: number, month: number) {
-  return `${year}-${String(month).padStart(2, '0')}`
-}
 
 function escapeCsvValue(value: string | number): string {
   const str = String(value)
@@ -530,7 +512,7 @@ function IgnoredItemsDialog({
   const addIgnore = trpc.accounting.addAccountingIgnore.useMutation({
     onSuccess: () => {
       utils.accounting.listAccountingIgnores.invalidate()
-      utils.accounting.listByMonth.invalidate()
+      utils.accounting.listByDateRange.invalidate()
       utils.accounting.listAvailableMonths.invalidate()
       utils.accounting.listAvailableProjects.invalidate()
     },
@@ -538,7 +520,7 @@ function IgnoredItemsDialog({
   const removeIgnore = trpc.accounting.removeAccountingIgnore.useMutation({
     onSuccess: () => {
       utils.accounting.listAccountingIgnores.invalidate()
-      utils.accounting.listByMonth.invalidate()
+      utils.accounting.listByDateRange.invalidate()
       utils.accounting.listAvailableMonths.invalidate()
       utils.accounting.listAvailableProjects.invalidate()
     },
@@ -684,10 +666,7 @@ function IgnoredItemsDialog({
 }
 
 export default function AccountingPage() {
-  const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState<string>(() =>
-    formatMonthOption(now.getFullYear(), now.getMonth() + 1)
-  )
+  const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
   const [selectedProject, setSelectedProject] = useState<string>('__all__')
   const [selectedFund, setSelectedFund] = useState<string>('__all__')
   const [selectedSources, setSelectedSources] = useState<DonationSource[]>([
@@ -704,47 +683,19 @@ export default function AccountingPage() {
   }>({ open: false, orders: [] })
   const [ignoredItemsDialogOpen, setIgnoredItemsDialogOpen] = useState(false)
 
-  const [year, month] = useMemo(() => {
-    const [y, m] = selectedMonth.split('-').map(Number)
-    return [y, m] as [number, number]
-  }, [selectedMonth])
-
-  const availableMonthsQuery = trpc.accounting.listAvailableMonths.useQuery()
   const availableProjectsQuery = trpc.accounting.listAvailableProjects.useQuery()
-  const listByMonthQuery = trpc.accounting.listByMonth.useQuery(
+  const listByDateRangeQuery = trpc.accounting.listByDateRange.useQuery(
     {
-      year,
-      month,
+      dateFrom,
+      dateTo,
       projectSlug: selectedProject === '__all__' ? undefined : selectedProject,
       fundSlug: selectedFund === '__all__' ? undefined : selectedFund,
       sources: selectedSources.length > 0 ? selectedSources : undefined,
     },
-    { enabled: !!year && !!month }
+    { enabled: !!dateFrom && !!dateTo }
   )
 
-  const monthOptions = useMemo(() => {
-    const months = availableMonthsQuery.data ?? []
-    if (months.length === 0) {
-      const opts: { value: string; label: string }[] = []
-      const today = new Date()
-      for (let i = 0; i < 12; i++) {
-        const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-        opts.push({
-          value: formatMonthOption(d.getFullYear(), d.getMonth() + 1),
-          label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
-        })
-      }
-      return opts
-    }
-    return months
-      .map(({ year: y, month: m }) => ({
-        value: formatMonthOption(y, m),
-        label: `${MONTH_NAMES[m - 1]} ${y}`,
-      }))
-      .sort((a, b) => b.value.localeCompare(a.value))
-  }, [availableMonthsQuery.data])
-
-  const records = listByMonthQuery.data ?? []
+  const records = listByDateRangeQuery.data ?? []
 
   const showCoinbaseNetColumns = useMemo(
     () => records.some((r) => r.source === 'coinbase'),
@@ -930,18 +881,11 @@ export default function AccountingPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v)}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AdminDateRangePicker
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
+          />
         </div>
 
         {records.length > 0 && (
@@ -1123,7 +1067,7 @@ export default function AccountingPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {listByMonthQuery.isLoading ? (
+                {listByDateRangeQuery.isLoading ? (
                   <TableRow>
                     <TableCell
                       colSpan={donationTableColSpan}
@@ -1138,7 +1082,7 @@ export default function AccountingPage() {
                       colSpan={donationTableColSpan}
                       className="text-center py-8 text-muted-foreground"
                     >
-                      No records for this month
+                      No records for this date range
                     </TableCell>
                   </TableRow>
                 ) : (
