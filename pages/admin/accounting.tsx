@@ -31,6 +31,7 @@ import {
   TooltipTrigger,
 } from '../../components/ui/tooltip'
 import { FundBadge } from '../../components/admin/FundBadge'
+import { AccountingDonationCharts } from '../../components/admin/AccountingDonationCharts'
 import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
 import {
   SortableTableHead,
@@ -887,6 +888,10 @@ export default function AccountingPage() {
             onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
           />
         </div>
+
+        {listByDateRangeQuery.isSuccess && (
+          <AccountingDonationCharts dateFrom={dateFrom} dateTo={dateTo} records={records} />
+        )}
 
         {records.length > 0 && (
           <div className="flex flex-col gap-2">
