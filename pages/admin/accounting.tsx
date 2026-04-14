@@ -34,12 +34,9 @@ import {
 } from '../../components/ui/tooltip'
 import { FundBadge } from '../../components/admin/FundBadge'
 import { AccountingDonationCharts } from '../../components/admin/AccountingDonationCharts'
-import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
-import {
-  SortableTableHead,
-  sortRows,
-  useSortableColumn,
-} from '../../components/admin/sortable-table'
+import { AdminDateRangePicker } from '../../components/admin/AdminDateRangePicker'
+import { SortableTableHead, sortRows, useSortableColumn } from '../../components/admin/sortable-table'
+import { useAccountingPageQuery } from '../../hooks/useAccountingPageQuery'
 import { cn } from '../../utils/cn'
 
 import { trpc } from '../../utils/trpc'
@@ -669,25 +666,8 @@ function IgnoredItemsDialog({
 }
 
 export default function AccountingPage() {
-  const { data: session, status: sessionStatus } = useSession()
+  const { data: session } = useSession()
   const accountingFunds = session?.user?.accountingFunds ?? []
-
-  const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
-  const [selectedProject, setSelectedProject] = useState<string>('__all__')
-  const [selectedFund, setSelectedFund] = useState<string>('__all__')
-  const [selectedSources, setSelectedSources] = useState<DonationSource[]>([
-    'btcpayserver',
-    'coinbase',
-  ])
-  const [depositsDialog, setDepositsDialog] = useState<{
-    open: boolean
-    deposits: MatchedDeposit[]
-  }>({ open: false, deposits: [] })
-  const [ordersDialog, setOrdersDialog] = useState<{
-    open: boolean
-    orders: MatchedOrder[]
-  }>({ open: false, orders: [] })
-  const [ignoredItemsDialogOpen, setIgnoredItemsDialogOpen] = useState(false)
 
   const allowedFundKeys = useMemo(() => {
     const out = new Set<string>(['__all__'])
@@ -698,12 +678,18 @@ export default function AccountingPage() {
     return out
   }, [accountingFunds])
 
-  useEffect(() => {
-    if (sessionStatus !== 'authenticated') return
-    if (!allowedFundKeys.has(selectedFund)) {
-      setSelectedFund('__all__')
-    }
-  }, [sessionStatus, allowedFundKeys, selectedFund])
+  const { state, patchQuery, summarySort, donationsSort } = useAccountingPageQuery(allowedFundKeys)
+  const { dateFrom, dateTo, fund: selectedFund, project: selectedProject, sources: selectedSources } =
+    state
+  const [depositsDialog, setDepositsDialog] = useState<{
+    open: boolean
+    deposits: MatchedDeposit[]
+  }>({ open: false, deposits: [] })
+  const [ordersDialog, setOrdersDialog] = useState<{
+    open: boolean
+    orders: MatchedOrder[]
+  }>({ open: false, orders: [] })
+  const [ignoredItemsDialogOpen, setIgnoredItemsDialogOpen] = useState(false)
 
   const availableProjectsQuery = trpc.accounting.listAvailableProjects.useQuery()
   const listByDateRangeQuery = trpc.accounting.listByDateRange.useQuery(
@@ -757,7 +743,6 @@ export default function AccountingPage() {
     }))
   }, [records])
 
-  const summarySort = useSortableColumn('fund')
   const sortedSummaryByFund = useMemo(
     () =>
       sortRows(
@@ -774,7 +759,6 @@ export default function AccountingPage() {
     [summaryByFund, summarySort.columnKey, summarySort.direction]
   )
 
-  const donationsSort = useSortableColumn('time')
   const sortedRecords = useMemo(() => {
     type Row = (typeof records)[number]
     const accessors: Record<string, (r: Row) => unknown> = {
@@ -861,9 +845,10 @@ export default function AccountingPage() {
                         'focus:text-primary hover:bg-primary/10 hover:text-primary'
                       )}
                       onClick={() => {
-                        setSelectedSources((prev) =>
-                          isSelected ? prev.filter((s) => s !== opt.value) : [...prev, opt.value]
-                        )
+                        const next = isSelected
+                          ? selectedSources.filter((s) => s !== opt.value)
+                          : [...selectedSources, opt.value]
+                        patchQuery({ sources: next })
                       }}
                     >
                       {opt.label}
@@ -876,7 +861,7 @@ export default function AccountingPage() {
               </div>
             </PopoverContent>
           </Popover>
-          <Select value={selectedFund} onValueChange={(v) => setSelectedFund(v)}>
+          <Select value={selectedFund} onValueChange={(v) => patchQuery({ fund: v })}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="All funds" />
             </SelectTrigger>
@@ -897,7 +882,7 @@ export default function AccountingPage() {
                 })}
             </SelectContent>
           </Select>
-          <Select value={selectedProject} onValueChange={(v) => setSelectedProject(v)}>
+          <Select value={selectedProject} onValueChange={(v) => patchQuery({ project: v })}>
             <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="All projects" />
             </SelectTrigger>
@@ -913,7 +898,7 @@ export default function AccountingPage() {
           <AdminDateRangePicker
             dateFrom={dateFrom}
             dateTo={dateTo}
-            onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
+            onRangeChange={(from, to) => patchQuery({ dateFrom: from, dateTo: to })}
           />
         </div>
 
