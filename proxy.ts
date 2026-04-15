@@ -16,13 +16,13 @@ export default withAuth({
         if (Date.now() >= newToken.accessTokenExpiresAt || newToken.error) {
           return false
         }
-        if (isAdminRoute && !newToken.isAdmin) {
+        if (isAdminRoute && !(newToken.accountingFunds && newToken.accountingFunds.length > 0)) {
           return false
         }
         return true
       }
 
-      if (isAdminRoute && !token.isAdmin) return false
+      if (isAdminRoute && !(token.accountingFunds && token.accountingFunds.length > 0)) return false
 
       return true
     },

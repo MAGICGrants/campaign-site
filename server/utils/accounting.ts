@@ -4,8 +4,7 @@ import { BtcPayListInvoiceItem, DonationCryptoPayments } from '../types'
 import { getDeposits, getClosedSellOrders, KrakenDeposit, KrakenSellOrder } from './kraken'
 import { getNetworkFee } from './blockexplorers'
 import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from './btcpayserver'
-import { getCoinbaseCdpCheckouts, CoinbaseCdpCheckout } from './coinbase-cdp'
-import { loadCoinbaseExportCsv } from './coinbase-export-csv'
+import { CoinbaseCdpCheckout, getCoinbaseCdpCheckouts } from './coinbase-cdp'
 
 type PaymentItem = {
   paymentId: string
@@ -16,6 +15,8 @@ type PaymentItem = {
   cryptoAmountRaw: string
   rate: string
   fiatAmount: number
+  cryptoProcessorFee?: string | null
+  fiatProcessorFee?: number | null
   projectSlug: string | null
   projectName: string | null
   fundSlug: FundSlug | null
@@ -52,6 +53,8 @@ type PaymentMatch = {
   cryptoAmountRaw: string
   rate: string
   fiatAmount: number
+  cryptoProcessorFee: string | null
+  fiatProcessorFee: number | null
   deposits: MatchedDeposit[]
   orders: MatchedOrder[]
   totalRealizedUsd: number
@@ -63,6 +66,19 @@ type PaymentMatch = {
 
 const EPSILON = 1e-8
 const AMOUNT_TOLERANCE = 1e-6
+
+/**
+ * Crypto subtotal minus Coinbase Commerce crypto processor fee (when present).
+ * Kraken deposits reflect what landed after Coinbase’s cut; BTCPay has no such fee on this field.
+ */
+function netCryptoForMatching(payment: PaymentItem): number {
+  const gross = payment.cryptoAmount
+  const feeStr = payment.cryptoProcessorFee
+  if (feeStr == null || feeStr.trim() === '') return gross
+  const fee = Number(feeStr)
+  if (Number.isNaN(fee) || fee < 0) return gross
+  return Math.max(0, gross - fee)
+}
 
 const IGNORED_PAYMENT_IDS: string[] = []
 
@@ -187,14 +203,24 @@ async function extractCoinbasePaymentItems(checkouts: CoinbaseCdpCheckout[]): Pr
 
     if (IGNORED_PAYMENT_IDS.includes(co.id)) continue
 
+    const paymentId = co.transactionHash?.trim() || co.id
+    if (!paymentId) continue
+
     const metadata = parseMetadataFromCheckoutMetadata(co.metadata)
 
     const receivedAt = new Date(co.updatedAt)
     const rate = '1'
     const fiatAmount = cryptoAmount
 
+    const feeStr = co.settlement?.feeAmount?.trim()
+    const feeNum = feeStr ? Number(feeStr) : NaN
+    const cryptoProcessorFee =
+      feeStr && !Number.isNaN(feeNum) && feeNum > 0 ? feeStr : undefined
+    const fiatProcessorFee =
+      !Number.isNaN(feeNum) && feeNum > 0 ? feeNum : undefined
+
     items.push({
-      paymentId: co.id,
+      paymentId,
       invoiceId: co.id,
       receivedAt,
       cryptoCode: 'USDC',
@@ -202,6 +228,8 @@ async function extractCoinbasePaymentItems(checkouts: CoinbaseCdpCheckout[]): Pr
       cryptoAmountRaw: co.amount,
       rate,
       fiatAmount,
+      cryptoProcessorFee,
+      fiatProcessorFee,
       projectSlug: metadata?.projectSlug ?? null,
       projectName: metadata?.projectName ?? null,
       fundSlug: metadata?.fundSlug ?? null,
@@ -332,7 +360,7 @@ function matchPaymentsToDeposits(
   let depositRemaining = deposits.length > 0 ? deposits[0].amount : 0
 
   for (const payment of payments) {
-    let paymentRemaining = payment.cryptoAmount
+    let paymentRemaining = netCryptoForMatching(payment)
 
     while (paymentRemaining > EPSILON && depIdx < deposits.length) {
       const deposit = deposits[depIdx]
@@ -452,6 +480,8 @@ function rollUpMatches(
       cryptoAmountRaw: payment.cryptoAmountRaw,
       rate: payment.rate,
       fiatAmount: payment.fiatAmount,
+      cryptoProcessorFee: payment.cryptoProcessorFee ?? null,
+      fiatProcessorFee: payment.fiatProcessorFee ?? null,
       deposits,
       orders,
       totalRealizedUsd: Math.round(totalRealizedUsd * 100) / 100,
@@ -468,33 +498,27 @@ function rollUpMatches(
 export async function generateAccountingRecords(): Promise<DonationAccounting[]> {
   console.log('[accounting] Starting accounting record generation...')
 
-  const [btcPayInvoices, coinbaseCheckouts, existingRecords] = await Promise.all([
+  const [btcPayInvoices, existingRecords, coinbaseCheckouts] = await Promise.all([
     getBtcPayInvoices(),
-    getCoinbaseCdpCheckouts(),
     prisma.donationAccounting.findMany({ orderBy: { paymentReceivedAt: 'asc' } }),
+    getCoinbaseCdpCheckouts(),
   ])
 
   console.log(
-    `[accounting] Found ${btcPayInvoices.length} BTCPay invoices, ${coinbaseCheckouts.length} Coinbase checkouts`
+    `[accounting] Found ${btcPayInvoices.length} BTCPay invoices, ${coinbaseCheckouts.length} Coinbase CDP checkouts`
   )
 
-  const [btcPayItems, coinbaseCdpItems, coinbaseCsvItems] = await Promise.all([
+  const [btcPayItems, coinbaseCdpItems] = await Promise.all([
     extractBtcPayPaymentItems(btcPayInvoices),
     extractCoinbasePaymentItems(coinbaseCheckouts),
-    Promise.resolve(loadCoinbaseExportCsv()),
   ])
 
-  const coinbaseCsvPaymentItems = coinbaseCsvItems.map((row) => ({
-    ...row,
-    source: DonationSource.coinbase,
-  }))
-
-  const rawPaymentItems = [...btcPayItems, ...coinbaseCdpItems, ...coinbaseCsvPaymentItems]
+  const rawPaymentItems = [...btcPayItems, ...coinbaseCdpItems]
   const paymentItems = normalizePaymentItems(rawPaymentItems).sort(
     (a, b) => a.receivedAt.getTime() - b.receivedAt.getTime()
   )
   console.log(
-    `[accounting] Extracted ${paymentItems.length} individual payments (${btcPayItems.length} BTCPay, ${coinbaseCdpItems.length} Coinbase CDP, ${coinbaseCsvItems.length} Coinbase CSV)`
+    `[accounting] Extracted ${paymentItems.length} individual payments (${btcPayItems.length} BTCPay, ${coinbaseCdpItems.length} Coinbase CDP)`
   )
 
   if (paymentItems.length === 0) {
@@ -574,6 +598,8 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
         cryptoAmount: match.cryptoAmountRaw,
         rate: match.rate,
         fiatAmount: match.fiatAmount,
+        cryptoProcessorFee: match.cryptoProcessorFee,
+        fiatProcessorFee: match.fiatProcessorFee,
         krakenDeposits: match.deposits,
         krakenOrders: match.orders,
         totalRealizedUsd: match.totalRealizedUsd,
@@ -585,6 +611,8 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
         krakenDeposits: match.deposits,
         krakenOrders: match.orders,
         totalRealizedUsd: match.totalRealizedUsd,
+        cryptoProcessorFee: match.cryptoProcessorFee,
+        fiatProcessorFee: match.fiatProcessorFee,
       },
     })
   }
