@@ -93,7 +93,7 @@ const Header = () => {
         {session.status === 'authenticated' && (
           <DropdownMenu>
             <DropdownMenuTrigger>
-              <Avatar>
+              <Avatar className="cursor-pointer">
                 <AvatarFallback>
                   {session.data.user?.email?.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
@@ -138,9 +138,9 @@ const Header = () => {
                   <CustomLink href={`/${fundSlug}/account/settings`} className="text-foreground">
                     <DropdownMenuItem>Settings</DropdownMenuItem>
                   </CustomLink>
+                  <DropdownMenuSeparator />
                 </>
               )}
-              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => signOut({ callbackUrl: fundSlug ? `/${fundSlug}` : '/' })}
               >
