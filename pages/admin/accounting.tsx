@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import dayjs from 'dayjs'
 import localizedFormat from 'dayjs/plugin/localizedFormat'
 import utc from 'dayjs/plugin/utc'
@@ -9,7 +9,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
@@ -21,14 +20,27 @@ import {
   SelectValue,
 } from '../../components/ui/select'
 import { Check, Copy, Download, Plus, Settings2, TableIcon, Trash2 } from 'lucide-react'
+  import { useSession } from 'next-auth/react'
+  import { DonationSource } from '@prisma/client'
 
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip'
+import { FundBadge } from '../../components/admin/FundBadge'
+import { AccountingDonationCharts } from '../../components/admin/AccountingDonationCharts'
+import { AdminDateRangePicker } from '../../components/admin/AdminDateRangePicker'
+import { SortableTableHead, sortRows, useSortableColumn } from '../../components/admin/sortable-table'
+import { useAccountingPageQuery } from '../../hooks/useAccountingPageQuery'
 import { cn } from '../../utils/cn'
+
 import { trpc } from '../../utils/trpc'
-import { DonationSource } from '@prisma/client'
-import { funds } from '../../utils/funds'
+import { funds, fundSlugs, type FundStackKey } from '../../utils/funds'
 
 dayjs.extend(localizedFormat)
 dayjs.extend(utc)
@@ -61,31 +73,12 @@ const SOURCE_OPTIONS: { value: DonationSource; label: string }[] = [
   { value: 'stripe', label: 'Stripe' },
 ]
 
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
-
 const usdFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
-
-function formatMonthOption(year: number, month: number) {
-  return `${year}-${String(month).padStart(2, '0')}`
-}
 
 function escapeCsvValue(value: string | number): string {
   const str = String(value)
@@ -108,9 +101,55 @@ type AccountingRecord = {
   rate: string
   fiatAmount: number
   fee: number | null
+  cryptoProcessorFee?: string | null
   krakenDeposits: MatchedDeposit[] | null
   krakenOrders: MatchedOrder[] | null
   totalRealizedUsd: number
+}
+
+/** Fields needed for net amount / net USD (avoids coupling to full row + kraken JSON types). */
+type NetAmountRow = Pick<
+  AccountingRecord,
+  'source' | 'cryptoAmount' | 'cryptoCode' | 'rate' | 'fiatAmount' | 'fee' | 'cryptoProcessorFee'
+>
+
+function formatNetAmountDisplay(record: NetAmountRow): string {
+  if (record.source === 'stripe') return '—'
+  if (record.source === 'coinbase') {
+    const gross = Number(record.cryptoAmount)
+    const fee = Number(record.cryptoProcessorFee ?? 0)
+    const net = Math.max(0, gross - fee)
+    return `${net.toFixed(3)} ${record.cryptoCode}`
+  }
+  return `${Number(record.cryptoAmount).toFixed(3)} ${record.cryptoCode}`
+}
+
+function formatNetUsdDisplay(record: NetAmountRow): string {
+  if (record.source === 'stripe') {
+    const net = record.fee != null ? record.fiatAmount - record.fee : record.fiatAmount
+    return usdFormat.format(net)
+  }
+  if (record.source === 'coinbase') {
+    return usdFormat.format(record.fiatAmount - (record.fee ?? 0))
+  }
+  return usdFormat.format(Number(record.cryptoAmount) * Number(record.rate))
+}
+
+function netUsdNumericCsv(record: NetAmountRow): string {
+  if (record.source === 'stripe') {
+    const n = record.fee != null ? record.fiatAmount - record.fee : record.fiatAmount
+    return n.toFixed(2)
+  }
+  if (record.source === 'coinbase') {
+    return (record.fiatAmount - (record.fee ?? 0)).toFixed(2)
+  }
+  return (Number(record.cryptoAmount) * Number(record.rate)).toFixed(2)
+}
+
+/** CSV: net in crypto, or '-' when not applicable (e.g. Stripe). */
+function netAmountCryptoCsv(record: NetAmountRow): string {
+  if (record.source === 'stripe') return '-'
+  return formatNetAmountDisplay(record).replace(/—/g, '-')
 }
 
 function exportToCsv(
@@ -128,7 +167,8 @@ function exportToCsv(
     'amount',
     'asset',
     'amountUsd',
-    'fee',
+    'netAmount',
+    'netAmountCrypto',
     'depositIds',
     'orderIds',
     'realizedUsd',
@@ -140,7 +180,6 @@ function exportToCsv(
       record.source === 'stripe'
         ? record.fiatAmount
         : Number(record.cryptoAmount) * Number(record.rate)
-    const feeStr = record.source === 'stripe' && record.fee != null ? record.fee.toFixed(2) : '-'
     return [
       dayjs.utc(record.paymentReceivedAt).format('YYYY-MM-DD HH:mm:ss') + ' GMT',
       record.source,
@@ -152,7 +191,8 @@ function exportToCsv(
       record.cryptoAmount,
       record.cryptoCode,
       amountUsd.toFixed(2),
-      feeStr,
+      netUsdNumericCsv(record),
+      netAmountCryptoCsv(record),
       record.source === 'stripe' ? '-' : deposits.map((d) => d.txid).join(';'),
       record.source === 'stripe' ? '-' : orders.map((o) => o.orderId).join(';'),
       record.totalRealizedUsd.toFixed(2),
@@ -195,9 +235,22 @@ function exportSummaryToCsv(
 }
 
 function CopyableText({ text, truncate = false }: { text: string; truncate?: boolean }) {
+  const [copied, setCopied] = useState(false)
+  const hideCopiedRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (hideCopiedRef.current) clearTimeout(hideCopiedRef.current)
+    }
+  }, [])
+
   async function handleCopy() {
     await navigator.clipboard.writeText(text)
+    setCopied(true)
+    if (hideCopiedRef.current) clearTimeout(hideCopiedRef.current)
+    hideCopiedRef.current = setTimeout(() => setCopied(false), 2000)
   }
+
   const displayText =
     truncate && text.length > 10 ? `${text.slice(0, 6)}...${text.slice(-6)}` : text
   return (
@@ -208,16 +261,26 @@ function CopyableText({ text, truncate = false }: { text: string; truncate?: boo
       >
         {displayText}
       </span>
-      <Button
-        type="button"
-        variant="light"
-        size="icon"
-        className="h-7 w-7 shrink-0"
-        onClick={handleCopy}
-        aria-label="Copy"
+      <Tooltip
+        open={copied}
+        onOpenChange={(open) => {
+          if (!open) setCopied(false)
+        }}
       >
-        <Copy className="h-3.5 w-3.5" />
-      </Button>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="light"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={handleCopy}
+            aria-label="Copy"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Copied!</TooltipContent>
+      </Tooltip>
     </div>
   )
 }
@@ -231,6 +294,24 @@ function DepositsDialog({
   onOpenChange: (open: boolean) => void
   deposits: MatchedDeposit[]
 }) {
+  const sort = useSortableColumn('time')
+  const sortedDeposits = useMemo(
+    () =>
+      sortRows(
+        deposits,
+        sort.columnKey,
+        sort.direction,
+        {
+          time: (d) => new Date(d.time),
+          txid: (d) => d.txid,
+          amount: (d) => d.depositAmount,
+          networkFee: (d) => d.networkFee,
+          matched: (d) => d.matchedCrypto,
+        }
+      ),
+    [deposits, sort.columnKey, sort.direction]
+  )
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90vh] overflow-auto">
@@ -241,15 +322,50 @@ function DepositsDialog({
           <Table className="w-full min-w-max">
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>Time</TableHead>
-                <TableHead>TXID</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Network Fee</TableHead>
-                <TableHead>Matched Amount</TableHead>
+                <SortableTableHead
+                  columnKey="time"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Time
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="txid"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  TXID
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="amount"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Amount
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="networkFee"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Network Fee
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="matched"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Matched Amount
+                </SortableTableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {deposits.map((d, i) => (
+              {sortedDeposits.map((d, i) => (
                 <TableRow key={`${d.txid}-${i}`}>
                   <TableCell>{dayjs(d.time).format('lll')}</TableCell>
                   <TableCell>
@@ -279,6 +395,25 @@ function OrdersDialog({
   onOpenChange: (open: boolean) => void
   orders: MatchedOrder[]
 }) {
+  const sort = useSortableColumn('time')
+  const sortedOrders = useMemo(
+    () =>
+      sortRows(
+        orders,
+        sort.columnKey,
+        sort.direction,
+        {
+          time: (o) => new Date(o.closedAt),
+          orderId: (o) => o.orderId,
+          pair: (o) => o.pair,
+          amount: (o) => o.volExec,
+          fee: (o) => o.fee,
+          matched: (o) => o.matchedCrypto,
+        }
+      ),
+    [orders, sort.columnKey, sort.direction]
+  )
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90vh] overflow-auto">
@@ -289,16 +424,58 @@ function OrdersDialog({
           <Table className="w-full min-w-max">
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>Close Time</TableHead>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Pair</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Fee</TableHead>
-                <TableHead>Matched Amount</TableHead>
+                <SortableTableHead
+                  columnKey="time"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Close Time
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="orderId"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Order ID
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="pair"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Pair
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="amount"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Amount
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="fee"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Fee
+                </SortableTableHead>
+                <SortableTableHead
+                  columnKey="matched"
+                  currentKey={sort.columnKey}
+                  direction={sort.direction}
+                  onToggle={sort.toggle}
+                >
+                  Matched Amount
+                </SortableTableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((o) => {
+              {sortedOrders.map((o) => {
                 const cryptoCode = o.pair.replace(/Z?USD$/i, '')
                 return (
                   <TableRow key={o.orderId}>
@@ -335,7 +512,7 @@ function IgnoredItemsDialog({
   const addIgnore = trpc.accounting.addAccountingIgnore.useMutation({
     onSuccess: () => {
       utils.accounting.listAccountingIgnores.invalidate()
-      utils.accounting.listByMonth.invalidate()
+      utils.accounting.listByDateRange.invalidate()
       utils.accounting.listAvailableMonths.invalidate()
       utils.accounting.listAvailableProjects.invalidate()
     },
@@ -343,7 +520,7 @@ function IgnoredItemsDialog({
   const removeIgnore = trpc.accounting.removeAccountingIgnore.useMutation({
     onSuccess: () => {
       utils.accounting.listAccountingIgnores.invalidate()
-      utils.accounting.listByMonth.invalidate()
+      utils.accounting.listByDateRange.invalidate()
       utils.accounting.listAvailableMonths.invalidate()
       utils.accounting.listAvailableProjects.invalidate()
     },
@@ -489,16 +666,21 @@ function IgnoredItemsDialog({
 }
 
 export default function AccountingPage() {
-  const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState<string>(() =>
-    formatMonthOption(now.getFullYear(), now.getMonth() + 1)
-  )
-  const [selectedProject, setSelectedProject] = useState<string>('__all__')
-  const [selectedFund, setSelectedFund] = useState<string>('__all__')
-  const [selectedSources, setSelectedSources] = useState<DonationSource[]>([
-    'btcpayserver',
-    'coinbase',
-  ])
+  const { data: session } = useSession()
+  const accountingFunds = session?.user?.accountingFunds ?? []
+
+  const allowedFundKeys = useMemo(() => {
+    const out = new Set<string>(['__all__'])
+    for (const k of accountingFunds) {
+      if (k === 'unknown') out.add('__unknown__')
+      else out.add(k)
+    }
+    return out
+  }, [accountingFunds])
+
+  const { state, patchQuery, summarySort, donationsSort } = useAccountingPageQuery(allowedFundKeys)
+  const { dateFrom, dateTo, fund: selectedFund, project: selectedProject, sources: selectedSources } =
+    state
   const [depositsDialog, setDepositsDialog] = useState<{
     open: boolean
     deposits: MatchedDeposit[]
@@ -509,47 +691,26 @@ export default function AccountingPage() {
   }>({ open: false, orders: [] })
   const [ignoredItemsDialogOpen, setIgnoredItemsDialogOpen] = useState(false)
 
-  const [year, month] = useMemo(() => {
-    const [y, m] = selectedMonth.split('-').map(Number)
-    return [y, m] as [number, number]
-  }, [selectedMonth])
-
-  const availableMonthsQuery = trpc.accounting.listAvailableMonths.useQuery()
   const availableProjectsQuery = trpc.accounting.listAvailableProjects.useQuery()
-  const listByMonthQuery = trpc.accounting.listByMonth.useQuery(
+  const listByDateRangeQuery = trpc.accounting.listByDateRange.useQuery(
     {
-      year,
-      month,
+      dateFrom,
+      dateTo,
       projectSlug: selectedProject === '__all__' ? undefined : selectedProject,
       fundSlug: selectedFund === '__all__' ? undefined : selectedFund,
       sources: selectedSources.length > 0 ? selectedSources : undefined,
     },
-    { enabled: !!year && !!month }
+    { enabled: !!dateFrom && !!dateTo }
   )
 
-  const monthOptions = useMemo(() => {
-    const months = availableMonthsQuery.data ?? []
-    if (months.length === 0) {
-      const opts: { value: string; label: string }[] = []
-      const today = new Date()
-      for (let i = 0; i < 12; i++) {
-        const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-        opts.push({
-          value: formatMonthOption(d.getFullYear(), d.getMonth() + 1),
-          label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
-        })
-      }
-      return opts
-    }
-    return months
-      .map(({ year: y, month: m }) => ({
-        value: formatMonthOption(y, m),
-        label: `${MONTH_NAMES[m - 1]} ${y}`,
-      }))
-      .sort((a, b) => b.value.localeCompare(a.value))
-  }, [availableMonthsQuery.data])
+  const records = listByDateRangeQuery.data ?? []
 
-  const records = listByMonthQuery.data ?? []
+  const showCoinbaseNetColumns = useMemo(
+    () => records.some((r) => r.source === 'coinbase'),
+    [records]
+  )
+
+  const donationTableColSpan = showCoinbaseNetColumns ? 12 : 10
 
   const summaryByFund = useMemo(() => {
     const byFund = new Map<string, { fundTitle: string; invoiceSum: number; depositSum: number }>()
@@ -582,13 +743,66 @@ export default function AccountingPage() {
     }))
   }, [records])
 
-  return (
-    <>
-      <Head>
-        <title>Donation Accounting</title>
-      </Head>
+  const sortedSummaryByFund = useMemo(
+    () =>
+      sortRows(
+        summaryByFund,
+        summarySort.columnKey,
+        summarySort.direction,
+        {
+          fund: (r) => r.fundSlug,
+          invoiceSum: (r) => r.invoiceSum,
+          depositSum: (r) => r.depositSum,
+          difference: (r) => r.difference,
+        }
+      ),
+    [summaryByFund, summarySort.columnKey, summarySort.direction]
+  )
 
-      <div className="w-full mx-auto flex flex-col space-y-4">
+  const sortedRecords = useMemo(() => {
+    type Row = (typeof records)[number]
+    const accessors: Record<string, (r: Row) => unknown> = {
+      time: (r) => r.paymentReceivedAt,
+      source: (r) => r.source,
+      fund: (r) => r.fundSlug ?? '',
+      project: (r) => r.projectName ?? '',
+      invoice: (r) => r.invoiceId ?? '',
+      amount: (r) => (r.source === 'stripe' ? 0 : Number(r.cryptoAmount)),
+      amountUsd: (r) =>
+        r.source === 'stripe' ? r.fiatAmount : Number(r.cryptoAmount) * Number(r.rate),
+      netAmount: (r) => {
+        if (r.source === 'stripe') return 0
+        if (r.source === 'coinbase') {
+          const gross = Number(r.cryptoAmount)
+          const fee = Number(r.cryptoProcessorFee ?? 0)
+          return Math.max(0, gross - fee)
+        }
+        return Number(r.cryptoAmount)
+      },
+      netUsd: (r) => {
+        if (r.source === 'stripe') {
+          return r.fee != null ? r.fiatAmount - r.fee : r.fiatAmount
+        }
+        if (r.source === 'coinbase') {
+          return r.fiatAmount - (r.fee ?? 0)
+        }
+        return Number(r.cryptoAmount) * Number(r.rate)
+      },
+      deposits: (r) => ((r.krakenDeposits as MatchedDeposit[] | null) ?? []).length,
+      orders: (r) => ((r.krakenOrders as MatchedOrder[] | null) ?? []).length,
+      realized: (r) => r.totalRealizedUsd,
+    }
+    return sortRows(records, donationsSort.columnKey, donationsSort.direction, accessors)
+  }, [records, donationsSort.columnKey, donationsSort.direction])
+
+  return (
+    <TooltipProvider delayDuration={0}>
+      <>
+        <Head>
+          <title>Donation Accounting</title>
+        </Head>
+
+        <div className="w-full mx-auto flex flex-col space-y-4">
         <h1 className="text-2xl font-bold sm:text-3xl">Donation Accounting</h1>
 
         <div className="ml-auto flex flex-row gap-2 flex-wrap justify-end items-center">
@@ -631,9 +845,10 @@ export default function AccountingPage() {
                         'focus:text-primary hover:bg-primary/10 hover:text-primary'
                       )}
                       onClick={() => {
-                        setSelectedSources((prev) =>
-                          isSelected ? prev.filter((s) => s !== opt.value) : [...prev, opt.value]
-                        )
+                        const next = isSelected
+                          ? selectedSources.filter((s) => s !== opt.value)
+                          : [...selectedSources, opt.value]
+                        patchQuery({ sources: next })
                       }}
                     >
                       {opt.label}
@@ -646,21 +861,28 @@ export default function AccountingPage() {
               </div>
             </PopoverContent>
           </Popover>
-          <Select value={selectedFund} onValueChange={(v) => setSelectedFund(v)}>
+          <Select value={selectedFund} onValueChange={(v) => patchQuery({ fund: v })}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="All funds" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All funds</SelectItem>
-              <SelectItem value="__unknown__">Unknown</SelectItem>
-              {Object.entries(funds).map(([slug, fund]) => (
-                <SelectItem key={slug} value={slug}>
-                  {fund.title.replace(' Fund', '')}
-                </SelectItem>
-              ))}
+              {accountingFunds.includes('unknown') ? (
+                <SelectItem value="__unknown__">Unknown</SelectItem>
+              ) : null}
+              {fundSlugs
+                .filter((slug) => accountingFunds.includes(slug))
+                .map((slug) => {
+                  const fund = funds[slug]
+                  return (
+                    <SelectItem key={slug} value={slug}>
+                      {fund.title.replace(' Fund', '')}
+                    </SelectItem>
+                  )
+                })}
             </SelectContent>
           </Select>
-          <Select value={selectedProject} onValueChange={(v) => setSelectedProject(v)}>
+          <Select value={selectedProject} onValueChange={(v) => patchQuery({ project: v })}>
             <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="All projects" />
             </SelectTrigger>
@@ -673,19 +895,21 @@ export default function AccountingPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v)}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AdminDateRangePicker
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onRangeChange={(from, to) => patchQuery({ dateFrom: from, dateTo: to })}
+          />
         </div>
+
+        {listByDateRangeQuery.isSuccess && (
+          <AccountingDonationCharts
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            records={records}
+            allowedStackKeys={accountingFunds as FundStackKey[]}
+          />
+        )}
 
         {records.length > 0 && (
           <div className="flex flex-col gap-2">
@@ -700,16 +924,46 @@ export default function AccountingPage() {
               <Table className="w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-foreground">Fund</TableHead>
-                    <TableHead className="text-foreground">Invoice Sum</TableHead>
-                    <TableHead className="text-foreground">Deposit Sum</TableHead>
-                    <TableHead className="text-foreground">Difference</TableHead>
+                    <SortableTableHead
+                      columnKey="fund"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Fund
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="invoiceSum"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Invoice Sum
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="depositSum"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Deposit Sum
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="difference"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Difference
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summaryByFund.map((row) => (
+                  {sortedSummaryByFund.map((row) => (
                     <TableRow key={row.fundSlug}>
-                      <TableCell>{row.fundTitle}</TableCell>
+                      <TableCell>
+                        <FundBadge fundSlug={row.fundSlug} />
+                      </TableCell>
                       <TableCell>{usdFormat.format(row.invoiceSum)}</TableCell>
                       <TableCell>{usdFormat.format(row.depositSum)}</TableCell>
                       <TableCell>{usdFormat.format(row.difference)}</TableCell>
@@ -733,34 +987,129 @@ export default function AccountingPage() {
             <Table className="min-w-[800px] w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="text-foreground">Time</TableHead>
-                  <TableHead className="text-foreground">Source</TableHead>
-                  <TableHead className="text-foreground">Fund</TableHead>
-                  <TableHead className="text-foreground">Project</TableHead>
-                  <TableHead className="text-foreground">Invoice ID</TableHead>
-                  <TableHead className="text-foreground">Amount</TableHead>
-                  <TableHead className="text-foreground">Amount USD</TableHead>
-                  <TableHead className="text-foreground">Fee</TableHead>
-                  <TableHead className="text-foreground">Deposits</TableHead>
-                  <TableHead className="text-foreground">Orders</TableHead>
-                  <TableHead className="text-foreground">Realized</TableHead>
+                  <SortableTableHead
+                    columnKey="time"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Time
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="source"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Source
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="fund"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Fund
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="project"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Project
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="invoice"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Invoice ID
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="amount"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Amount
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="amountUsd"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Amount USD
+                  </SortableTableHead>
+                  {showCoinbaseNetColumns && (
+                    <>
+                      <SortableTableHead
+                        columnKey="netAmount"
+                        currentKey={donationsSort.columnKey}
+                        direction={donationsSort.direction}
+                        onToggle={donationsSort.toggle}
+                      >
+                        Net amount
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="netUsd"
+                        currentKey={donationsSort.columnKey}
+                        direction={donationsSort.direction}
+                        onToggle={donationsSort.toggle}
+                      >
+                        Net amount USD
+                      </SortableTableHead>
+                    </>
+                  )}
+                  <SortableTableHead
+                    columnKey="deposits"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Deposits
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="orders"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Orders
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="realized"
+                    currentKey={donationsSort.columnKey}
+                    direction={donationsSort.direction}
+                    onToggle={donationsSort.toggle}
+                  >
+                    Realized
+                  </SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {listByMonthQuery.isLoading ? (
+                {listByDateRangeQuery.isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell
+                      colSpan={donationTableColSpan}
+                      className="text-center py-8 text-muted-foreground"
+                    >
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : records.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
-                      No records for this month
+                    <TableCell
+                      colSpan={donationTableColSpan}
+                      className="text-center py-8 text-muted-foreground"
+                    >
+                      No records for this date range
                     </TableCell>
                   </TableRow>
                 ) : (
-                  records.map((record) => {
+                  sortedRecords.map((record) => {
                     const deposits = (record.krakenDeposits as MatchedDeposit[] | null) ?? []
                     const orders = (record.krakenOrders as MatchedOrder[] | null) ?? []
                     const amountUsd =
@@ -780,12 +1129,7 @@ export default function AccountingPage() {
                             record.source}
                         </TableCell>
                         <TableCell>
-                          {record.fundSlug && record.fundSlug in funds
-                            ? funds[record.fundSlug as keyof typeof funds].title.replace(
-                                ' Fund',
-                                ''
-                              )
-                            : '—'}
+                          {record.fundSlug ? <FundBadge fundSlug={record.fundSlug} /> : '—'}
                         </TableCell>
                         <TableCell title={record.projectName ?? undefined}>
                           {record.projectName
@@ -799,9 +1143,12 @@ export default function AccountingPage() {
                         </TableCell>
                         <TableCell>{cryptoFormatted}</TableCell>
                         <TableCell>{usdFormat.format(amountUsd)}</TableCell>
-                        <TableCell>
-                          {isStripe && record.fee != null ? usdFormat.format(record.fee) : '-'}
-                        </TableCell>
+                        {showCoinbaseNetColumns && (
+                          <>
+                            <TableCell>{formatNetAmountDisplay(record)}</TableCell>
+                            <TableCell>{formatNetUsdDisplay(record)}</TableCell>
+                          </>
+                        )}
                         <TableCell>
                           {isStripe ? (
                             '-'
@@ -866,6 +1213,7 @@ export default function AccountingPage() {
         orders={ordersDialog.orders}
       />
       <IgnoredItemsDialog open={ignoredItemsDialogOpen} onOpenChange={setIgnoredItemsDialogOpen} />
-    </>
+      </>
+    </TooltipProvider>
   )
 }

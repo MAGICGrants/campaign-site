@@ -5,7 +5,7 @@ import axios from 'axios'
 
 import { env } from '../../../env.mjs'
 import { KeycloakJwtPayload } from '../../../server/types'
-import { isUserAdmin, refreshToken } from '../../../server/utils/auth'
+import { getAccountingFundsFromAccessToken, refreshToken } from '../../../server/utils/auth'
 import { isTurnstileValid } from '../../../server/utils/turnstile'
 
 export const authOptions: AuthOptions = {
@@ -14,18 +14,25 @@ export const authOptions: AuthOptions = {
       // On sign in
       if (user && account) {
         const keycloakToken = (user as any).keycloakToken
+        const accountingFunds = getAccountingFundsFromAccessToken(keycloakToken.access_token)
         return {
           sub: user.id,
           email: user.email,
           accessToken: keycloakToken.access_token,
           accessTokenExpiresAt: Date.now() + (keycloakToken.expires_in as number) * 1000,
           refreshToken: keycloakToken.refresh_token,
-          isAdmin: isUserAdmin(keycloakToken.access_token),
+          accountingFunds,
         }
       }
 
       // Return previous token if the access token has not expired yet
-      if (Date.now() < token.accessTokenExpiresAt) {
+      if (Date.now() < (token.accessTokenExpiresAt as number)) {
+        if (!token.accountingFunds && token.accessToken) {
+          return {
+            ...token,
+            accountingFunds: getAccountingFundsFromAccessToken(token.accessToken as string),
+          }
+        }
         return token
       }
 
@@ -33,11 +40,13 @@ export const authOptions: AuthOptions = {
       return refreshToken(token)
     },
     session: ({ session, token }) => {
+      const accountingFunds = token.accountingFunds ?? []
       return {
         user: {
           sub: token.sub,
           email: token.email,
-          isAdmin: token.isAdmin ?? false,
+          accountingFunds,
+          canAccessAccounting: accountingFunds.length > 0,
         },
         error: token.error,
         expires: session.expires,

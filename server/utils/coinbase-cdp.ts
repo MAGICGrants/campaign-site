@@ -13,6 +13,7 @@ export type CoinbaseCdpCheckout = {
   amount: string
   currency: string
   network?: string
+  transactionHash?: string
   metadata?: Record<string, string>
   settlement?: {
     totalAmount: string

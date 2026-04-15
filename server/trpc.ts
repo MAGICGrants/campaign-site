@@ -5,6 +5,11 @@ import { getServerSession } from 'next-auth/next'
 import superjson from 'superjson'
 import { authOptions } from '../pages/api/auth/[...nextauth]'
 
+import {
+  getAccountingAccess,
+  hasAnyAccountingAccess,
+} from './utils/accounting-access'
+
 export const createContext = async (opts: CreateNextContextOptions) => {
   const session = await getServerSession(opts.req, opts.res, authOptions)
   return { session }
@@ -62,12 +67,11 @@ export const protectedProcedure = t.procedure.use((opts) => {
   })
 })
 
-export const adminProcedure = t.procedure.use((opts) => {
-  if (!opts.ctx.session?.user || opts.ctx.session.error) {
-    throw new TRPCError({ code: 'UNAUTHORIZED' })
-  }
-  if (!opts.ctx.session.user.isAdmin) {
-    throw new TRPCError({ code: 'FORBIDDEN', message: 'Admin access required' })
+/** Donation / admin accounting: requires at least one Keycloak `*-accounting` group. */
+export const accountingProcedure = protectedProcedure.use((opts) => {
+  const accountingAccess = getAccountingAccess(opts.ctx.session.user)
+  if (!hasAnyAccountingAccess(accountingAccess)) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Accounting access required' })
   }
 
   return opts.next({
@@ -78,6 +82,7 @@ export const adminProcedure = t.procedure.use((opts) => {
         ...opts.ctx.session,
         user: opts.ctx.session.user,
       },
+      accountingAccess,
     },
   })
 })

@@ -103,13 +103,15 @@ model DonationAccounting {
   invoiceId         String?
   paymentId         String?        @unique
   paymentReceivedAt DateTime
-  cryptoCode        String
-  cryptoAmount      String
-  rate              String
-  fiatAmount        Float
-  krakenDeposits    Json
-  krakenOrders      Json
-  totalRealizedUsd  Float
+  cryptoCode         String
+  cryptoAmount       String
+  rate               String
+  fiatAmount         Float
+  cryptoProcessorFee String?
+  fiatProcessorFee   Float?
+  krakenDeposits     Json
+  krakenOrders       Json
+  totalRealizedUsd   Float
   projectSlug       String?
   projectName       String?
   fundSlug          FundSlug?

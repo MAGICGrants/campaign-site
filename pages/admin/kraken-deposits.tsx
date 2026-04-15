@@ -8,7 +8,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
@@ -21,30 +20,17 @@ import {
 } from '../../components/ui/select'
 import { Copy, Download } from 'lucide-react'
 
+import {
+  SortableTableHead,
+  sortRows,
+  useSortableColumn,
+} from '../../components/admin/sortable-table'
+import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 
 dayjs.extend(localizedFormat)
 dayjs.extend(utc)
-
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
-
-function formatMonthOption(year: number, month: number) {
-  return `${year}-${String(month).padStart(2, '0')}`
-}
 
 function escapeCsvValue(value: string | number): string {
   const str = String(value)
@@ -122,36 +108,15 @@ function CopyableText({ text, truncate = false }: { text: string; truncate?: boo
 }
 
 export default function KrakenDepositsPage() {
-  const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState<string>(() =>
-    formatMonthOption(now.getFullYear(), now.getMonth() + 1)
-  )
+  const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
   const [selectedCurrency, setSelectedCurrency] = useState<string>('__all__')
 
-  const [year, month] = useMemo(() => {
-    const [y, m] = selectedMonth.split('-').map(Number)
-    return [y, m] as [number, number]
-  }, [selectedMonth])
-
-  const listDepositsQuery = trpc.accounting.listKrakenDepositsByMonth.useQuery(
-    { year, month },
-    { enabled: !!year && !!month }
+  const listDepositsQuery = trpc.accounting.listKrakenDepositsByDateRange.useQuery(
+    { dateFrom, dateTo },
+    { enabled: !!dateFrom && !!dateTo }
   )
 
   const allDeposits = listDepositsQuery.data ?? []
-
-  const monthOptions = useMemo(() => {
-    const opts: { value: string; label: string }[] = []
-    const today = new Date()
-    for (let i = 0; i < 24; i++) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-      opts.push({
-        value: formatMonthOption(d.getFullYear(), d.getMonth() + 1),
-        label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
-      })
-    }
-    return opts
-  }, [])
 
   const currencyOptions = useMemo(() => {
     const seen = new Set<string>()
@@ -172,10 +137,40 @@ export default function KrakenDepositsPage() {
       const existing = byCurrency.get(d.cryptoCode) ?? 0
       byCurrency.set(d.cryptoCode, existing + d.amount)
     }
-    return Array.from(byCurrency.entries())
-      .map(([cryptoCode, sum]) => ({ cryptoCode, sum }))
-      .sort((a, b) => a.cryptoCode.localeCompare(b.cryptoCode))
+    return Array.from(byCurrency.entries()).map(([cryptoCode, sum]) => ({ cryptoCode, sum }))
   }, [filteredDeposits])
+
+  const summarySort = useSortableColumn('currency')
+  const sortedSummary = useMemo(
+    () =>
+      sortRows(
+        summary,
+        summarySort.columnKey,
+        summarySort.direction,
+        {
+          currency: (r) => r.cryptoCode,
+          total: (r) => r.sum,
+        }
+      ),
+    [summary, summarySort.columnKey, summarySort.direction]
+  )
+
+  const depositsSort = useSortableColumn('time')
+  const sortedDeposits = useMemo(
+    () =>
+      sortRows(
+        filteredDeposits,
+        depositsSort.columnKey,
+        depositsSort.direction,
+        {
+          time: (r) => r.time,
+          amount: (r) => r.amount,
+          depositId: (r) => r.refid,
+          txHash: (r) => r.txid,
+        }
+      ),
+    [filteredDeposits, depositsSort.columnKey, depositsSort.direction]
+  )
 
   return (
     <>
@@ -200,18 +195,12 @@ export default function KrakenDepositsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v)}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AdminDateRangePicker
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
+            className="w-full sm:w-[280px]"
+          />
         </div>
 
         {summary.length > 0 && (
@@ -223,12 +212,26 @@ export default function KrakenDepositsPage() {
               <Table className="w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-foreground">Currency</TableHead>
-                    <TableHead className="text-foreground">Total</TableHead>
+                    <SortableTableHead
+                      columnKey="currency"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Currency
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="total"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Total
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summary.map((row) => (
+                  {sortedSummary.map((row) => (
                     <TableRow key={row.cryptoCode}>
                       <TableCell>{row.cryptoCode}</TableCell>
                       <TableCell>{formatAmount(row.sum, row.cryptoCode)}</TableCell>
@@ -256,10 +259,38 @@ export default function KrakenDepositsPage() {
             <Table className="min-w-[700px] w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="text-foreground">Time</TableHead>
-                  <TableHead className="text-foreground">Amount</TableHead>
-                  <TableHead className="text-foreground">Deposit ID</TableHead>
-                  <TableHead className="text-foreground">Transaction Hash</TableHead>
+                  <SortableTableHead
+                    columnKey="time"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Time
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="amount"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Amount
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="depositId"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Deposit ID
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="txHash"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Transaction Hash
+                  </SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -272,11 +303,11 @@ export default function KrakenDepositsPage() {
                 ) : filteredDeposits.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      No deposits for this month
+                      No deposits for this date range
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredDeposits.map((record) => (
+                  sortedDeposits.map((record) => (
                     <TableRow key={record.refid}>
                       <TableCell>{dayjs(record.time).format('lll')}</TableCell>
                       <TableCell>{formatAmount(record.amount, record.cryptoCode)}</TableCell>

@@ -100,7 +100,7 @@ const Header = () => {
               </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              {session.data.user?.isAdmin && (
+              {session.data.user?.canAccessAccounting && (
                 <>
                   <DropdownMenuLabel>Admin</DropdownMenuLabel>
                   <DropdownMenuSeparator />

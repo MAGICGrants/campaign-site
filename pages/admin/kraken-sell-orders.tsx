@@ -8,39 +8,22 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select'
 import { Copy, Download } from 'lucide-react'
 
+import {
+  SortableTableHead,
+  sortRows,
+  useSortableColumn,
+} from '../../components/admin/sortable-table'
+import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 
 dayjs.extend(localizedFormat)
 dayjs.extend(utc)
-
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
 
 const usdFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -48,10 +31,6 @@ const usdFormat = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
-
-function formatMonthOption(year: number, month: number) {
-  return `${year}-${String(month).padStart(2, '0')}`
-}
 
 function escapeCsvValue(value: string | number): string {
   const str = String(value)
@@ -157,35 +136,14 @@ function CopyableText({ text, truncate = false }: { text: string; truncate?: boo
 }
 
 export default function KrakenSellOrdersPage() {
-  const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState<string>(() =>
-    formatMonthOption(now.getFullYear(), now.getMonth() + 1)
-  )
+  const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
 
-  const [year, month] = useMemo(() => {
-    const [y, m] = selectedMonth.split('-').map(Number)
-    return [y, m] as [number, number]
-  }, [selectedMonth])
-
-  const listOrdersQuery = trpc.accounting.listKrakenSellOrdersByMonth.useQuery(
-    { year, month },
-    { enabled: !!year && !!month }
+  const listOrdersQuery = trpc.accounting.listKrakenSellOrdersByDateRange.useQuery(
+    { dateFrom, dateTo },
+    { enabled: !!dateFrom && !!dateTo }
   )
 
   const orders = listOrdersQuery.data ?? []
-
-  const monthOptions = useMemo(() => {
-    const opts: { value: string; label: string }[] = []
-    const today = new Date()
-    for (let i = 0; i < 24; i++) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-      opts.push({
-        value: formatMonthOption(d.getFullYear(), d.getMonth() + 1),
-        label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
-      })
-    }
-    return opts
-  }, [])
 
   const summary = useMemo(() => {
     const byCurrency = new Map<string, { volExec: number; cost: number; fee: number }>()
@@ -197,10 +155,43 @@ export default function KrakenSellOrdersPage() {
         fee: existing.fee + o.fee,
       })
     }
-    return Array.from(byCurrency.entries())
-      .map(([cryptoCode, data]) => ({ cryptoCode, ...data }))
-      .sort((a, b) => a.cryptoCode.localeCompare(b.cryptoCode))
+    return Array.from(byCurrency.entries()).map(([cryptoCode, data]) => ({ cryptoCode, ...data }))
   }, [orders])
+
+  const summarySort = useSortableColumn('currency')
+  const sortedSummary = useMemo(
+    () =>
+      sortRows(
+        summary,
+        summarySort.columnKey,
+        summarySort.direction,
+        {
+          currency: (r) => r.cryptoCode,
+          totalSold: (r) => r.volExec,
+          totalUsd: (r) => r.cost,
+          totalFee: (r) => r.fee,
+        }
+      ),
+    [summary, summarySort.columnKey, summarySort.direction]
+  )
+
+  const ordersSort = useSortableColumn('time')
+  const sortedOrders = useMemo(
+    () =>
+      sortRows(
+        orders,
+        ordersSort.columnKey,
+        ordersSort.direction,
+        {
+          time: (r) => r.closedAt,
+          amount: (r) => r.vol,
+          execAmount: (r) => r.volExec,
+          fee: (r) => r.fee,
+          orderId: (r) => r.orderId,
+        }
+      ),
+    [orders, ordersSort.columnKey, ordersSort.direction]
+  )
 
   return (
     <>
@@ -212,18 +203,12 @@ export default function KrakenSellOrdersPage() {
         <h1 className="text-2xl font-bold sm:text-3xl">Kraken Sell Orders</h1>
 
         <div className="ml-auto flex flex-row gap-2 flex-wrap justify-end">
-          <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v)}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AdminDateRangePicker
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
+            className="w-full sm:w-[280px]"
+          />
         </div>
 
         {summary.length > 0 && (
@@ -239,14 +224,42 @@ export default function KrakenSellOrdersPage() {
               <Table className="w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-foreground">Currency</TableHead>
-                    <TableHead className="text-foreground">Total Sold</TableHead>
-                    <TableHead className="text-foreground">Total USD</TableHead>
-                    <TableHead className="text-foreground">Total Fee</TableHead>
+                    <SortableTableHead
+                      columnKey="currency"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Currency
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="totalSold"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Total Sold
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="totalUsd"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Total USD
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="totalFee"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Total Fee
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summary.map((row) => (
+                  {sortedSummary.map((row) => (
                     <TableRow key={row.cryptoCode}>
                       <TableCell>{row.cryptoCode}</TableCell>
                       <TableCell>
@@ -278,11 +291,46 @@ export default function KrakenSellOrdersPage() {
             <Table className="min-w-[800px] w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="text-foreground">Time</TableHead>
-                  <TableHead className="text-foreground">Amount</TableHead>
-                  <TableHead className="text-foreground">Exec Amount</TableHead>
-                  <TableHead className="text-foreground">Fee</TableHead>
-                  <TableHead className="text-foreground">Order ID</TableHead>
+                  <SortableTableHead
+                    columnKey="time"
+                    currentKey={ordersSort.columnKey}
+                    direction={ordersSort.direction}
+                    onToggle={ordersSort.toggle}
+                  >
+                    Time
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="amount"
+                    currentKey={ordersSort.columnKey}
+                    direction={ordersSort.direction}
+                    onToggle={ordersSort.toggle}
+                  >
+                    Amount
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="execAmount"
+                    currentKey={ordersSort.columnKey}
+                    direction={ordersSort.direction}
+                    onToggle={ordersSort.toggle}
+                  >
+                    Exec Amount
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="fee"
+                    currentKey={ordersSort.columnKey}
+                    direction={ordersSort.direction}
+                    onToggle={ordersSort.toggle}
+                  >
+                    Fee
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="orderId"
+                    currentKey={ordersSort.columnKey}
+                    direction={ordersSort.direction}
+                    onToggle={ordersSort.toggle}
+                  >
+                    Order ID
+                  </SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -295,11 +343,11 @@ export default function KrakenSellOrdersPage() {
                 ) : orders.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      No sell orders for this month
+                      No sell orders for this date range
                     </TableCell>
                   </TableRow>
                 ) : (
-                  orders.map((record) => {
+                  sortedOrders.map((record) => {
                     const amountUsd = record.volExec > 0 ? (record.vol / record.volExec) * record.cost : 0
                     return (
                       <TableRow key={record.orderId}>

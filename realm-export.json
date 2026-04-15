@@ -411,9 +411,45 @@
   },
   "groups": [
     {
-      "id": "23b1284c-b0c9-43a3-8798-874fb46c849b",
-      "name": "site-admin",
-      "path": "/site-admin",
+      "id": "9f7e8e0f-05f2-4d6d-9a39-a6ec08f525d9",
+      "name": "firo-accounting",
+      "path": "/firo-accounting",
+      "subGroups": [],
+      "attributes": {},
+      "realmRoles": [],
+      "clientRoles": {}
+    },
+    {
+      "id": "7d64251b-9829-4c38-8875-d308080ac65f",
+      "name": "general-accounting",
+      "path": "/general-accounting",
+      "subGroups": [],
+      "attributes": {},
+      "realmRoles": [],
+      "clientRoles": {}
+    },
+    {
+      "id": "8faa66ce-8d85-4add-b220-2aed6623142e",
+      "name": "monero-accounting",
+      "path": "/monero-accounting",
+      "subGroups": [],
+      "attributes": {},
+      "realmRoles": [],
+      "clientRoles": {}
+    },
+    {
+      "id": "9ff3b979-0e7a-4a4b-b6f9-9c7212f3fb10",
+      "name": "privacyguides-accounting",
+      "path": "/privacyguides-accounting",
+      "subGroups": [],
+      "attributes": {},
+      "realmRoles": [],
+      "clientRoles": {}
+    },
+    {
+      "id": "d137e0c5-ff6e-4d4f-92df-8d675891198e",
+      "name": "unknown-accounting",
+      "path": "/unknown-accounting",
       "subGroups": [],
       "attributes": {},
       "realmRoles": [],
@@ -651,7 +687,7 @@
       "protocol": "openid-connect",
       "attributes": {
         "oidc.ciba.grant.enabled": "false",
-        "client.secret.creation.time": "1773759438",
+        "client.secret.creation.time": "1774036275",
         "backchannel.logout.session.required": "true",
         "post.logout.redirect.uris": "+",
         "oauth2.device.authorization.grant.enabled": "false",
@@ -1501,14 +1537,14 @@
         "subComponents": {},
         "config": {
           "allowed-protocol-mapper-types": [
-            "oidc-full-name-mapper",
-            "saml-user-attribute-mapper",
-            "oidc-address-mapper",
             "saml-role-list-mapper",
-            "oidc-usermodel-attribute-mapper",
+            "oidc-sha256-pairwise-sub-mapper",
+            "saml-user-attribute-mapper",
             "oidc-usermodel-property-mapper",
-            "saml-user-property-mapper",
-            "oidc-sha256-pairwise-sub-mapper"
+            "oidc-usermodel-attribute-mapper",
+            "oidc-address-mapper",
+            "oidc-full-name-mapper",
+            "saml-user-property-mapper"
           ]
         }
       },
@@ -1555,14 +1591,14 @@
         "subComponents": {},
         "config": {
           "allowed-protocol-mapper-types": [
-            "oidc-usermodel-attribute-mapper",
+            "saml-role-list-mapper",
             "saml-user-property-mapper",
             "oidc-sha256-pairwise-sub-mapper",
-            "oidc-usermodel-property-mapper",
-            "saml-role-list-mapper",
-            "oidc-address-mapper",
             "saml-user-attribute-mapper",
-            "oidc-full-name-mapper"
+            "oidc-address-mapper",
+            "oidc-full-name-mapper",
+            "oidc-usermodel-property-mapper",
+            "oidc-usermodel-attribute-mapper"
           ]
         }
       },
