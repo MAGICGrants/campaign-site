@@ -3,15 +3,32 @@ import { jwtDecode } from 'jwt-decode'
 
 import { env } from '../../env.mjs'
 import { KeycloakJwtPayload } from '../types'
-import { accountingFundsFromKeycloakGroups, type AccountingFundKey } from './accounting-access'
+import {
+  accountingFundsFromKeycloakGroups,
+  siteAdminFromKeycloakGroups,
+  type AccountingFundKey,
+} from './accounting-access'
 
-export function getAccountingFundsFromAccessToken(accessToken: string | undefined): AccountingFundKey[] {
-  if (!accessToken) return []
+export type AccountingTokenClaims = {
+  accountingFunds: AccountingFundKey[]
+  siteAdmin: boolean
+}
+
+export function getAccountingClaimsFromAccessToken(
+  accessToken: string | undefined
+): AccountingTokenClaims {
+  if (!accessToken) {
+    return { accountingFunds: [], siteAdmin: false }
+  }
   try {
     const payload = jwtDecode<KeycloakJwtPayload>(accessToken)
-    return accountingFundsFromKeycloakGroups(payload.groups)
+    const groups = payload.groups
+    return {
+      accountingFunds: accountingFundsFromKeycloakGroups(groups),
+      siteAdmin: siteAdminFromKeycloakGroups(groups),
+    }
   } catch {
-    return []
+    return { accountingFunds: [], siteAdmin: false }
   }
 }
 
@@ -40,7 +57,9 @@ export async function refreshToken(token: JWT): Promise<JWT> {
     const newToken = await response.json()
 
     const jwtPayload: KeycloakJwtPayload = jwtDecode(newToken.access_token)
-    const accountingFunds = accountingFundsFromKeycloakGroups(jwtPayload.groups)
+    const { accountingFunds, siteAdmin } = getAccountingClaimsFromAccessToken(
+      newToken.access_token
+    )
 
     return {
       sub: jwtPayload.sub,
@@ -49,6 +68,7 @@ export async function refreshToken(token: JWT): Promise<JWT> {
       accessTokenExpiresAt: Date.now() + (newToken.expires_in as number) * 1000,
       refreshToken: newToken.refresh_token,
       accountingFunds,
+      siteAdmin,
     }
   } catch (error) {
     return { ...token, error: 'RefreshAccessTokenError' }

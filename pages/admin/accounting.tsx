@@ -668,6 +668,7 @@ function IgnoredItemsDialog({
 export default function AccountingPage() {
   const { data: session } = useSession()
   const accountingFunds = session?.user?.accountingFunds ?? []
+  const siteAdmin = session?.user?.siteAdmin ?? false
 
   const allowedFundKeys = useMemo(() => {
     const out = new Set<string>(['__all__'])
@@ -806,15 +807,17 @@ export default function AccountingPage() {
         <h1 className="text-2xl font-bold sm:text-3xl">Donation Accounting</h1>
 
         <div className="ml-auto flex flex-row gap-2 flex-wrap justify-end items-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIgnoredItemsDialogOpen(true)}
-            aria-label="Manage ignored deposits and orders"
-          >
-            <Settings2 className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Ignored items</span>
-          </Button>
+          {siteAdmin ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIgnoredItemsDialogOpen(true)}
+              aria-label="Manage ignored deposits and orders"
+            >
+              <Settings2 className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Ignored items</span>
+            </Button>
+          ) : null}
           <Popover>
             <Select>
               <PopoverTrigger className="w-full sm:w-[180px]" asChild>
@@ -1212,7 +1215,12 @@ export default function AccountingPage() {
         onOpenChange={(open) => setOrdersDialog((p) => ({ ...p, open }))}
         orders={ordersDialog.orders}
       />
-      <IgnoredItemsDialog open={ignoredItemsDialogOpen} onOpenChange={setIgnoredItemsDialogOpen} />
+      {siteAdmin ? (
+        <IgnoredItemsDialog
+          open={ignoredItemsDialogOpen}
+          onOpenChange={setIgnoredItemsDialogOpen}
+        />
+      ) : null}
       </>
     </TooltipProvider>
   )

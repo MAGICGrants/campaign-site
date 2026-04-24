@@ -5,7 +5,7 @@ import axios from 'axios'
 
 import { env } from '../../../env.mjs'
 import { KeycloakJwtPayload } from '../../../server/types'
-import { getAccountingFundsFromAccessToken, refreshToken } from '../../../server/utils/auth'
+import { getAccountingClaimsFromAccessToken, refreshToken } from '../../../server/utils/auth'
 import { isTurnstileValid } from '../../../server/utils/turnstile'
 
 export const authOptions: AuthOptions = {
@@ -14,7 +14,9 @@ export const authOptions: AuthOptions = {
       // On sign in
       if (user && account) {
         const keycloakToken = (user as any).keycloakToken
-        const accountingFunds = getAccountingFundsFromAccessToken(keycloakToken.access_token)
+        const { accountingFunds, siteAdmin } = getAccountingClaimsFromAccessToken(
+          keycloakToken.access_token
+        )
         return {
           sub: user.id,
           email: user.email,
@@ -22,15 +24,20 @@ export const authOptions: AuthOptions = {
           accessTokenExpiresAt: Date.now() + (keycloakToken.expires_in as number) * 1000,
           refreshToken: keycloakToken.refresh_token,
           accountingFunds,
+          siteAdmin,
         }
       }
 
       // Return previous token if the access token has not expired yet
       if (Date.now() < (token.accessTokenExpiresAt as number)) {
-        if (!token.accountingFunds && token.accessToken) {
+        if ((!token.accountingFunds || token.siteAdmin === undefined) && token.accessToken) {
+          const { accountingFunds, siteAdmin } = getAccountingClaimsFromAccessToken(
+            token.accessToken as string
+          )
           return {
             ...token,
-            accountingFunds: getAccountingFundsFromAccessToken(token.accessToken as string),
+            accountingFunds,
+            siteAdmin,
           }
         }
         return token
@@ -46,6 +53,7 @@ export const authOptions: AuthOptions = {
           sub: token.sub,
           email: token.email,
           accountingFunds,
+          siteAdmin: token.siteAdmin ?? false,
           canAccessAccounting: accountingFunds.length > 0,
         },
         error: token.error,
