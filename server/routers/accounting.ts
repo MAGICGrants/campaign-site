@@ -4,7 +4,7 @@ import { ADMIN_DATE_RANGE_MAX_DAYS } from '../../utils/adminDateRange'
 import { DonationSource, FundSlug, Prisma } from '@prisma/client'
 import Stripe from 'stripe'
 
-import { accountingProcedure, router } from '../trpc'
+import { accountingProcedure, siteAdminProcedure, router } from '../trpc'
 import { prisma, stripe } from '../services'
 import { accountingGenerationQueue } from '../queues'
 import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from '../utils/btcpayserver'
@@ -698,7 +698,7 @@ export const accountingRouter = router({
       return items
     }),
 
-  listAccountingIgnores: accountingProcedure.query(async () => {
+  listAccountingIgnores: siteAdminProcedure.query(async () => {
     const records = await prisma.accountingIgnore.findMany({
       orderBy: [{ type: 'asc' }, { value: 'asc' }],
     })
@@ -710,7 +710,7 @@ export const accountingRouter = router({
     }
   }),
 
-  addAccountingIgnore: accountingProcedure
+  addAccountingIgnore: siteAdminProcedure
     .input(
       z.object({
         type: z.enum(['deposit', 'order']),
@@ -729,7 +729,7 @@ export const accountingRouter = router({
       return { ...record, deletedCount: deleted }
     }),
 
-  removeAccountingIgnore: accountingProcedure
+  removeAccountingIgnore: siteAdminProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
       await prisma.accountingIgnore.delete({ where: { id: input.id } })

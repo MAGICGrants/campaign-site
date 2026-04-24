@@ -67,7 +67,7 @@ export const protectedProcedure = t.procedure.use((opts) => {
   })
 })
 
-/** Donation / admin accounting: requires at least one Keycloak `*-accounting` group. */
+/** Donation / admin accounting: requires `/site-admin` or a fund `*-accounting` group. */
 export const accountingProcedure = protectedProcedure.use((opts) => {
   const accountingAccess = getAccountingAccess(opts.ctx.session.user)
   if (!hasAnyAccountingAccess(accountingAccess)) {
@@ -85,6 +85,14 @@ export const accountingProcedure = protectedProcedure.use((opts) => {
       accountingAccess,
     },
   })
+})
+
+/** Accounting ignores + destructive maintenance: requires Keycloak `/site-admin`. */
+export const siteAdminProcedure = accountingProcedure.use((opts) => {
+  if (!opts.ctx.session.user.siteAdmin) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Site admin access required' })
+  }
+  return opts.next()
 })
 
 export const mergeRouters = t.mergeRouters

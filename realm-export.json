@@ -447,6 +447,15 @@
       "clientRoles": {}
     },
     {
+      "id": "3b6c3151-5f44-4a76-97c4-b814773638ac",
+      "name": "site-admin",
+      "path": "/site-admin",
+      "subGroups": [],
+      "attributes": {},
+      "realmRoles": [],
+      "clientRoles": {}
+    },
+    {
       "id": "d137e0c5-ff6e-4d4f-92df-8d675891198e",
       "name": "unknown-accounting",
       "path": "/unknown-accounting",
