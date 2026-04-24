@@ -17,6 +17,7 @@ import {
   prismaDonationAccountingFundCondition,
   stripeFundSlugsForQuery,
 } from '../utils/accounting-access'
+import { balanceTransactionToUsd, fetchInvoiceBalanceTransaction } from '../utils/stripe-accounting'
 
 const FUND_SLUGS: FundSlug[] = ['monero', 'firo', 'privacyguides', 'general']
 
@@ -53,124 +54,6 @@ async function deleteAccountingRecordsFromIgnoredId(
     where: { paymentReceivedAt: { gte: minDate } },
   })
   return result.count
-}
-
-function balanceTransactionToUsd(
-  bt: { currency: string; fee?: number; net?: number; exchange_rate?: number | null },
-  grossCents: number
-): { fee: number; net: number } {
-  if (!bt) return { fee: 0, net: grossCents / 100 }
-  const feeInt = bt.fee ?? 0
-  const netInt = bt.net ?? grossCents
-  const currency = (bt.currency ?? 'usd').toLowerCase()
-  const rate = currency === 'usd' ? 1 : (bt.exchange_rate ?? 0)
-  if (rate <= 0 && currency !== 'usd') return { fee: 0, net: grossCents / 100 }
-  return {
-    fee: feeInt / rate / 100,
-    net: netInt / rate / 100,
-  }
-}
-
-type BalanceTransactionLike = {
-  currency: string
-  fee?: number
-  net?: number
-  exchange_rate?: number | null
-}
-
-/** Extract balance_transaction and paymentId from invoice payments (Stripe 2026+ API) */
-function getInvoicePaymentInfo(inv: Stripe.Invoice): {
-  balanceTransaction: BalanceTransactionLike | null
-  paymentId: string
-} {
-  const paymentId = inv.id
-  let balanceTransaction: BalanceTransactionLike | null = null
-
-  const payments = inv.payments?.data
-  if (payments && Array.isArray(payments)) {
-    const paidPayment = payments.find((p) => p.status === 'paid')
-    const p = paidPayment?.payment
-    if (p) {
-      if (p.type === 'payment_intent' && p.payment_intent) {
-        const pi = typeof p.payment_intent === 'object' ? p.payment_intent : null
-        if (pi) {
-          const charge = pi.latest_charge
-          const chargeObj = charge && typeof charge === 'object' ? charge : null
-          const bt = chargeObj?.balance_transaction
-          balanceTransaction =
-            bt && typeof bt === 'object' && bt !== null && 'currency' in bt
-              ? (bt as BalanceTransactionLike)
-              : null
-          return { balanceTransaction, paymentId: pi.id }
-        }
-      }
-      if (p.type === 'charge' && p.charge) {
-        const charge = typeof p.charge === 'object' ? p.charge : null
-        if (charge) {
-          const bt = charge.balance_transaction
-          balanceTransaction =
-            bt && typeof bt === 'object' && bt !== null && 'currency' in bt
-              ? (bt as BalanceTransactionLike)
-              : null
-          return { balanceTransaction, paymentId: charge.id }
-        }
-      }
-    }
-  }
-  return { balanceTransaction, paymentId }
-}
-
-/** Fetch balance_transaction via extra API calls when expand limit prevents inline inclusion */
-async function fetchInvoiceBalanceTransaction(
-  inv: Stripe.Invoice,
-  stripeClient: Stripe
-): Promise<{ balanceTransaction: BalanceTransactionLike | null; paymentId: string }> {
-  const fromExpand = getInvoicePaymentInfo(inv)
-  if (fromExpand.balanceTransaction) return fromExpand
-
-  const payments = inv.payments?.data
-  if (!payments?.length) return fromExpand
-
-  const paidPayment = payments.find((p) => p.status === 'paid')
-  const p = paidPayment?.payment as
-    | { type?: string; payment_intent?: string | { id?: string }; charge?: string | { id?: string } }
-    | undefined
-  if (!p) return fromExpand
-
-  try {
-    if (p.type === 'payment_intent' && p.payment_intent) {
-      const piId =
-        typeof p.payment_intent === 'string' ? p.payment_intent : p.payment_intent?.id
-      if (!piId) return fromExpand
-      const pi = await stripeClient.paymentIntents.retrieve(piId, {
-        expand: ['latest_charge.balance_transaction'],
-      })
-      const charge = pi.latest_charge
-      const chargeObj = charge && typeof charge === 'object' ? charge : null
-      const bt = chargeObj?.balance_transaction
-      const balanceTransaction =
-        bt && typeof bt === 'object' && bt !== null && 'currency' in bt
-          ? (bt as BalanceTransactionLike)
-          : null
-      return { balanceTransaction, paymentId: pi.id }
-    }
-    if (p.type === 'charge' && p.charge) {
-      const chId = typeof p.charge === 'string' ? p.charge : p.charge?.id
-      if (!chId) return fromExpand
-      const charge = await stripeClient.charges.retrieve(chId, {
-        expand: ['balance_transaction'],
-      })
-      const bt = charge.balance_transaction
-      const balanceTransaction =
-        bt && typeof bt === 'object' && bt !== null && 'currency' in bt
-          ? (bt as BalanceTransactionLike)
-          : null
-      return { balanceTransaction, paymentId: charge.id }
-    }
-  } catch {
-    // Fall through to return fromExpand (fee: 0)
-  }
-  return fromExpand
 }
 
 const donationSourceSchema = z.enum(['btcpayserver', 'coinbase', 'stripe'])
@@ -253,188 +136,55 @@ export const accountingRouter = router({
       const accountingAccess = (ctx as { accountingAccess: AccountingFundAccess }).accountingAccess
       assertFundSlugAllowed(accountingAccess, input.fundSlug)
 
-      const { start: rangeStart, endExclusive, startTs, endTs } = localDateRangeBounds(
+      const { start: rangeStart, endExclusive } = localDateRangeBounds(
         input.dateFrom,
         input.dateTo
       )
 
-      const includeStripe =
-        !input.sources || input.sources.length === 0 || input.sources.includes('stripe')
-      const dbSources: DonationSource[] =
-        input.sources && input.sources.length > 0
-          ? input.sources.filter((s): s is DonationSource => s !== 'stripe')
-          : ['btcpayserver', 'coinbase']
+      const sourcesToQuery: DonationSource[] =
+        !input.sources || input.sources.length === 0
+          ? ['btcpayserver', 'coinbase', 'stripe']
+          : input.sources
 
-      const records: {
-        id: string
-        paymentReceivedAt: Date
-        source: DonationSource
-        fundSlug: FundSlug | null
-        projectSlug: string | null
-        projectName: string | null
-        invoiceId: string | null
-        cryptoAmount: string
-        cryptoCode: string
-        rate: string
-        fiatAmount: number
-        fee: number | null
-        cryptoProcessorFee: string | null
-        krakenDeposits: unknown
-        krakenOrders: unknown
-        totalRealizedUsd: number
-      }[] = []
-
-      if (dbSources.length > 0) {
-        const where: Prisma.DonationAccountingWhereInput = {
-          paymentReceivedAt: { gte: rangeStart, lt: endExclusive },
-          source: { in: dbSources },
-        }
-        if (input.projectSlug) {
-          where.projectSlug = input.projectSlug === '__unknown__' ? null : input.projectSlug
-        }
-        if (input.fundSlug) {
-          where.fundSlug = input.fundSlug === '__unknown__' ? null : (input.fundSlug as FundSlug)
-        } else {
-          Object.assign(where, prismaDonationAccountingFundCondition(accountingAccess))
-        }
-
-        const dbRecords = await prisma.donationAccounting.findMany({
-          where,
-          orderBy: { paymentReceivedAt: 'asc' },
-        })
-        records.push(
-          ...dbRecords.map((r) => ({
-            id: r.id,
-            paymentReceivedAt: r.paymentReceivedAt,
-            source: r.source,
-            fundSlug: r.fundSlug,
-            projectSlug: r.projectSlug,
-            projectName: r.projectName,
-            invoiceId: r.invoiceId,
-            cryptoAmount: r.cryptoAmount,
-            cryptoCode: r.cryptoCode,
-            rate: r.rate,
-            fiatAmount: r.fiatAmount,
-            fee: r.source === 'coinbase' ? r.fiatProcessorFee ?? null : null,
-            cryptoProcessorFee: r.source === 'coinbase' ? r.cryptoProcessorFee ?? null : null,
-            krakenDeposits: r.krakenDeposits,
-            krakenOrders: r.krakenOrders,
-            totalRealizedUsd: r.totalRealizedUsd,
-          }))
-        )
+      const where: Prisma.DonationAccountingWhereInput = {
+        paymentReceivedAt: { gte: rangeStart, lt: endExclusive },
+        source: { in: sourcesToQuery },
+      }
+      if (input.projectSlug) {
+        where.projectSlug = input.projectSlug === '__unknown__' ? null : input.projectSlug
+      }
+      if (input.fundSlug) {
+        where.fundSlug = input.fundSlug === '__unknown__' ? null : (input.fundSlug as FundSlug)
+      } else {
+        Object.assign(where, prismaDonationAccountingFundCondition(accountingAccess))
       }
 
-      if (includeStripe) {
-        const stripeFunds = stripeFundSlugsForQuery(accountingAccess, input.fundSlug)
-        const stripeResults = await Promise.allSettled(
-          stripeFunds.map(async (fundSlug) => {
-            const stripeClient = stripe[fundSlug]
-            if (!stripeClient) return []
-            const fundRecords: (typeof records)[number][] = []
-            const invoices: Stripe.Invoice[] = []
-            for await (const inv of stripeClient.invoices.list({
-              created: { gte: startTs, lt: endTs },
-              status: 'paid',
-              limit: 100,
-              expand: [
-                'data.parent',
-                'data.payments.data.payment',
-              ],
-            })) {
-              const meta =
-                (inv.parent?.subscription_details as { metadata?: Record<string, string> } | null)
-                  ?.metadata ?? (inv.metadata as Record<string, string> | null)
-              if (!meta?.projectSlug || !meta?.fundSlug || meta.fundSlug !== fundSlug) continue
-              if (input.projectSlug && input.projectSlug !== meta.projectSlug) continue
-              invoices.push(inv)
-            }
-            const btResults = await Promise.all(
-              invoices.map((inv) => fetchInvoiceBalanceTransaction(inv, stripeClient))
-            )
-            for (let i = 0; i < invoices.length; i++) {
-              const inv = invoices[i]
-              const meta =
-                (inv.parent?.subscription_details as { metadata?: Record<string, string> } | null)
-                  ?.metadata ?? (inv.metadata as Record<string, string> | null)
-              if (!meta) continue
-              const grossCents = inv.amount_paid ?? inv.total ?? 0
-              const grossFiatAmount = grossCents / 100
-              const { balanceTransaction: btObj } = btResults[i]
-              const { fee, net: netFiatAmount } = btObj
-                ? balanceTransactionToUsd(btObj, grossCents)
-                : { fee: 0, net: grossFiatAmount }
-              fundRecords.push({
-                id: `stripe-inv-${inv.id}`,
-                paymentReceivedAt: new Date(inv.created * 1000),
-                source: 'stripe' as DonationSource,
-                fundSlug: meta.fundSlug as FundSlug,
-                projectSlug: meta.projectSlug,
-                projectName: meta.projectName ?? 'General',
-                invoiceId: inv.id,
-                cryptoAmount: '-',
-                cryptoCode: 'USD',
-                rate: '1',
-                fiatAmount: grossFiatAmount,
-                fee,
-                cryptoProcessorFee: null,
-                krakenDeposits: null,
-                krakenOrders: null,
-                totalRealizedUsd: netFiatAmount,
-              })
-            }
-            for await (const pi of stripeClient.paymentIntents.list({
-              created: { gte: startTs, lt: endTs },
-              limit: 100,
-              expand: ['data.latest_charge.balance_transaction'],
-            })) {
-              if (pi.status !== 'succeeded' || !pi.amount_received || pi.amount_received <= 0)
-                continue
-              const meta = pi.metadata as Record<string, string> | null
-              if (!meta?.projectSlug || !meta?.fundSlug || meta.fundSlug !== fundSlug) continue
-              if (meta.isSubscription === 'true') continue
-              if (input.projectSlug && input.projectSlug !== meta.projectSlug) continue
-              const grossCents = pi.amount_received
-              const grossFiatAmount = grossCents / 100
-              const charge = pi.latest_charge
-              const bt = charge && typeof charge === 'object' ? charge.balance_transaction : null
-              const btObj = bt && typeof bt === 'object' ? bt : null
-              const { fee, net: netFiatAmount } = btObj
-                ? balanceTransactionToUsd(btObj, grossCents)
-                : { fee: 0, net: grossFiatAmount }
-              fundRecords.push({
-                id: `stripe-pi-${pi.id}`,
-                paymentReceivedAt: new Date(pi.created * 1000),
-                source: 'stripe' as DonationSource,
-                fundSlug: meta.fundSlug as FundSlug,
-                projectSlug: meta.projectSlug,
-                projectName: meta.projectName ?? 'General',
-                invoiceId: pi.id,
-                cryptoAmount: '-',
-                cryptoCode: 'USD',
-                rate: '1',
-                fiatAmount: grossFiatAmount,
-                fee,
-                cryptoProcessorFee: null,
-                krakenDeposits: null,
-                krakenOrders: null,
-                totalRealizedUsd: netFiatAmount,
-              })
-            }
-            return fundRecords
-          })
-        )
-        for (let i = 0; i < stripeResults.length; i++) {
-          const result = stripeResults[i]
-          if (result.status === 'fulfilled') {
-            records.push(...result.value)
-          } else {
-            console.error(`[Stripe] Failed to fetch from ${stripeFunds[i]}:`, result.reason)
-          }
-        }
-      }
+      const dbRecords = await prisma.donationAccounting.findMany({
+        where,
+        orderBy: { paymentReceivedAt: 'asc' },
+      })
 
-      records.sort((a, b) => a.paymentReceivedAt.getTime() - b.paymentReceivedAt.getTime())
-      return records
+      return dbRecords.map((r) => ({
+        id: r.id,
+        paymentReceivedAt: r.paymentReceivedAt,
+        source: r.source,
+        fundSlug: r.fundSlug,
+        projectSlug: r.projectSlug,
+        projectName: r.projectName,
+        invoiceId: r.invoiceId,
+        cryptoAmount: r.cryptoAmount,
+        cryptoCode: r.cryptoCode,
+        rate: r.rate,
+        fiatAmount: r.fiatAmount,
+        fee:
+          r.source === 'coinbase' || r.source === 'stripe'
+            ? r.fiatProcessorFee ?? null
+            : null,
+        cryptoProcessorFee: r.source === 'coinbase' ? r.cryptoProcessorFee ?? null : null,
+        krakenDeposits: r.krakenDeposits,
+        krakenOrders: r.krakenOrders,
+        totalRealizedUsd: r.totalRealizedUsd,
+      }))
     }),
 
   listAvailableProjects: accountingProcedure.query(async ({ ctx }) => {

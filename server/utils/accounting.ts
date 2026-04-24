@@ -5,6 +5,16 @@ import { getDeposits, getClosedSellOrders, KrakenDeposit, KrakenSellOrder } from
 import { getNetworkFee } from './blockexplorers'
 import { getBtcPayInvoices, getBtcPayInvoicePaymentMethods } from './btcpayserver'
 import { CoinbaseCdpCheckout, getCoinbaseCdpCheckouts } from './coinbase-cdp'
+import { syncStripeDonationAccounting } from './stripe-accounting'
+
+/** When there are no Stripe rows in DonationAccounting yet, sync starts from this instant (inclusive). */
+const STRIPE_SYNC_START_IF_NO_STRIPE_ROWS = new Date(Date.UTC(2024, 0, 1))
+
+/** Re-list from this far before the newest Stripe row so borderline / delayed objects are not skipped. */
+const STRIPE_SYNC_INCREMENTAL_OVERLAP_MS = 60 * 60 * 1000
+
+/** Stripe list filters use `created: { lt: endTs }`; add slack so same-second events are not dropped. */
+const STRIPE_SYNC_END_SLACK_SEC = 120
 
 type PaymentItem = {
   paymentId: string
@@ -521,101 +531,117 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
     `[accounting] Extracted ${paymentItems.length} individual payments (${btcPayItems.length} BTCPay, ${coinbaseCdpItems.length} Coinbase CDP)`
   )
 
-  if (paymentItems.length === 0) {
-    return existingRecords
-  }
-
   const existingIds = new Set(existingRecords.map((r) => r.paymentId).filter(Boolean))
-  const newPayments = paymentItems.filter((p) => !existingIds.has(p.paymentId))
 
-  if (newPayments.length === 0) {
-    console.log('[accounting] All payments already have accounting records')
-    return existingRecords
+  if (paymentItems.length > 0) {
+    const newPayments = paymentItems.filter((p) => !existingIds.has(p.paymentId))
+
+    if (newPayments.length > 0) {
+      console.log(`[accounting] ${newPayments.length} payments need accounting records`)
+
+      const earliestDate = paymentItems[0].receivedAt
+
+      const [allDeposits, allSellOrders, ignores] = await Promise.all([
+        getDeposits(earliestDate),
+        getClosedSellOrders(earliestDate),
+        loadAccountingIgnores(),
+      ])
+
+      const deposits = allDeposits.filter((d) => !ignores.depositTxids.includes(d.txid))
+      const sellOrders = allSellOrders.filter((o) => !ignores.orderIds.includes(o.orderId))
+
+      console.log(
+        `[accounting] Fetched ${allDeposits.length} deposits (${allDeposits.length - deposits.length} ignored) and ${allSellOrders.length} sell orders (${allSellOrders.length - sellOrders.length} ignored)`
+      )
+
+      const networkFeeCache = buildNetworkFeeCache(existingRecords)
+      const networkFees = await fetchNetworkFees(deposits, networkFeeCache)
+
+      const cryptoCodes = [...new Set(paymentItems.map((p) => p.cryptoCode))]
+      const paymentsByCode = groupBy(paymentItems, (p) => p.cryptoCode)
+      const depositsByCode = groupBy(deposits, (d) => d.cryptoCode)
+      const ordersByCode = groupBy(sellOrders, (o) => o.cryptoCode)
+
+      const allMatches: PaymentMatch[] = []
+
+      for (const code of cryptoCodes) {
+        const codePayments = (paymentsByCode.get(code) || []).sort(
+          (a, b) => a.receivedAt.getTime() - b.receivedAt.getTime()
+        )
+        const codeDeposits = (depositsByCode.get(code) || []).sort(
+          (a, b) => a.time.getTime() - b.time.getTime()
+        )
+        const codeOrders = (ordersByCode.get(code) || []).sort(
+          (a, b) => a.closedAt.getTime() - b.closedAt.getTime()
+        )
+
+        console.log(
+          `[accounting] Matching ${code}: ${codePayments.length} payments, ${codeDeposits.length} deposits, ${codeOrders.length} sell orders`
+        )
+
+        const paymentDeposits = matchPaymentsToDeposits(codePayments, codeDeposits, networkFees)
+        const paymentOrders = matchPaymentsToOrders(codePayments, paymentDeposits, codeOrders)
+        const matches = rollUpMatches(codePayments, paymentDeposits, paymentOrders)
+
+        allMatches.push(...matches)
+      }
+
+      const matchesForNew = allMatches.filter((m) => !existingIds.has(m.paymentId))
+
+      console.log(`[accounting] Upserting ${matchesForNew.length} accounting records...`)
+
+      for (const match of matchesForNew) {
+        await prisma.donationAccounting.upsert({
+          where: { paymentId: match.paymentId },
+          create: {
+            source: match.source,
+            invoiceId: match.invoiceId,
+            paymentId: match.paymentId,
+            paymentReceivedAt: match.receivedAt,
+            cryptoCode: match.cryptoCode,
+            cryptoAmount: match.cryptoAmountRaw,
+            rate: match.rate,
+            fiatAmount: match.fiatAmount,
+            cryptoProcessorFee: match.cryptoProcessorFee,
+            fiatProcessorFee: match.fiatProcessorFee,
+            krakenDeposits: match.deposits,
+            krakenOrders: match.orders,
+            totalRealizedUsd: match.totalRealizedUsd,
+            projectSlug: match.projectSlug,
+            projectName: match.projectName,
+            fundSlug: match.fundSlug,
+          },
+          update: {
+            krakenDeposits: match.deposits,
+            krakenOrders: match.orders,
+            totalRealizedUsd: match.totalRealizedUsd,
+            cryptoProcessorFee: match.cryptoProcessorFee,
+            fiatProcessorFee: match.fiatProcessorFee,
+          },
+        })
+      }
+    } else {
+      console.log('[accounting] All BTCPay/Coinbase payments already have accounting records')
+    }
+  } else {
+    console.log('[accounting] No BTCPay/Coinbase payment items to process')
   }
 
-  console.log(`[accounting] ${newPayments.length} payments need accounting records`)
+  const latestStripe = await prisma.donationAccounting.findFirst({
+    where: { source: 'stripe' },
+    orderBy: { paymentReceivedAt: 'desc' },
+    select: { paymentReceivedAt: true },
+  })
+  const stripeSyncStart =
+    latestStripe == null
+      ? STRIPE_SYNC_START_IF_NO_STRIPE_ROWS
+      : new Date(latestStripe.paymentReceivedAt.getTime() - STRIPE_SYNC_INCREMENTAL_OVERLAP_MS)
+  const startTs = Math.floor(stripeSyncStart.getTime() / 1000)
+  const endTs = Math.floor(Date.now() / 1000) + STRIPE_SYNC_END_SLACK_SEC
 
-  const earliestDate = paymentItems[0].receivedAt
-
-  const [allDeposits, allSellOrders, ignores] = await Promise.all([
-    getDeposits(earliestDate),
-    getClosedSellOrders(earliestDate),
-    loadAccountingIgnores(),
-  ])
-
-  const deposits = allDeposits.filter((d) => !ignores.depositTxids.includes(d.txid))
-  const sellOrders = allSellOrders.filter((o) => !ignores.orderIds.includes(o.orderId))
-
-  console.log(
-    `[accounting] Fetched ${allDeposits.length} deposits (${allDeposits.length - deposits.length} ignored) and ${allSellOrders.length} sell orders (${allSellOrders.length - sellOrders.length} ignored)`
-  )
-
-  const networkFeeCache = buildNetworkFeeCache(existingRecords)
-  const networkFees = await fetchNetworkFees(deposits, networkFeeCache)
-
-  const cryptoCodes = [...new Set(paymentItems.map((p) => p.cryptoCode))]
-  const paymentsByCode = groupBy(paymentItems, (p) => p.cryptoCode)
-  const depositsByCode = groupBy(deposits, (d) => d.cryptoCode)
-  const ordersByCode = groupBy(sellOrders, (o) => o.cryptoCode)
-
-  const allMatches: PaymentMatch[] = []
-
-  for (const code of cryptoCodes) {
-    const codePayments = (paymentsByCode.get(code) || []).sort(
-      (a, b) => a.receivedAt.getTime() - b.receivedAt.getTime()
-    )
-    const codeDeposits = (depositsByCode.get(code) || []).sort(
-      (a, b) => a.time.getTime() - b.time.getTime()
-    )
-    const codeOrders = (ordersByCode.get(code) || []).sort(
-      (a, b) => a.closedAt.getTime() - b.closedAt.getTime()
-    )
-
-    console.log(
-      `[accounting] Matching ${code}: ${codePayments.length} payments, ${codeDeposits.length} deposits, ${codeOrders.length} sell orders`
-    )
-
-    const paymentDeposits = matchPaymentsToDeposits(codePayments, codeDeposits, networkFees)
-    const paymentOrders = matchPaymentsToOrders(codePayments, paymentDeposits, codeOrders)
-    const matches = rollUpMatches(codePayments, paymentDeposits, paymentOrders)
-
-    allMatches.push(...matches)
-  }
-
-  const matchesForNew = allMatches.filter((m) => !existingIds.has(m.paymentId))
-
-  console.log(`[accounting] Upserting ${matchesForNew.length} accounting records...`)
-
-  for (const match of matchesForNew) {
-    await prisma.donationAccounting.upsert({
-      where: { paymentId: match.paymentId },
-      create: {
-        source: match.source,
-        invoiceId: match.invoiceId,
-        paymentId: match.paymentId,
-        paymentReceivedAt: match.receivedAt,
-        cryptoCode: match.cryptoCode,
-        cryptoAmount: match.cryptoAmountRaw,
-        rate: match.rate,
-        fiatAmount: match.fiatAmount,
-        cryptoProcessorFee: match.cryptoProcessorFee,
-        fiatProcessorFee: match.fiatProcessorFee,
-        krakenDeposits: match.deposits,
-        krakenOrders: match.orders,
-        totalRealizedUsd: match.totalRealizedUsd,
-        projectSlug: match.projectSlug,
-        projectName: match.projectName,
-        fundSlug: match.fundSlug,
-      },
-      update: {
-        krakenDeposits: match.deposits,
-        krakenOrders: match.orders,
-        totalRealizedUsd: match.totalRealizedUsd,
-        cryptoProcessorFee: match.cryptoProcessorFee,
-        fiatProcessorFee: match.fiatProcessorFee,
-      },
-    })
-  }
+  console.log(`[accounting] Syncing Stripe into DonationAccounting from ${stripeSyncStart.toISOString()}…`)
+  const { upserted } = await syncStripeDonationAccounting({ startTs, endTs })
+  console.log(`[accounting] Stripe sync completed (${upserted} upserts)`)
 
   console.log('[accounting] Done generating accounting records')
 
