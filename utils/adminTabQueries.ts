@@ -7,6 +7,42 @@ import {
   pickQueryStr,
 } from './adminDateRange'
 
+/** Allowlisted keys only — never spread or `Object.entries(router.query)` for admin tabs. */
+export const ADMIN_TAB_URL_QUERY_KEYS = [
+  'from',
+  'to',
+  'fund',
+  'project',
+  'bSumCol',
+  'bSumDir',
+  'bPayCol',
+  'bPayDir',
+  'sSumCol',
+  'sSumDir',
+  'sInvCol',
+  'sInvDir',
+  'kdCcy',
+  'kdSCol',
+  'kdSDir',
+  'kdDepCol',
+  'kdDepDir',
+  'koSCol',
+  'koSDir',
+  'koOrdCol',
+  'koOrdDir',
+] as const
+
+export function snapshotAdminTabUrlQuery(q: ParsedUrlQuery): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const key of ADMIN_TAB_URL_QUERY_KEYS) {
+    const v = pickQueryStr(q, key)
+    if (v !== undefined && v.length > 0) {
+      out[key] = v
+    }
+  }
+  return out
+}
+
 function parseDir(s: string | undefined, fallback: SortDirection): SortDirection {
   return s === 'desc' ? 'desc' : s === 'asc' ? 'asc' : fallback
 }
