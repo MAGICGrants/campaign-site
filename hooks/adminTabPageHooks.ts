@@ -1,3 +1,4 @@
+import type { ParsedUrlQuery } from 'querystring'
 import { useCallback, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/router'
 
@@ -18,12 +19,20 @@ import {
   serializeKrakenDepositsAdminUrl,
   serializeKrakenSellOrdersAdminUrl,
   serializeStripeInvoicesAdminUrl,
-  snapshotAdminTabUrlQuery,
   type BtcpayAdminUrlState,
   type KrakenDepositsAdminUrlState,
   type KrakenSellOrdersAdminUrlState,
   type StripeInvoicesAdminUrlState,
 } from '../utils/adminTabQueries'
+
+function flattenQuery(q: ParsedUrlQuery): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [key, val] of Object.entries(q)) {
+    if (typeof val === 'string' && val.length > 0) out[key] = val
+    else if (Array.isArray(val) && typeof val[0] === 'string') out[key] = val[0]
+  }
+  return out
+}
 
 /** Restore `from`/`to` from session when URL has no date (all admin tabs except Accounting). */
 export function useAdminDateQueryHydration() {
@@ -33,10 +42,8 @@ export function useAdminDateQueryHydration() {
     if (!router.isReady) return
     if (router.pathname === '/admin/accounting') return
 
-    const qSafe = snapshotAdminTabUrlQuery(router.query)
-
-    if (pickQueryStr(qSafe, 'from')) {
-      const { dateFrom, dateTo } = parseAdminDateRangeFromQuery(qSafe)
+    if (pickQueryStr(router.query, 'from')) {
+      const { dateFrom, dateTo } = parseAdminDateRangeFromQuery(router.query)
       persistAdminDateRange(dateFrom, dateTo)
       return
     }
@@ -47,7 +54,7 @@ export function useAdminDateQueryHydration() {
     router.replace(
       {
         pathname: router.pathname,
-        query: { ...qSafe, from: restored.from, to: restored.to },
+        query: { ...flattenQuery(router.query), from: restored.from, to: restored.to },
       },
       undefined,
       { shallow: true }
@@ -71,13 +78,13 @@ export function useBtcpayAdminQuery() {
   const router = useRouter()
 
   const state = useMemo(
-    () => parseBtcpayAdminUrl(snapshotAdminTabUrlQuery(router.query)),
+    () => parseBtcpayAdminUrl(router.query),
     [router.query]
   )
 
   const patchQuery = useCallback(
     (patch: Partial<BtcpayAdminUrlState>) => {
-      const next = { ...parseBtcpayAdminUrl(snapshotAdminTabUrlQuery(router.query)), ...patch }
+      const next = { ...parseBtcpayAdminUrl(router.query), ...patch }
       persistAdminDateRange(next.dateFrom, next.dateTo)
       router.replace(
         { pathname: router.pathname, query: serializeBtcpayAdminUrl(next) },
@@ -93,7 +100,7 @@ export function useBtcpayAdminQuery() {
   const summaryToggle = useCallback(
     (key: string) => {
       if (!(BTCPAY_SUMMARY_KEYS as readonly string[]).includes(key)) return
-      const c = parseBtcpayAdminUrl(snapshotAdminTabUrlQuery(router.query))
+      const c = parseBtcpayAdminUrl(router.query)
       if (c.summaryColumnKey !== key) {
         patchQuery({ summaryColumnKey: key as 'fund' | 'total', summaryDirection: 'asc' })
       } else {
@@ -107,7 +114,7 @@ export function useBtcpayAdminQuery() {
   const paymentsToggle = useCallback(
     (key: string) => {
       if (!(BTCPAY_PAYMENT_KEYS as readonly string[]).includes(key)) return
-      const c = parseBtcpayAdminUrl(snapshotAdminTabUrlQuery(router.query))
+      const c = parseBtcpayAdminUrl(router.query)
       if (c.paymentsColumnKey !== key) {
         patchQuery({ paymentsColumnKey: key, paymentsDirection: 'asc' })
       } else {
@@ -145,13 +152,13 @@ const STRIPE_INV_KEYS = ['time', 'fund', 'project', 'payment', 'amount', 'fee', 
 export function useStripeInvoicesAdminQuery() {
   const router = useRouter()
   const state = useMemo(
-    () => parseStripeInvoicesAdminUrl(snapshotAdminTabUrlQuery(router.query)),
+    () => parseStripeInvoicesAdminUrl(router.query),
     [router.query]
   )
 
   const patchQuery = useCallback(
     (patch: Partial<StripeInvoicesAdminUrlState>) => {
-      const next = { ...parseStripeInvoicesAdminUrl(snapshotAdminTabUrlQuery(router.query)), ...patch }
+      const next = { ...parseStripeInvoicesAdminUrl(router.query), ...patch }
       persistAdminDateRange(next.dateFrom, next.dateTo)
       router.replace(
         { pathname: router.pathname, query: serializeStripeInvoicesAdminUrl(next) },
@@ -167,7 +174,7 @@ export function useStripeInvoicesAdminQuery() {
   const summaryToggle = useCallback(
     (key: string) => {
       if (!(STRIPE_SUMMARY_KEYS as readonly string[]).includes(key)) return
-      const c = parseStripeInvoicesAdminUrl(snapshotAdminTabUrlQuery(router.query))
+      const c = parseStripeInvoicesAdminUrl(router.query)
       if (c.summaryColumnKey !== key) {
         patchQuery({
           summaryColumnKey: key as StripeInvoicesAdminUrlState['summaryColumnKey'],
@@ -184,7 +191,7 @@ export function useStripeInvoicesAdminQuery() {
   const invoicesToggle = useCallback(
     (key: string) => {
       if (!(STRIPE_INV_KEYS as readonly string[]).includes(key)) return
-      const c = parseStripeInvoicesAdminUrl(snapshotAdminTabUrlQuery(router.query))
+      const c = parseStripeInvoicesAdminUrl(router.query)
       if (c.invoicesColumnKey !== key) {
         patchQuery({ invoicesColumnKey: key, invoicesDirection: 'asc' })
       } else {
@@ -222,20 +229,19 @@ const KD_DEP_KEYS = ['time', 'amount', 'depositId', 'txHash'] as const
 export function useKrakenDepositsAdminQuery() {
   const router = useRouter()
   const state = useMemo(
-    () => parseKrakenDepositsAdminUrl(snapshotAdminTabUrlQuery(router.query)),
+    () => parseKrakenDepositsAdminUrl(router.query),
     [router.query]
   )
 
   const patchQuery = useCallback(
     (patch: Partial<KrakenDepositsAdminUrlState>) => {
-      const qSafe = snapshotAdminTabUrlQuery(router.query)
-      const next = { ...parseKrakenDepositsAdminUrl(qSafe), ...patch }
+      const next = { ...parseKrakenDepositsAdminUrl(router.query), ...patch }
       persistAdminDateRange(next.dateFrom, next.dateTo)
       router.replace(
         {
           pathname: router.pathname,
           query: {
-            ...navSharedKeysPassthrough(qSafe),
+            ...navSharedKeysPassthrough(router.query),
             ...serializeKrakenDepositsAdminUrl(next),
           },
         },
@@ -251,7 +257,7 @@ export function useKrakenDepositsAdminQuery() {
   const summaryToggle = useCallback(
     (key: string) => {
       if (!(KD_SUMMARY_KEYS as readonly string[]).includes(key)) return
-      const c = parseKrakenDepositsAdminUrl(snapshotAdminTabUrlQuery(router.query))
+      const c = parseKrakenDepositsAdminUrl(router.query)
       if (c.summaryColumnKey !== key) {
         patchQuery({ summaryColumnKey: key as 'currency' | 'total', summaryDirection: 'asc' })
       } else {
@@ -265,7 +271,7 @@ export function useKrakenDepositsAdminQuery() {
   const depositsToggle = useCallback(
     (key: string) => {
       if (!(KD_DEP_KEYS as readonly string[]).includes(key)) return
-      const c = parseKrakenDepositsAdminUrl(snapshotAdminTabUrlQuery(router.query))
+      const c = parseKrakenDepositsAdminUrl(router.query)
       if (c.depositsColumnKey !== key) {
         patchQuery({ depositsColumnKey: key, depositsDirection: 'asc' })
       } else {
@@ -303,20 +309,19 @@ const KO_ORD_KEYS = ['time', 'amount', 'execAmount', 'fee', 'orderId'] as const
 export function useKrakenSellOrdersAdminQuery() {
   const router = useRouter()
   const state = useMemo(
-    () => parseKrakenSellOrdersAdminUrl(snapshotAdminTabUrlQuery(router.query)),
+    () => parseKrakenSellOrdersAdminUrl(router.query),
     [router.query]
   )
 
   const patchQuery = useCallback(
     (patch: Partial<KrakenSellOrdersAdminUrlState>) => {
-      const qSafe = snapshotAdminTabUrlQuery(router.query)
-      const next = { ...parseKrakenSellOrdersAdminUrl(qSafe), ...patch }
+      const next = { ...parseKrakenSellOrdersAdminUrl(router.query), ...patch }
       persistAdminDateRange(next.dateFrom, next.dateTo)
       router.replace(
         {
           pathname: router.pathname,
           query: {
-            ...navSharedKeysPassthrough(qSafe),
+            ...navSharedKeysPassthrough(router.query),
             ...serializeKrakenSellOrdersAdminUrl(next),
           },
         },
@@ -332,7 +337,7 @@ export function useKrakenSellOrdersAdminQuery() {
   const summaryToggle = useCallback(
     (key: string) => {
       if (!(KO_SUMMARY_KEYS as readonly string[]).includes(key)) return
-      const c = parseKrakenSellOrdersAdminUrl(snapshotAdminTabUrlQuery(router.query))
+      const c = parseKrakenSellOrdersAdminUrl(router.query)
       if (c.summaryColumnKey !== key) {
         patchQuery({
           summaryColumnKey: key as KrakenSellOrdersAdminUrlState['summaryColumnKey'],
@@ -349,7 +354,7 @@ export function useKrakenSellOrdersAdminQuery() {
   const ordersToggle = useCallback(
     (key: string) => {
       if (!(KO_ORD_KEYS as readonly string[]).includes(key)) return
-      const c = parseKrakenSellOrdersAdminUrl(snapshotAdminTabUrlQuery(router.query))
+      const c = parseKrakenSellOrdersAdminUrl(router.query)
       if (c.ordersColumnKey !== key) {
         patchQuery({ ordersColumnKey: key, ordersDirection: 'asc' })
       } else {

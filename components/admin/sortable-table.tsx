@@ -49,17 +49,27 @@ function compareValues(a: unknown, b: unknown): number {
   return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' })
 }
 
+/** Column sort descriptor: use `.getValue(row)` (fixed name) instead of `record[columnKey](row)` for static analysis. */
+export type SortColumnSpec<T> = {
+  readonly key: string
+  readonly getValue: (row: T) => unknown
+}
+
 export function sortRows<T>(
   rows: T[],
   columnKey: string,
   direction: SortDirection,
   accessors: Record<string, (row: T) => unknown>
 ): T[] {
-  const getter = accessors[columnKey]
-  if (!getter) return rows
+  const specs: SortColumnSpec<T>[] = Object.entries(accessors).map(([key, getValue]) => ({
+    key,
+    getValue,
+  }))
+  const spec = specs.find((s) => s.key === columnKey)
+  if (!spec) return rows
   const copy = [...rows]
   const mult = direction === 'asc' ? 1 : -1
-  copy.sort((a, b) => compareValues(getter(a), getter(b)) * mult)
+  copy.sort((a, b) => compareValues(spec.getValue(a), spec.getValue(b)) * mult)
   return copy
 }
 
