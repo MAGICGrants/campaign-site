@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import dayjs from 'dayjs'
 import localizedFormat from 'dayjs/plugin/localizedFormat'
 import utc from 'dayjs/plugin/utc'
@@ -21,12 +21,12 @@ import {
 import { Copy, Download } from 'lucide-react'
 
 import { FundBadge } from '../../components/admin/FundBadge'
-import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
+import { AdminDateRangePicker } from '../../components/admin/AdminDateRangePicker'
 import {
   SortableTableHead,
   sortRows,
-  useSortableColumn,
 } from '../../components/admin/sortable-table'
+import { useBtcpayAdminQuery } from '../../hooks/adminTabPageHooks'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 import { funds } from '../../utils/funds'
@@ -117,9 +117,8 @@ function CopyableText({ text, truncate = false }: { text: string; truncate?: boo
 }
 
 export default function BtcPayPaymentsPage() {
-  const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
-  const [selectedProject, setSelectedProject] = useState<string>('__all__')
-  const [selectedFund, setSelectedFund] = useState<string>('__all__')
+  const { state, patchQuery, summarySort, paymentsSort } = useBtcpayAdminQuery()
+  const { dateFrom, dateTo, fund: selectedFund, project: selectedProject } = state
 
   const listPaymentsQuery = trpc.accounting.listBtcPayPaymentsByDateRange.useQuery(
     { dateFrom, dateTo },
@@ -166,7 +165,6 @@ export default function BtcPayPaymentsPage() {
     }))
   }, [filteredPayments])
 
-  const summarySort = useSortableColumn('fund')
   const sortedSummary = useMemo(
     () =>
       sortRows(
@@ -181,7 +179,6 @@ export default function BtcPayPaymentsPage() {
     [summaryByFund, summarySort.columnKey, summarySort.direction]
   )
 
-  const paymentsSort = useSortableColumn('time')
   const sortedFilteredPayments = useMemo(
     () =>
       sortRows(
@@ -212,7 +209,7 @@ export default function BtcPayPaymentsPage() {
         <h1 className="text-2xl font-bold sm:text-3xl">BTCPay Server Payments</h1>
 
         <div className="ml-auto flex flex-row gap-2 flex-wrap justify-end">
-          <Select value={selectedFund} onValueChange={(v) => setSelectedFund(v)}>
+          <Select value={selectedFund} onValueChange={(v) => patchQuery({ fund: v })}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="All funds" />
             </SelectTrigger>
@@ -225,7 +222,7 @@ export default function BtcPayPaymentsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={selectedProject} onValueChange={(v) => setSelectedProject(v)}>
+          <Select value={selectedProject} onValueChange={(v) => patchQuery({ project: v })}>
             <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="All projects" />
             </SelectTrigger>
@@ -241,7 +238,7 @@ export default function BtcPayPaymentsPage() {
           <AdminDateRangePicker
             dateFrom={dateFrom}
             dateTo={dateTo}
-            onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
+            onRangeChange={(from, to) => patchQuery({ dateFrom: from, dateTo: to })}
             className="w-full sm:w-[280px]"
           />
         </div>

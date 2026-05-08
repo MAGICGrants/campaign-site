@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import dayjs from 'dayjs'
 import localizedFormat from 'dayjs/plugin/localizedFormat'
 import utc from 'dayjs/plugin/utc'
@@ -21,12 +21,12 @@ import {
 import { Copy, Download } from 'lucide-react'
 
 import { FundBadge } from '../../components/admin/FundBadge'
-import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
+import { AdminDateRangePicker } from '../../components/admin/AdminDateRangePicker'
 import {
   SortableTableHead,
   sortRows,
-  useSortableColumn,
 } from '../../components/admin/sortable-table'
+import { useStripeInvoicesAdminQuery } from '../../hooks/adminTabPageHooks'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 import { funds } from '../../utils/funds'
@@ -138,9 +138,8 @@ function CopyableText({ text, truncate = false }: { text: string; truncate?: boo
 }
 
 export default function StripeInvoicesPage() {
-  const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
-  const [selectedProject, setSelectedProject] = useState<string>('__all__')
-  const [selectedFund, setSelectedFund] = useState<string>('__all__')
+  const { state, patchQuery, summarySort, invoicesSort } = useStripeInvoicesAdminQuery()
+  const { dateFrom, dateTo, fund: selectedFund, project: selectedProject } = state
 
   const listInvoicesQuery = trpc.accounting.listStripeInvoicesByDateRange.useQuery(
     { dateFrom, dateTo },
@@ -194,7 +193,6 @@ export default function StripeInvoicesPage() {
     }))
   }, [filteredInvoices])
 
-  const summarySort = useSortableColumn('fund')
   const sortedSummary = useMemo(
     () =>
       sortRows(
@@ -211,7 +209,6 @@ export default function StripeInvoicesPage() {
     [summary, summarySort.columnKey, summarySort.direction]
   )
 
-  const invoicesSort = useSortableColumn('time')
   const sortedFilteredInvoices = useMemo(
     () =>
       sortRows(
@@ -242,7 +239,7 @@ export default function StripeInvoicesPage() {
         <h1 className="text-2xl font-bold sm:text-3xl">Stripe Invoices</h1>
 
         <div className="ml-auto flex flex-row gap-2 flex-wrap justify-end">
-          <Select value={selectedFund} onValueChange={(v) => setSelectedFund(v)}>
+          <Select value={selectedFund} onValueChange={(v) => patchQuery({ fund: v })}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="All funds" />
             </SelectTrigger>
@@ -255,7 +252,7 @@ export default function StripeInvoicesPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={selectedProject} onValueChange={(v) => setSelectedProject(v)}>
+          <Select value={selectedProject} onValueChange={(v) => patchQuery({ project: v })}>
             <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="All projects" />
             </SelectTrigger>
@@ -271,7 +268,7 @@ export default function StripeInvoicesPage() {
           <AdminDateRangePicker
             dateFrom={dateFrom}
             dateTo={dateTo}
-            onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
+            onRangeChange={(from, to) => patchQuery({ dateFrom: from, dateTo: to })}
             className="w-full sm:w-[280px]"
           />
         </div>
