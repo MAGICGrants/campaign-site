@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import dayjs from 'dayjs'
 import localizedFormat from 'dayjs/plugin/localizedFormat'
 import utc from 'dayjs/plugin/utc'
@@ -16,9 +16,9 @@ import { Copy, Download } from 'lucide-react'
 import {
   SortableTableHead,
   sortRows,
-  useSortableColumn,
 } from '../../components/admin/sortable-table'
-import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
+import { AdminDateRangePicker } from '../../components/admin/AdminDateRangePicker'
+import { useKrakenSellOrdersAdminQuery } from '../../hooks/adminTabPageHooks'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 
@@ -136,7 +136,8 @@ function CopyableText({ text, truncate = false }: { text: string; truncate?: boo
 }
 
 export default function KrakenSellOrdersPage() {
-  const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
+  const { state, patchQuery, summarySort, ordersSort } = useKrakenSellOrdersAdminQuery()
+  const { dateFrom, dateTo } = state
 
   const listOrdersQuery = trpc.accounting.listKrakenSellOrdersByDateRange.useQuery(
     { dateFrom, dateTo },
@@ -158,7 +159,6 @@ export default function KrakenSellOrdersPage() {
     return Array.from(byCurrency.entries()).map(([cryptoCode, data]) => ({ cryptoCode, ...data }))
   }, [orders])
 
-  const summarySort = useSortableColumn('currency')
   const sortedSummary = useMemo(
     () =>
       sortRows(
@@ -175,7 +175,6 @@ export default function KrakenSellOrdersPage() {
     [summary, summarySort.columnKey, summarySort.direction]
   )
 
-  const ordersSort = useSortableColumn('time')
   const sortedOrders = useMemo(
     () =>
       sortRows(
@@ -206,7 +205,7 @@ export default function KrakenSellOrdersPage() {
           <AdminDateRangePicker
             dateFrom={dateFrom}
             dateTo={dateTo}
-            onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
+            onRangeChange={(from, to) => patchQuery({ dateFrom: from, dateTo: to })}
             className="w-full sm:w-[280px]"
           />
         </div>

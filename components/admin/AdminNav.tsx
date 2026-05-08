@@ -1,7 +1,10 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { useMemo } from 'react'
 
 import { cn } from '../../utils/cn'
+
+const ADMIN_NAV_SHARED_KEYS = ['from', 'to', 'fund', 'project'] as const
 
 const LINKS = [
   { href: '/admin/accounting', label: 'Accounting' },
@@ -14,6 +17,17 @@ const LINKS = [
 export default function AdminNav() {
   const router = useRouter()
 
+  const sharedQuery = useMemo(() => {
+    const q = router.query
+    const out: Record<string, string> = {}
+    for (const k of ADMIN_NAV_SHARED_KEYS) {
+      const v = q[k]
+      if (typeof v === 'string' && v.length > 0) out[k] = v
+      else if (Array.isArray(v) && typeof v[0] === 'string') out[k] = v[0]
+    }
+    return out
+  }, [router.query])
+
   return (
     <nav
       className="mb-4 w-full border-b border-border"
@@ -25,7 +39,7 @@ export default function AdminNav() {
           return (
             <li key={href}>
               <Link
-                href={href}
+                href={{ pathname: href, query: sharedQuery }}
                 className={cn(
                   'inline-flex items-center rounded-t-md border-b-2 px-2.5 py-2 text-sm transition-colors sm:px-3',
                   active
