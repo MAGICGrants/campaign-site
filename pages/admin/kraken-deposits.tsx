@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import dayjs from 'dayjs'
 import localizedFormat from 'dayjs/plugin/localizedFormat'
 import utc from 'dayjs/plugin/utc'
@@ -23,9 +23,9 @@ import { Copy, Download } from 'lucide-react'
 import {
   SortableTableHead,
   sortRows,
-  useSortableColumn,
 } from '../../components/admin/sortable-table'
-import { AdminDateRangePicker, defaultMonthDateRange } from '../../components/admin/AdminDateRangePicker'
+import { AdminDateRangePicker } from '../../components/admin/AdminDateRangePicker'
+import { useKrakenDepositsAdminQuery } from '../../hooks/adminTabPageHooks'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../utils/trpc'
 
@@ -108,8 +108,8 @@ function CopyableText({ text, truncate = false }: { text: string; truncate?: boo
 }
 
 export default function KrakenDepositsPage() {
-  const [{ dateFrom, dateTo }, setDateRange] = useState(defaultMonthDateRange)
-  const [selectedCurrency, setSelectedCurrency] = useState<string>('__all__')
+  const { state, patchQuery, summarySort, depositsSort } = useKrakenDepositsAdminQuery()
+  const { dateFrom, dateTo, currency: selectedCurrency } = state
 
   const listDepositsQuery = trpc.accounting.listKrakenDepositsByDateRange.useQuery(
     { dateFrom, dateTo },
@@ -140,7 +140,6 @@ export default function KrakenDepositsPage() {
     return Array.from(byCurrency.entries()).map(([cryptoCode, sum]) => ({ cryptoCode, sum }))
   }, [filteredDeposits])
 
-  const summarySort = useSortableColumn('currency')
   const sortedSummary = useMemo(
     () =>
       sortRows(
@@ -155,7 +154,6 @@ export default function KrakenDepositsPage() {
     [summary, summarySort.columnKey, summarySort.direction]
   )
 
-  const depositsSort = useSortableColumn('time')
   const sortedDeposits = useMemo(
     () =>
       sortRows(
@@ -182,7 +180,7 @@ export default function KrakenDepositsPage() {
         <h1 className="text-2xl font-bold sm:text-3xl">Kraken Deposits</h1>
 
         <div className="ml-auto flex flex-row gap-2 flex-wrap justify-end">
-          <Select value={selectedCurrency} onValueChange={(v) => setSelectedCurrency(v)}>
+          <Select value={selectedCurrency} onValueChange={(v) => patchQuery({ currency: v })}>
             <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="All currencies" />
             </SelectTrigger>
@@ -198,7 +196,7 @@ export default function KrakenDepositsPage() {
           <AdminDateRangePicker
             dateFrom={dateFrom}
             dateTo={dateTo}
-            onRangeChange={(from, to) => setDateRange({ dateFrom: from, dateTo: to })}
+            onRangeChange={(from, to) => patchQuery({ dateFrom: from, dateTo: to })}
             className="w-full sm:w-[280px]"
           />
         </div>

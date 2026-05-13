@@ -14,5 +14,6 @@ declare module 'next-auth/jwt' {
     refreshToken: string
     error?: 'RefreshAccessTokenError'
     accountingFunds?: ('monero' | 'firo' | 'privacyguides' | 'general' | 'unknown')[]
+    siteAdmin?: boolean
   }
 }

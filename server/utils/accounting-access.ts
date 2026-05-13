@@ -1,6 +1,9 @@
 import { TRPCError } from '@trpc/server'
 import type { FundSlug, Prisma } from '@prisma/client'
 
+/** Full accounting access (all funds + ignored-items management in the app). */
+export const KEYCLOAK_SITE_ADMIN_GROUP = '/site-admin'
+
 /** Matches Keycloak group paths for fund-scoped accounting viewers. */
 export const KEYCLOAK_ACCOUNTING_GROUP: Record<FundSlug | 'unknown', string> = {
   general: '/general-accounting',
@@ -14,12 +17,28 @@ export const ALL_KEYCLOAK_ACCOUNTING_GROUPS = Object.values(KEYCLOAK_ACCOUNTING_
 
 export type AccountingFundKey = FundSlug | 'unknown'
 
+/** All fund keys when resolving site-admin access (view + API scope). */
+export const ALL_ACCOUNTING_FUND_KEYS: AccountingFundKey[] = [
+  'monero',
+  'firo',
+  'privacyguides',
+  'general',
+  'unknown',
+]
+
 export type AccountingFundAccess = {
   funds: FundSlug[]
   unknown: boolean
 }
 
+export function siteAdminFromKeycloakGroups(groups: string[] | undefined): boolean {
+  return (groups ?? []).includes(KEYCLOAK_SITE_ADMIN_GROUP)
+}
+
 export function accountingFundsFromKeycloakGroups(groups: string[] | undefined): AccountingFundKey[] {
+  if (siteAdminFromKeycloakGroups(groups)) {
+    return [...ALL_ACCOUNTING_FUND_KEYS]
+  }
   const set = new Set(groups ?? [])
   const out: AccountingFundKey[] = []
   for (const slug of ['monero', 'firo', 'privacyguides', 'general'] as FundSlug[]) {

@@ -9,7 +9,10 @@ socialLinks:
   - ''
 date: '2026-02-04'
 goal: 50000
-isFunded: false
+isFunded: true
+numDonationsXMR: 1
+totalDonationsXMRInFiat: 50000
+totalDonationsXMR: 137.89
 ---
 
 MAGIC Grants is interested in commissioning [zkSecurity](https://www.zksecurity.xyz/) to provide a third review of Monero's intended use of an eliptic curve divisors technique [posited by Eagen](https://eprint.iacr.org/2022/596).

@@ -242,7 +242,7 @@ export async function getStaticProps({ params }: GetStaticPropsContext<StaticPro
     return { notFound: true }
   }
 
-  if (!/^[a-zA-Z0-9-_]+$/.test(slug)) {
+  if (!/^[a-zA-Z0-9_+\-]+$/.test(slug)) {
     return { notFound: true }
   }
 

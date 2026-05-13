@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { FundSlug } from '@prisma/client'
-import { z } from 'zod'
+import { z, ZodError } from 'zod'
 import dayjs from 'dayjs'
 
 import '../../utils/zod-locale'
@@ -17,6 +17,7 @@ import {
 } from '../../server/types'
 import { fundSlugs } from '../../utils/funds'
 import { ProjectItem } from '../../utils/types'
+import { $ZodIssue } from 'zod/v4/core'
 
 const ASSETS = ['BTC', 'XMR', 'LTC', 'USD'] as const
 const CRYPTO_CURRENCIES = ['BTC', 'XMR', 'LTC'] as const
@@ -67,6 +68,8 @@ type ResponseBodySpecificAsset = {
   address: string | null
 }[]
 
+type InvalidQueryErrorBody = { error: string; message: string }
+
 // The cache key should be: fund-asset-project_status
 const cachedResponses: Record<
   string,
@@ -104,7 +107,8 @@ function extractAddressesFromPaymentMethods(
   })
 
   if (process.env.NODE_ENV !== 'development') {
-    const missing = CRYPTO_CURRENCIES.filter((c) => !addresses[currencyToKey[c]])
+    const required: CryptoCurrency[] = ['BTC', 'XMR']
+    const missing = required.filter((c) => !addresses[currencyToKey[c]])
     if (missing.length > 0) {
       throw new Error(
         `[/api/funding-required] Could not get ${missing.join(', ')} address(es) from payment methods.`
@@ -170,14 +174,18 @@ const querySchema = z.object({
 
 async function handle(
   req: NextApiRequest,
-  res: NextApiResponse<ResponseBody | ResponseBodySpecificAsset>
+  res: NextApiResponse<ResponseBody | ResponseBodySpecificAsset | { issues: $ZodIssue[] }>
 ) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET'])
     return res.status(405).end(`Method ${req.method} Not Allowed`)
   }
 
-  const query = await querySchema.parseAsync(req.query)
+  const queryResult = await querySchema.safeParseAsync(req.query)
+  if (!queryResult.success) {
+    return res.status(400).json({ issues: queryResult.error.issues })
+  }
+  const query = queryResult.data
 
   // Get response from cache
   const cacheKey = `${query.fund}-${query.asset}-${query.project_status}`

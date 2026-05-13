@@ -6,6 +6,8 @@ declare module 'next-auth' {
       sub: string
       email: string
       accountingFunds: ('monero' | 'firo' | 'privacyguides' | 'general' | 'unknown')[]
+      /** Keycloak `/site-admin`: all funds + manage accounting ignores. */
+      siteAdmin: boolean
       canAccessAccounting: boolean
     }
   }

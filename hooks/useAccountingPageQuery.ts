@@ -14,6 +14,7 @@ import {
   type DonationsSortKey,
   type SummarySortKey,
 } from '../utils/accountingPageQuery'
+import { persistAdminDateRange } from '../utils/adminDateRange'
 
 export function useAccountingPageQuery(allowedFundSelectValues: Set<string>) {
   const router = useRouter()
@@ -29,6 +30,7 @@ export function useAccountingPageQuery(allowedFundSelectValues: Set<string>) {
     if (hasAccountingUrlParams(router.query)) {
       const current = parseAccountingPageQuery(router.query, { allowedFundSelectValues })
       persistAccountingQuerySession(serializeAccountingPageQuery(current))
+      persistAdminDateRange(current.dateFrom, current.dateTo)
       return
     }
 
@@ -49,6 +51,7 @@ export function useAccountingPageQuery(allowedFundSelectValues: Set<string>) {
       const next = { ...current, ...patch }
       const serialized = serializeAccountingPageQuery(next)
       persistAccountingQuerySession(serialized)
+      persistAdminDateRange(next.dateFrom, next.dateTo)
       router.replace({ pathname: router.pathname, query: serialized }, undefined, { shallow: true })
     },
     [router, allowedFundSelectValues]
