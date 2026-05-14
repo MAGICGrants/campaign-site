@@ -14,7 +14,7 @@ services:
 
   magic-nginx:
     # Entrypoint uses `sed` to substitute `${NGINX_SERVER_NAME}` only (POSIX; no gettext).
-    image: nginx:stable-trixie
+    image: nginx:1-trixie
     container_name: magic-nginx
     restart: unless-stopped
     ports:
