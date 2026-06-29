@@ -495,6 +495,46 @@ function rollUpMatches(
   return results
 }
 
+/**
+ * Order-independent deep equality with a small numeric tolerance. Used to decide
+ * whether a recomputed match actually differs from what is already stored.
+ * Tolerance matters because floats round-trip through JSON/Float columns, and
+ * key ordering is not preserved by JSON columns, so a naive JSON.stringify
+ * comparison would report spurious changes.
+ */
+function approxEqual(a: unknown, b: unknown): boolean {
+  if (typeof a === 'number' && typeof b === 'number') {
+    return Math.abs(a - b) < AMOUNT_TOLERANCE
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false
+    return a.every((x, i) => approxEqual(x, b[i]))
+  }
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const aKeys = Object.keys(a as Record<string, unknown>)
+    const bKeys = Object.keys(b as Record<string, unknown>)
+    if (aKeys.length !== bKeys.length) return false
+    return aKeys.every((k) =>
+      approxEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k])
+    )
+  }
+  return a === b
+}
+
+/**
+ * Whether a freshly computed match differs from the stored record in any field
+ * the upsert would write (deposits, orders, realized USD, processor fees).
+ */
+function hasMatchChanged(existing: DonationAccounting, match: PaymentMatch): boolean {
+  return (
+    !approxEqual(existing.krakenDeposits ?? [], match.deposits) ||
+    !approxEqual(existing.krakenOrders ?? [], match.orders) ||
+    !approxEqual(existing.totalRealizedUsd, match.totalRealizedUsd) ||
+    (existing.cryptoProcessorFee ?? null) !== match.cryptoProcessorFee ||
+    !approxEqual(existing.fiatProcessorFee ?? null, match.fiatProcessorFee ?? null)
+  )
+}
+
 export async function generateAccountingRecords(): Promise<DonationAccounting[]> {
   console.log('[accounting] Starting accounting record generation...')
 
@@ -526,14 +566,13 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
   }
 
   const existingIds = new Set(existingRecords.map((r) => r.paymentId).filter(Boolean))
+  const existingByPaymentId = new Map(existingRecords.map((r) => [r.paymentId, r] as const))
   const newPayments = paymentItems.filter((p) => !existingIds.has(p.paymentId))
 
-  if (newPayments.length === 0) {
-    console.log('[accounting] All payments already have accounting records')
-    return existingRecords
-  }
 
-  console.log(`[accounting] ${newPayments.length} payments need accounting records`)
+  console.log(
+    `[accounting] ${newPayments.length} new payments; re-matching all ${paymentItems.length} payments to reconcile late-arriving deposits/orders`
+  )
 
   const earliestDate = paymentItems[0].receivedAt
 
@@ -582,11 +621,22 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
     allMatches.push(...matches)
   }
 
-  const matchesForNew = allMatches.filter((m) => !existingIds.has(m.paymentId))
+  // Write new records, plus existing records whose deposits/orders/realized USD
+  // changed since last run (late-arriving Kraken data).
+  const matchesToWrite = allMatches.filter((match) => {
+    const existing = existingByPaymentId.get(match.paymentId)
+    if (!existing) return true
+    return hasMatchChanged(existing, match)
+  })
 
-  console.log(`[accounting] Upserting ${matchesForNew.length} accounting records...`)
+  const updatedCount = matchesToWrite.filter((m) => existingIds.has(m.paymentId)).length
+  const createdCount = matchesToWrite.length - updatedCount
 
-  for (const match of matchesForNew) {
+  console.log(
+    `[accounting] Upserting ${matchesToWrite.length} accounting records (${createdCount} new, ${updatedCount} updated)...`
+  )
+
+  for (const match of matchesToWrite) {
     await prisma.donationAccounting.upsert({
       where: { paymentId: match.paymentId },
       create: {

@@ -1,6 +1,7 @@
 import { Queue } from 'bullmq'
 import { PerkPurchaseWorkerData } from './workers/perk'
 import { redisConnection as connection } from '../config/redis'
+import { env } from '../env.mjs'
 
 import './workers/perk'
 import './workers/membership-check'
@@ -19,14 +20,15 @@ export const accountingGenerationQueue = new Queue('AccountingGeneration', { con
 export async function registerQueueSchedulers(): Promise<void> {
   await membershipCheckQueue.upsertJobScheduler(
     'MembershipCheckScheduler',
-    { pattern: '0 0 * * * *' },
+    // 1 hour in production, 1 minute in development
+    env.NODE_ENV === 'production' ? { every: 1000 * 60 * 60 } : { every: 1000 * 60 * 1 },
     { name: 'MembershipCheck', data: {} }
   )
 
   await accountingGenerationQueue.upsertJobScheduler(
     'AccountingGenerationScheduler',
-    // 6-field cron (sec min …): every 2 minutes at second 0
-    { pattern: '0 * * * *' },
+    // 1 hour in production, 1 minute in development
+    env.NODE_ENV === 'production' ? { every: 1000 * 60 * 60 } : { every: 1000 * 60 * 1 },
     { name: 'AccountingGeneration', data: {} }
   )
 
