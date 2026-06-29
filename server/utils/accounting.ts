@@ -622,8 +622,7 @@ export async function generateAccountingRecords(): Promise<DonationAccounting[]>
   }
 
   // Write new records, plus existing records whose deposits/orders/realized USD
-  // changed since last run (late-arriving Kraken data). Unchanged records are
-  // skipped to avoid churning the DB every minute.
+  // changed since last run (late-arriving Kraken data).
   const matchesToWrite = allMatches.filter((match) => {
     const existing = existingByPaymentId.get(match.paymentId)
     if (!existing) return true
