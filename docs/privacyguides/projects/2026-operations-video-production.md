@@ -1,6 +1,6 @@
 ---
 fund: privacyguides
-title: 'Website Operations (2027)'
+title: 'Video Production (2027)'
 summary: 'Operational costs for producing and maintaining our website and community forum in 2027.'
 nym: 'Privacy Guides'
 coverImage: ''
@@ -8,7 +8,7 @@ website: 'https://www.privacyguides.org/'
 socialLinks:
   - 'https://mastodon.neat.computer/@privacyguides'
 date: '2026-07-06'
-goal: 8000
+goal: 120000
 ---
 
 Privacy Guides is the top resource for information and tools to protect your privacy online, with a website that receives millions of visitors each year. This goal represents the operational costs for producing and maintaining our website and community forum in 2026, including hosting, security, and development costs.

@@ -1,13 +1,13 @@
 ---
 fund: privacyguides
-title: 'This Week in Privacy (2026)'
-summary: 'Operational costs for producing and maintaining the This Week in Privacy livestream series in 2026.'
+title: 'This Week in Privacy (2027)'
+summary: 'Operational costs for producing and maintaining the This Week in Privacy livestream series in 2027.'
 nym: 'Privacy Guides'
 coverImage: ''
 website: 'https://www.privacyguides.org/'
 socialLinks:
   - 'https://mastodon.neat.computer/@privacyguides'
-date: '2026-03-07'
+date: '2026-07-04'
 goal: 20000
 ---
 

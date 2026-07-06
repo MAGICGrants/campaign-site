@@ -7,7 +7,7 @@ coverImage: ''
 website: 'https://www.privacyguides.org/'
 socialLinks:
   - 'https://mastodon.neat.computer/@privacyguides'
-date: '2026-03-07'
+date: '2026-07-04'
 goal: 10000
 ---
 
