@@ -1,9 +1,14 @@
+import '../utils/zod-locale'
 import { TRPCError, initTRPC } from '@trpc/server'
 import { CreateNextContextOptions } from '@trpc/server/adapters/next'
 import { getServerSession } from 'next-auth/next'
 import superjson from 'superjson'
-import util from 'util'
 import { authOptions } from '../pages/api/auth/[...nextauth]'
+
+import {
+  getAccountingAccess,
+  hasAnyAccountingAccess,
+} from './utils/accounting-access'
 
 export const createContext = async (opts: CreateNextContextOptions) => {
   const session = await getServerSession(opts.req, opts.res, authOptions)
@@ -60,6 +65,34 @@ export const protectedProcedure = t.procedure.use((opts) => {
       },
     },
   })
+})
+
+/** Donation / admin accounting: requires `/site-admin` or a fund `*-accounting` group. */
+export const accountingProcedure = protectedProcedure.use((opts) => {
+  const accountingAccess = getAccountingAccess(opts.ctx.session.user)
+  if (!hasAnyAccountingAccess(accountingAccess)) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Accounting access required' })
+  }
+
+  return opts.next({
+    ...opts,
+    ctx: {
+      ...opts.ctx,
+      session: {
+        ...opts.ctx.session,
+        user: opts.ctx.session.user,
+      },
+      accountingAccess,
+    },
+  })
+})
+
+/** Accounting ignores + destructive maintenance: requires Keycloak `/site-admin`. */
+export const siteAdminProcedure = accountingProcedure.use((opts) => {
+  if (!opts.ctx.session.user.siteAdmin) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Site admin access required' })
+  }
+  return opts.next()
 })
 
 export const mergeRouters = t.mergeRouters

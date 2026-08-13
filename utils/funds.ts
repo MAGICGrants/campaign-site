@@ -143,6 +143,22 @@ export const fundSlugToRecipientEmail: Record<FundSlug, string> = {
 
 export const fundSlugs = Object.keys(funds) as ['monero', 'firo', 'privacyguides', 'general']
 
+/** Stacked chart segment keys (funds + unknown). Order: same as `fundSlugs`, then unknown. */
+export const FUND_STACK_KEYS = [...fundSlugs, 'unknown'] as const
+export type FundStackKey = (typeof FUND_STACK_KEYS)[number]
+
+/**
+ * Chart/SVG fills reference `:root` tokens in `styles/globals.css` (`--monero`, `--firo`, …).
+ * Unknown uses `--muted-foreground` for a neutral segment.
+ */
+export const FUND_CHART_FILL: Record<FundStackKey, string> = {
+  monero: 'var(--monero)',
+  firo: 'var(--firo)',
+  privacyguides: 'var(--privacyguides)',
+  general: 'var(--general)',
+  unknown: 'var(--muted-foreground)',
+}
+
 export function getFundSlugFromUrlPath(urlPath: string) {
   const fundSlug = urlPath.replace(/(\?.*)$/, '').split('/')[1]
 

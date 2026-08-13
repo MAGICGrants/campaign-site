@@ -78,7 +78,7 @@ function Home({ projects }: { projects: ProjectItem[] }) {
                 </div>
               </div>
 
-              <Link href={`/${fund.slug}`} target="_blank" className="hidden self-end sm:block">
+              <Link href={`/${fund.slug}`} className="hidden self-end sm:block">
                 <Button
                   className={cn(
                     fund.slug === 'monero' && 'text-monero bg-monero/10 hover:bg-monero',
@@ -94,7 +94,7 @@ function Home({ projects }: { projects: ProjectItem[] }) {
                 </Button>
               </Link>
 
-              <Link href={`/${fund.slug}`} target="_blank" className="self-end sm:hidden">
+              <Link href={`/${fund.slug}`} className="self-end sm:hidden">
                 <Button
                   className={cn(
                     fund.slug === 'monero' && 'text-monero bg-monero/10 hover:bg-monero',

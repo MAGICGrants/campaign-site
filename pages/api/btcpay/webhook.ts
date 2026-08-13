@@ -40,23 +40,36 @@ type WebhookBody = Record<string, any> & {
   invoiceId: string
   metadata?: DonationMetadata
   paymentMethodId: string
+  payment: {
+    id: string
+    value: string
+  }
 }
 
-async function handleFundingRequiredApiDonation(body: WebhookBody) {
+async function handleFundingRequiredApiDonation(body: WebhookBody, res: NextApiResponse) {
   if (!body.metadata || JSON.stringify(body.metadata) === '{}') return
   // If none of these are set, this donation didn't come from a campaign site user
   if (!body.metadata.projectSlug || !body.metadata.fundSlug) return
 
-  const existingDonation = await prisma.donation.findFirst({
+  const existingDonationsForInvoice = await prisma.donation.findMany({
     where: { btcPayInvoiceId: body.invoiceId },
   })
 
-  if (existingDonation) {
-    log(
-      'warn',
-      `[BTCPay webhook] Attempted to process already processed invoice ${body.invoiceId}.`
+  const txId = body.payment.id
+
+  if (existingDonationsForInvoice.length > 0) {
+    // Check if this txid has already been processed
+    const txIdAlreadyProcessed = existingDonationsForInvoice.find((donation) =>
+      (donation.cryptoPayments as DonationCryptoPayments)?.find((payment) => payment.txId === txId)
     )
-    return
+
+    if (txIdAlreadyProcessed) {
+      log(
+        'warn',
+        `[BTCPay webhook] Attempted to process already processed txid ${txId} for funding API invoice ${body.invoiceId}.`
+      )
+      return
+    }
   }
 
   // Handle payment methods like "BTC-LightningNetwork" if added in the future
@@ -68,9 +81,9 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
     `/rates?currencyPair=${cryptoCode}_USD`
   )
 
-  const cryptoRate = Number(rates[0].rate)
-  const cryptoAmount = Number(body.payment.value)
-  const fiatAmount = Number((cryptoAmount * cryptoRate).toFixed(2))
+  const cryptoRate = rates[0].rate
+  const cryptoAmount = body.payment.value
+  const fiatAmount = Number((Number(cryptoAmount) * Number(cryptoRate)).toFixed(2))
 
   const cryptoPayments: DonationCryptoPayments = []
 
@@ -79,6 +92,7 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
     grossAmount: cryptoAmount,
     netAmount: cryptoAmount,
     rate: cryptoRate,
+    txId,
   })
 
   await prisma.donation.create({
@@ -96,11 +110,24 @@ async function handleFundingRequiredApiDonation(body: WebhookBody) {
     },
   })
 
+  try {
+    const fundSlug = body.metadata.fundSlug
+    const projectSlug = body.metadata.projectSlug
+    await Promise.all([
+      res.revalidate('/'),
+      res.revalidate(`/${fundSlug}/projects`),
+      res.revalidate(`/${fundSlug}`),
+      res.revalidate(`/${fundSlug}/projects/${projectSlug}`),
+    ])
+  } catch (err) {
+    log('warn', `[BTCPay webhook] Failed to revalidate pages for invoice ${body.invoiceId}.`)
+  }
+
   log('info', `[BTCPay webhook] Successfully processed invoice ${body.invoiceId}!`)
 }
 
 // This handles both donations and memberships.
-async function handleDonationOrMembership(body: WebhookBody) {
+async function handleDonationOrMembership(body: WebhookBody, res: NextApiResponse) {
   if (!body.metadata || JSON.stringify(body.metadata) === '{}') return
   // If none of these are set, this donation didn't come from a campaign site user
   if (!body.metadata.projectSlug || !body.metadata.fundSlug) return
@@ -136,23 +163,23 @@ async function handleDonationOrMembership(body: WebhookBody) {
   paymentMethods.forEach((paymentMethod) => {
     if (!body.metadata) return
 
-    const cryptoRate = Number(paymentMethod.rate)
-    const grossCryptoAmount = Number(paymentMethod.paymentMethodPaid)
+    const settledPayments = (paymentMethod.payments ?? []).filter((p) => p.status === 'Settled')
+    for (const payment of settledPayments) {
+      const grossCryptoAmount = Number(payment.value)
+      if (!grossCryptoAmount) continue
 
-    // Deduct 10% of amount if donator wants points
-    const netCryptoAmount = shouldGivePointsBack
-      ? grossCryptoAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
-      : grossCryptoAmount
+      const netCryptoAmount = shouldGivePointsBack
+        ? grossCryptoAmount * NET_DONATION_AMOUNT_WITH_POINTS_RATE
+        : grossCryptoAmount
 
-    // Move on if amound paid with current method is 0
-    if (!grossCryptoAmount) return
-
-    cryptoPayments.push({
-      cryptoCode: paymentMethod.currency,
-      grossAmount: grossCryptoAmount,
-      netAmount: netCryptoAmount,
-      rate: cryptoRate,
-    })
+      cryptoPayments.push({
+        cryptoCode: paymentMethod.currency,
+        grossAmount: payment.value,
+        netAmount: String(netCryptoAmount),
+        rate: paymentMethod.rate,
+        txId: payment.id,
+      })
+    }
   })
 
   // Handle marked paid invoice
@@ -160,7 +187,8 @@ async function handleDonationOrMembership(body: WebhookBody) {
     const invoice = await getBtcPayInvoice(body.invoiceId)
 
     const amountPaidFiat = cryptoPayments.reduce(
-      (total, paymentMethod) => total + paymentMethod.grossAmount * paymentMethod.rate,
+      (total, paymentMethod) =>
+        total + Number(paymentMethod.grossAmount) * Number(paymentMethod.rate),
       0
     )
 
@@ -170,22 +198,25 @@ async function handleDonationOrMembership(body: WebhookBody) {
     if (amountDueFiat > 0) {
       cryptoPayments.push({
         cryptoCode: 'MANUAL',
-        grossAmount: amountDueFiat,
-        netAmount: shouldGivePointsBack
-          ? amountDueFiat * NET_DONATION_AMOUNT_WITH_POINTS_RATE
-          : amountDueFiat,
-        rate: 1,
+        grossAmount: String(amountDueFiat),
+        netAmount: String(
+          shouldGivePointsBack
+            ? amountDueFiat * NET_DONATION_AMOUNT_WITH_POINTS_RATE
+            : amountDueFiat
+        ),
+        rate: '1',
       })
     }
   }
 
   const grossFiatAmount = cryptoPayments.reduce(
-    (total, paymentMethod) => total + paymentMethod.grossAmount * paymentMethod.rate,
+    (total, paymentMethod) =>
+      total + Number(paymentMethod.grossAmount) * Number(paymentMethod.rate),
     0
   )
 
   const netFiatAmount = cryptoPayments.reduce(
-    (total, paymentMethod) => total + paymentMethod.netAmount * paymentMethod.rate,
+    (total, paymentMethod) => total + Number(paymentMethod.netAmount) * Number(paymentMethod.rate),
     0
   )
 
@@ -285,6 +316,19 @@ async function handleDonationOrMembership(body: WebhookBody) {
     }
   }
 
+  try {
+    const fundSlug = body.metadata.fundSlug
+    const projectSlug = body.metadata.projectSlug
+    await Promise.all([
+      res.revalidate('/'),
+      res.revalidate(`/${fundSlug}/projects`),
+      res.revalidate(`/${fundSlug}`),
+      res.revalidate(`/${fundSlug}/projects/${projectSlug}`),
+    ])
+  } catch (err) {
+    log('warn', `[BTCPay webhook] Failed to revalidate pages for invoice ${body.invoiceId}.`)
+  }
+
   log('info', `[BTCPay webhook] Successfully processed invoice ${body.invoiceId}!`)
 }
 
@@ -326,7 +370,7 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ success: true })
     }
 
-    await handleFundingRequiredApiDonation(body)
+    await handleFundingRequiredApiDonation(body, res)
   }
 
   if (body.type === 'InvoiceSettled') {
@@ -335,7 +379,7 @@ async function handleBtcpayWebhook(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ success: true })
     }
 
-    await handleDonationOrMembership(body)
+    await handleDonationOrMembership(body, res)
   }
 
   res.status(200).json({ success: true })

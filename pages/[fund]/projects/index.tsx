@@ -19,7 +19,7 @@ const AllProjects: NextPage<{ projects: ProjectItem[] }> = ({ projects }) => {
   return (
     <>
       <Head>
-        <title>{funds[fundSlug].title} - Projects</title>
+        <title>{`${funds[fundSlug].title} - Projects`}</title>
       </Head>
 
       <section className="flex flex-col items-center">
@@ -45,12 +45,12 @@ export default AllProjects
 
 export function getStaticPaths() {
   return {
-    paths: fundSlugs.map((fundSlug) => `/${fundSlug}/projects`),
-    fallback: false,
+    paths: [],
+    fallback: 'blocking',
   }
 }
 
-export async function getStaticProps({ params, ...asd }: { params: any }) {
+export async function getStaticProps({ params }: { params: any }) {
   const projects = await getProjects(params.fund)
 
   return {

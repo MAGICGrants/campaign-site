@@ -1,5 +1,4 @@
 import { AxiosResponse } from 'axios'
-import { printfulApi, prisma, strapiApi } from '../services'
 import {
   PrintfulCreateOrderReq,
   PrintfulCreateOrderRes,
@@ -24,6 +23,7 @@ type Shipping = {
 }
 
 export async function getPointsBalance(userId: string): Promise<number> {
+  const { strapiApi } = await import('../services')
   const {
     data: { data: pointHistory },
   } = await strapiApi.get<StrapiGetPointsPopulatedRes>(
@@ -39,6 +39,7 @@ export async function getPointsBalance(userId: string): Promise<number> {
 type GivePointsToUserParams = { pointsToGive: number; donation: Donation }
 
 export async function givePointsToUser({ pointsToGive, donation }: GivePointsToUserParams) {
+  const { strapiApi } = await import('../services')
   if (!donation.userId) {
     console.error(
       'Could not give points using donation with null userId. Donation ID:',
@@ -75,6 +76,7 @@ export async function deductPointsFromUser({
   perkId,
   orderId,
 }: DeductPointsFromUserParams) {
+  const { strapiApi } = await import('../services')
   const pointsBalance = await getPointsBalance(userId)
   const newPointsBalance = pointsBalance - deductionAmount
 
@@ -102,6 +104,7 @@ export async function createStrapiOrder({
   userEmail,
   shipping,
 }: CreateStrapiOrderParams) {
+  const { strapiApi } = await import('../services')
   const {
     data: { data: order },
   } = await strapiApi.post<any, AxiosResponse<StrapiCreateOrderRes>, StrapiCreateOrderBody>(
@@ -126,6 +129,7 @@ export async function createStrapiOrder({
 }
 
 export async function deleteStrapiOrder(orderId: string) {
+  const { strapiApi } = await import('../services')
   await strapiApi.delete(`/orders/${orderId}`)
 }
 
@@ -142,6 +146,7 @@ export async function estimatePrintfulOrderCost({
   name,
   shipping,
 }: EstimatePrintfulOrderCostParams) {
+  const { printfulApi } = await import('../services')
   const {
     data: { result: costEstimate },
   } = await printfulApi.post<{}, AxiosResponse<PrintfulEstimateOrderRes>, PrintfulEstimateOrderReq>(
@@ -179,6 +184,7 @@ export async function createPrintfulOrder({
   name,
   shipping,
 }: CreatePrintfulOrderParams) {
+  const { printfulApi } = await import('../services')
   const { data } = await printfulApi.post<
     {},
     AxiosResponse<PrintfulCreateOrderRes>,
@@ -203,5 +209,6 @@ export async function createPrintfulOrder({
 }
 
 export async function cancelPrintfulOrder(id: string) {
+  const { printfulApi } = await import('../services')
   await printfulApi.delete(`/orders/${id}`)
 }

@@ -1,4 +1,4 @@
-import { SVGProps, useEffect, useRef, useState } from 'react'
+import { JSX, SVGProps, useEffect, useMemo } from 'react'
 import { GetStaticPropsContext } from 'next'
 import Link from 'next/link'
 import Head from 'next/head'
@@ -10,7 +10,7 @@ import { FundSlug } from '@prisma/client'
 import { z } from 'zod'
 import Image from 'next/image'
 
-import { MAX_AMOUNT } from '../../../config'
+import { donationPageFormSchema } from '../../../utils/zod-common'
 import { trpc } from '../../../utils/trpc'
 import Spinner from '../../../components/Spinner'
 import { useToast } from '../../../components/ui/use-toast'
@@ -62,37 +62,17 @@ function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
 
   let PlaceholderImage = project ? placeholderImages[project.fund] : placeholderImages.general
 
-  const schema = z
-    .object({
-      name: z.string().optional(),
-      email: z.string().email().optional(),
-      amount: z.coerce.number().min(1).max(MAX_AMOUNT),
-      paymentMethod: z.enum(['card', 'btc', 'xmr', 'ltc', 'evm']),
-      taxDeductible: z.enum(['yes', 'no']),
-      givePointsBack: z.enum(['yes', 'no']),
-      showDonorNameOnLeaderboard: z.enum(['yes', 'no']),
-    })
-    .refine(
-      (data) => (!isAuthed && data.showDonorNameOnLeaderboard === 'yes' ? !!data.name : true),
-      { message: 'Name is required when you want it to be on the leaderboard.', path: ['name'] }
-    )
-    .refine((data) => (!isAuthed && data.taxDeductible === 'yes' ? !!data.name : true), {
-      message: 'Name is required when the donation is tax deductible.',
-      path: ['name'],
-    })
-    .refine((data) => (!isAuthed && data.taxDeductible === 'yes' ? !!data.email : true), {
-      message: 'Email is required when the donation is tax deductible.',
-      path: ['email'],
-    })
+  const schema = useMemo(() => donationPageFormSchema(isAuthed), [isAuthed])
 
-  type FormInputs = z.infer<typeof schema>
+  type FormInputs = z.infer<ReturnType<typeof donationPageFormSchema>>
 
   const { toast } = useToast()
 
-  const form = useForm<FormInputs>({
+  const form = useForm<z.input<typeof schema>, any, z.output<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
+      email: '',
       amount: '' as unknown as number, // a trick to get trigger to work when amount is empty
       taxDeductible: 'no',
       givePointsBack: 'no',
@@ -153,7 +133,7 @@ function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
   return (
     <>
       <Head>
-        <title>Donate to {project.title}</title>
+        <title>{`Donate to ${project.title}`}</title>
       </Head>
       <div className="max-w-[540px] mx-auto p-6 space-y-6 rounded-lg bg-white">
         <div className="py-4 flex flex-col space-y-6">
@@ -367,7 +347,7 @@ function DonationPage({ fund: fundSlug, slug, project, ...props }: Props) {
                         className="flex flex-col"
                       >
                         <FormItem className="flex items-start space-x-3 space-y-0">
-                          <FormControl className="flex-shrink-0">
+                          <FormControl className="shrink-0">
                             <RadioGroupItem value="yes" />
                           </FormControl>
 
@@ -454,12 +434,12 @@ export async function getStaticPaths() {
   }
 }
 
-export function getStaticProps({ params }: GetStaticPropsContext<QueryParams>) {
+export async function getStaticProps({ params }: GetStaticPropsContext<QueryParams>) {
   if (params?.fund === params?.slug && params?.fund) {
     return { props: { ...params, project: funds[params.fund] } }
   }
 
-  const project = getProjectBySlug(params?.slug!, params?.fund!)
+  const project = await getProjectBySlug(params?.slug!, params?.fund!)
 
   return { props: { ...params, project } }
 }

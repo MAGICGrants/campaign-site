@@ -13,7 +13,7 @@ export const applicationRouter = router({
     .input(
       z.object({
         fundSlug: z.enum(fundSlugs),
-        formData: z.record(z.union([z.string(), z.boolean()])),
+        formData: z.record(z.string(), z.union([z.string(), z.boolean()])),
       })
     )
     .mutation(({ input }) => {

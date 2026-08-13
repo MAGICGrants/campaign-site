@@ -10,92 +10,31 @@ import { fundSlugs } from '../../utils/funds'
 import { UserSettingsJwtPayload } from '../types'
 import { isTurnstileValid } from '../utils/turnstile'
 import { isNameProfane } from '../utils/profanity'
-import { log } from '../../utils/logging'
+import {
+  applyRegisterRefinements,
+  registerAddressSchema,
+  zEmailNormalized,
+  zPersonNamePart,
+} from '../../utils/zod-common'
+
+const registerProcedureInputSchema = applyRegisterRefinements(
+  z.object({
+    turnstileToken: z.string().min(1),
+    firstName: zPersonNamePart,
+    lastName: zPersonNamePart,
+    company: z.string().trim().max(200),
+    email: zEmailNormalized,
+    password: z.string().min(8).max(128),
+    confirmPassword: z.string().min(8).max(128),
+    fundSlug: z.enum(fundSlugs),
+    nextAction: z.enum(['membership']).optional(),
+    _addMailingAddress: z.boolean(),
+    address: registerAddressSchema,
+  })
+)
 
 export const authRouter = router({
-  register: publicProcedure
-    .input(
-      z
-        .object({
-          turnstileToken: z.string().min(1),
-          firstName: z
-            .string()
-            .trim()
-            .min(1)
-            .regex(/^[A-Za-záéíóúÁÉÍÓÚñÑçÇ]+$/, 'Use alphabetic characters only.'),
-          lastName: z
-            .string()
-            .trim()
-            .min(1)
-            .regex(/^[A-Za-záéíóúÁÉÍÓÚñÑçÇ]+$/, 'Use alphabetic characters only.'),
-          company: z.string(),
-          email: z.string().email(),
-          password: z.string().min(8),
-          confirmPassword: z.string().min(8),
-          fundSlug: z.enum(fundSlugs),
-          nextAction: z.enum(['membership']).optional(),
-          _addMailingAddress: z.boolean(),
-          address: z
-            .object({
-              addressLine1: z.string(),
-              addressLine2: z.string(),
-              city: z.string(),
-              state: z.string(),
-              country: z.string(),
-              zip: z.string(),
-              _addressStateOptionsLength: z.number(),
-            })
-            .superRefine((data, ctx) => {
-              if (!data.state && data._addressStateOptionsLength) {
-                ctx.addIssue({
-                  path: ['shippingState'],
-                  code: 'custom',
-                  message: 'State is required.',
-                })
-              }
-            }),
-        })
-        .refine((data) => data.password === data.confirmPassword, {
-          message: 'Passwords do not match.',
-          path: ['confirmPassword'],
-        })
-        .superRefine((data, ctx) => {
-          if (data._addMailingAddress) {
-            if (!data.address.addressLine1) {
-              ctx.addIssue({
-                path: ['shipping.addressLine1'],
-                code: 'custom',
-                message: 'Address line 1 is required.',
-              })
-            }
-
-            if (!data.address.country) {
-              ctx.addIssue({
-                path: ['shipping.country'],
-                code: 'custom',
-                message: 'Country is required.',
-              })
-            }
-
-            if (!data.address.city) {
-              ctx.addIssue({
-                path: ['shipping.city'],
-                code: 'custom',
-                message: 'City is required.',
-              })
-            }
-
-            if (!data.address.zip) {
-              ctx.addIssue({
-                path: ['shipping.zip'],
-                code: 'custom',
-                message: 'Postal code is required.',
-              })
-            }
-          }
-        })
-    )
-    .mutation(async ({ input }) => {
+  register: publicProcedure.input(registerProcedureInputSchema).mutation(async ({ input }) => {
       if (!(await isTurnstileValid(input.turnstileToken))) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'INVALID_TURNSTILE_TOKEN' })
       }
@@ -149,13 +88,18 @@ export const authRouter = router({
       transporter.sendMail({
         from: env.SES_VERIFIED_SENDER,
         to: input.email,
-        subject: 'Verify your email',
-        html: `<a href="${env.APP_URL}/${input.fundSlug}/verify-email/${emailVerifyToken}${input.nextAction === 'membership' ? `?nextAction=membership` : ''}" target="_blank">Verify email</a>`,
+        subject: 'Verify your email for donate.magicgrants.org',
+        html: `
+          <p>Please click the link below to verify your email address for donate.magicgrants.org:</p>
+          <p><a href="${env.APP_URL}/${input.fundSlug}/verify-email/${emailVerifyToken}${input.nextAction === 'membership' ? `?nextAction=membership` : ''}" target="_blank">Verify Email Address</a></p>
+          <hr />
+          <p style="font-size: 12px; color: #666;">If you did not make this request, please ignore this email.</p>
+        `,
       })
     }),
 
   verifyEmail: publicProcedure
-    .input(z.object({ token: z.string() }))
+    .input(z.object({ token: z.string().min(1) }))
     .mutation(async ({ input }) => {
       let decoded: UserSettingsJwtPayload
 
@@ -218,7 +162,7 @@ export const authRouter = router({
     .input(
       z.object({
         turnstileToken: z.string().min(1),
-        email: z.string().email(),
+        email: zEmailNormalized,
         fundSlug: z.enum(fundSlugs),
       })
     )
@@ -268,13 +212,13 @@ export const authRouter = router({
       transporter.sendMail({
         from: env.SES_VERIFIED_SENDER,
         to: input.email,
-        subject: 'Reset your password',
+        subject: 'Reset your password for donate.magicgrants.org',
         html: `<a href="${env.APP_URL}/${input.fundSlug}/reset-password/${passwordResetToken}" target="_blank">Reset password</a>`,
       })
     }),
 
   resetPassword: publicProcedure
-    .input(z.object({ token: z.string(), password: z.string().min(8) }))
+    .input(z.object({ token: z.string().min(1), password: z.string().min(8).max(128) }))
     .mutation(async ({ input }) => {
       let decoded: UserSettingsJwtPayload
 

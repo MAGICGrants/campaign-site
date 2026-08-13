@@ -1,0 +1,328 @@
+import { useMemo } from 'react'
+import dayjs from 'dayjs'
+import localizedFormat from 'dayjs/plugin/localizedFormat'
+import utc from 'dayjs/plugin/utc'
+import Head from 'next/head'
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select'
+import { Copy, Download } from 'lucide-react'
+
+import {
+  SortableTableHead,
+  sortRows,
+} from '../../components/admin/sortable-table'
+import { AdminDateRangePicker } from '../../components/admin/AdminDateRangePicker'
+import { useKrakenDepositsAdminQuery } from '../../hooks/adminTabPageHooks'
+import { Button } from '../../components/ui/button'
+import { trpc } from '../../utils/trpc'
+
+dayjs.extend(localizedFormat)
+dayjs.extend(utc)
+
+function escapeCsvValue(value: string | number): string {
+  const str = String(value)
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`
+  }
+  return str
+}
+
+type KrakenDepositItem = {
+  refid: string
+  asset: string
+  cryptoCode: string
+  txid: string
+  amount: number
+  fee: number
+  time: Date
+  status: string
+}
+
+function formatAmount(amount: number, cryptoCode: string): string {
+  const decimals = cryptoCode === 'USDC' ? 2 : 8
+  return `${amount.toFixed(decimals)} ${cryptoCode}`
+}
+
+function exportToCsv(records: KrakenDepositItem[]) {
+  const headers = ['time', 'amount', 'asset', 'depositId', 'txHash', 'status']
+  const rows = records.map((record) => [
+    dayjs(record.time).format('YYYY-MM-DD HH:mm:ss') + ' UTC',
+    record.amount,
+    record.cryptoCode,
+    record.refid,
+    record.txid,
+    record.status,
+  ])
+  const csv =
+    headers.map(escapeCsvValue).join(',') +
+    '\n' +
+    rows.map((row) => row.map(escapeCsvValue).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `kraken-deposits-${dayjs().format('YYYY-MM-DD')}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function CopyableText({ text, truncate = false }: { text: string; truncate?: boolean }) {
+  async function handleCopy() {
+    await navigator.clipboard.writeText(text)
+  }
+  const displayText =
+    truncate && text.length > 10 ? `${text.slice(0, 6)}...${text.slice(-6)}` : text
+  return (
+    <div className="flex items-center gap-1 min-w-0">
+      <span
+        className={truncate ? 'font-mono text-xs truncate max-w-[140px]' : 'font-mono text-xs'}
+        title={text}
+      >
+        {displayText}
+      </span>
+      <Button
+        type="button"
+        variant="light"
+        size="icon"
+        className="h-7 w-7 shrink-0"
+        onClick={handleCopy}
+        aria-label="Copy"
+      >
+        <Copy className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  )
+}
+
+export default function KrakenDepositsPage() {
+  const { state, patchQuery, summarySort, depositsSort } = useKrakenDepositsAdminQuery()
+  const { dateFrom, dateTo, currency: selectedCurrency } = state
+
+  const listDepositsQuery = trpc.accounting.listKrakenDepositsByDateRange.useQuery(
+    { dateFrom, dateTo },
+    { enabled: !!dateFrom && !!dateTo }
+  )
+
+  const allDeposits = listDepositsQuery.data ?? []
+
+  const currencyOptions = useMemo(() => {
+    const seen = new Set<string>()
+    for (const d of allDeposits) {
+      seen.add(d.cryptoCode)
+    }
+    return Array.from(seen).sort()
+  }, [allDeposits])
+
+  const filteredDeposits = useMemo(() => {
+    if (selectedCurrency === '__all__') return allDeposits
+    return allDeposits.filter((d) => d.cryptoCode === selectedCurrency)
+  }, [allDeposits, selectedCurrency])
+
+  const summary = useMemo(() => {
+    const byCurrency = new Map<string, number>()
+    for (const d of filteredDeposits) {
+      const existing = byCurrency.get(d.cryptoCode) ?? 0
+      byCurrency.set(d.cryptoCode, existing + d.amount)
+    }
+    return Array.from(byCurrency.entries()).map(([cryptoCode, sum]) => ({ cryptoCode, sum }))
+  }, [filteredDeposits])
+
+  const sortedSummary = useMemo(
+    () =>
+      sortRows(
+        summary,
+        summarySort.columnKey,
+        summarySort.direction,
+        {
+          currency: (r) => r.cryptoCode,
+          total: (r) => r.sum,
+        }
+      ),
+    [summary, summarySort.columnKey, summarySort.direction]
+  )
+
+  const sortedDeposits = useMemo(
+    () =>
+      sortRows(
+        filteredDeposits,
+        depositsSort.columnKey,
+        depositsSort.direction,
+        {
+          time: (r) => r.time,
+          amount: (r) => r.amount,
+          depositId: (r) => r.refid,
+          txHash: (r) => r.txid,
+        }
+      ),
+    [filteredDeposits, depositsSort.columnKey, depositsSort.direction]
+  )
+
+  return (
+    <>
+      <Head>
+        <title>Kraken Deposits</title>
+      </Head>
+
+      <div className="w-full mx-auto flex flex-col space-y-4">
+        <h1 className="text-2xl font-bold sm:text-3xl">Kraken Deposits</h1>
+
+        <div className="ml-auto flex flex-row gap-2 flex-wrap justify-end">
+          <Select value={selectedCurrency} onValueChange={(v) => patchQuery({ currency: v })}>
+            <SelectTrigger className="w-full sm:w-[140px]">
+              <SelectValue placeholder="All currencies" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All currencies</SelectItem>
+              {currencyOptions.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <AdminDateRangePicker
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onRangeChange={(from, to) => patchQuery({ dateFrom: from, dateTo: to })}
+            className="w-full sm:w-[280px]"
+          />
+        </div>
+
+        {summary.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Summary</h2>
+            </div>
+            <div className="w-full overflow-x-auto rounded-md border bg-white shadow-sm">
+              <Table className="w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <SortableTableHead
+                      columnKey="currency"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Currency
+                    </SortableTableHead>
+                    <SortableTableHead
+                      columnKey="total"
+                      currentKey={summarySort.columnKey}
+                      direction={summarySort.direction}
+                      onToggle={summarySort.toggle}
+                    >
+                      Total
+                    </SortableTableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedSummary.map((row) => (
+                    <TableRow key={row.cryptoCode}>
+                      <TableCell>{row.cryptoCode}</TableCell>
+                      <TableCell>{formatAmount(row.sum, row.cryptoCode)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Deposits</h2>
+            <Button
+              size="sm"
+              onClick={() => exportToCsv(filteredDeposits)}
+              disabled={filteredDeposits.length === 0}
+            >
+              <Download className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Export CSV</span>
+            </Button>
+          </div>
+          <div className="w-full min-w-0 overflow-x-auto overflow-hidden rounded-md border bg-white shadow-sm">
+            <Table className="min-w-[700px] w-full [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 sm:[&_th]:px-4 sm:[&_th]:py-3 sm:[&_td]:px-4 sm:[&_td]:py-3 [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <SortableTableHead
+                    columnKey="time"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Time
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="amount"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Amount
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="depositId"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Deposit ID
+                  </SortableTableHead>
+                  <SortableTableHead
+                    columnKey="txHash"
+                    currentKey={depositsSort.columnKey}
+                    direction={depositsSort.direction}
+                    onToggle={depositsSort.toggle}
+                  >
+                    Transaction Hash
+                  </SortableTableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {listDepositsQuery.isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      Loading...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredDeposits.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      No deposits for this date range
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  sortedDeposits.map((record) => (
+                    <TableRow key={record.refid}>
+                      <TableCell>{dayjs(record.time).format('lll')}</TableCell>
+                      <TableCell>{formatAmount(record.amount, record.cryptoCode)}</TableCell>
+                      <TableCell>
+                        <CopyableText text={record.refid} truncate />
+                      </TableCell>
+                      <TableCell>
+                        <CopyableText text={record.txid} truncate />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}

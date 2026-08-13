@@ -23,9 +23,10 @@ import { useFundSlug } from '../../utils/use-fund-slug'
 import Spinner from '../../components/Spinner'
 import { env } from '../../env.mjs'
 import { authOptions } from '../api/auth/[...nextauth]'
+import { zEmailNormalized } from '../../utils/zod-common'
 
 const schema = z.object({
-  email: z.string().email(),
+  email: zEmailNormalized,
   password: z.string().min(8),
   turnstileToken: z.string().min(1),
 })
@@ -36,12 +37,13 @@ function Login() {
   const { toast } = useToast()
   const router = useRouter()
   const fundSlug = useFundSlug()
-  const turnstileRef = useRef<TurnstileInstance | null>()
+  const turnstileRef = useRef<TurnstileInstance | null>(null)
 
   const form = useForm<LoginFormInputs>({
     resolver: zodResolver(schema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: '', password: '', turnstileToken: '' },
     shouldFocusError: false,
+    mode: 'onTouched',
   })
 
   useEffect(() => {

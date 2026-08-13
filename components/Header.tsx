@@ -90,34 +90,60 @@ const Header = () => {
 
         {/* <ThemeSwitch /> */}
 
-        {!!fund && session.status === 'authenticated' && (
+        {session.status === 'authenticated' && (
           <DropdownMenu>
             <DropdownMenuTrigger>
-              <Avatar>
+              <Avatar className="cursor-pointer">
                 <AvatarFallback>
                   {session.data.user?.email?.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <CustomLink href={`/${fundSlug}/account/my-donations`} className="text-foreground">
-                <DropdownMenuItem>My Donations</DropdownMenuItem>
-              </CustomLink>
-              <CustomLink href={`/${fundSlug}/account/my-memberships`} className="text-foreground">
-                <DropdownMenuItem>My Memberships</DropdownMenuItem>
-              </CustomLink>
-              <CustomLink href={`/${fundSlug}/account/point-history`} className="text-foreground">
-                <DropdownMenuItem>Point History</DropdownMenuItem>
-              </CustomLink>
-              <CustomLink href={`/${fundSlug}/perks`} className="text-foreground">
-                <DropdownMenuItem>Perks</DropdownMenuItem>
-              </CustomLink>
-              <CustomLink href={`/${fundSlug}/account/settings`} className="text-foreground">
-                <DropdownMenuItem>Settings</DropdownMenuItem>
-              </CustomLink>
-              <DropdownMenuItem onClick={() => signOut({ callbackUrl: `/${fundSlug}` })}>
+              {session.data.user?.canAccessAccounting && (
+                <>
+                  <DropdownMenuLabel>Admin</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <CustomLink href={`/admin/accounting`} className="text-foreground">
+                    <DropdownMenuItem>Accounting</DropdownMenuItem>
+                  </CustomLink>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {!!fund && (
+                <>
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <CustomLink
+                    href={`/${fundSlug}/account/my-donations`}
+                    className="text-foreground"
+                  >
+                    <DropdownMenuItem>My Donations</DropdownMenuItem>
+                  </CustomLink>
+                  <CustomLink
+                    href={`/${fundSlug}/account/my-memberships`}
+                    className="text-foreground"
+                  >
+                    <DropdownMenuItem>My Memberships</DropdownMenuItem>
+                  </CustomLink>
+                  <CustomLink
+                    href={`/${fundSlug}/account/point-history`}
+                    className="text-foreground"
+                  >
+                    <DropdownMenuItem>Point History</DropdownMenuItem>
+                  </CustomLink>
+                  <CustomLink href={`/${fundSlug}/perks`} className="text-foreground">
+                    <DropdownMenuItem>Perks</DropdownMenuItem>
+                  </CustomLink>
+                  <CustomLink href={`/${fundSlug}/account/settings`} className="text-foreground">
+                    <DropdownMenuItem>Settings</DropdownMenuItem>
+                  </CustomLink>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem
+                onClick={() => signOut({ callbackUrl: fundSlug ? `/${fundSlug}` : '/' })}
+              >
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>

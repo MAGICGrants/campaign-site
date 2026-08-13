@@ -1,5 +1,5 @@
 import { networkFor, SocialIcon } from 'react-social-icons'
-import { ReactNode, SVGProps } from 'react'
+import { JSX, ReactNode, SVGProps } from 'react'
 import { FundSlug } from '@prisma/client'
 import Image from 'next/image'
 
@@ -87,7 +87,7 @@ export default function PageHeading({ project, children }: Props) {
         </div>
       </div>
 
-      <div className="pt-4 items-start space-y-4 md:grid md:grid-cols-3 md:space-x-4 md:space-y-0">
+      <div className="pt-4 items-start space-y-4 md:grid md:grid-cols-3 md:gap-x-4 md:space-y-0">
         {children}
       </div>
     </div>

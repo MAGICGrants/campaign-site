@@ -43,7 +43,7 @@ function MyDonations() {
   return (
     <>
       <Head>
-        <title>{funds[fundSlug].title} - My Donations</title>
+        <title>{`${funds[fundSlug].title} - My Donations`}</title>
       </Head>
 
       <div className="w-full max-w-5xl mx-auto flex flex-col">

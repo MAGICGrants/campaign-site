@@ -63,7 +63,6 @@ import { Checkbox } from '../../../components/ui/checkbox'
 import { useFundSlug } from '../../../utils/use-fund-slug'
 import { trpc } from '../../../utils/trpc'
 import { cn } from '../../../utils/cn'
-import { strapiApi } from '../../../server/services'
 import { GetServerSidePropsContext } from 'next'
 import { getPointsBalance } from '../../../server/utils/perks'
 import { getServerSession } from 'next-auth'
@@ -98,7 +97,7 @@ const schema = z
     if (data.shipping.countryCode === 'BR') {
       if (data.shipping.taxNumber.length < 1) {
         ctx.addIssue({
-          path: ['shippingTaxNumber'],
+          path: ['shipping', 'taxNumber'],
           code: 'custom',
           message: 'CPF is required.',
         })
@@ -107,7 +106,7 @@ const schema = z
 
       if (!cpfRegex.test(data.shipping.taxNumber)) {
         ctx.addIssue({
-          path: ['shippingTaxNumber'],
+          path: ['shipping', 'taxNumber'],
           code: 'custom',
           message: 'Invalid CPF.',
         })
@@ -118,13 +117,30 @@ const schema = z
   .superRefine((data, ctx) => {
     if (!data.shipping.stateCode && data._shippingStateOptionsLength) {
       ctx.addIssue({
-        path: ['shippingState'],
+        path: ['shipping', 'stateCode'],
         code: 'custom',
         message: 'State is required.',
       })
       return
     }
   })
+
+// Same shape as schema but no validation - used when perk doesn't need shipping
+const noShippingSchema = z.object({
+  _shippingStateOptionsLength: z.number(),
+  _useAccountMailingAddress: z.boolean(),
+  shipping: z.object({
+    addressLine1: z.string(),
+    addressLine2: z.string(),
+    city: z.string(),
+    stateCode: z.string(),
+    countryCode: z.string(),
+    zip: z.string(),
+    phone: z.string(),
+    taxNumber: z.string(),
+  }),
+  printfulSyncVariantId: z.string().optional(),
+})
 
 type PerkPurchaseInputs = z.infer<typeof schema>
 
@@ -143,8 +159,8 @@ function Perk({ perk, balance }: Props) {
     { enabled: !!perk.printfulProductId && !!balance, refetchOnWindowFocus: false }
   )
 
-  const form = useForm<PerkPurchaseInputs>({
-    resolver: zodResolver(perk.needsShippingAddress ? schema : z.object({})),
+  const form = useForm<z.input<typeof schema>, any, z.output<typeof schema>>({
+    resolver: zodResolver(perk.needsShippingAddress ? schema : noShippingSchema),
     mode: 'all',
     defaultValues: {
       _shippingStateOptionsLength: 0,
@@ -746,12 +762,13 @@ export async function getServerSideProps({ params, req, res }: GetServerSideProp
   }
 
   const idRegex = /^[0-9a-z]{24}$/
-  
+
   if (!idRegex.test(`${params?.id!}`)) {
     return { redirect: { destination: `/${params?.fund!}/perks` } }
   }
 
   try {
+    const { strapiApi } = await import('../../../server/services')
     const [
       balance,
       {

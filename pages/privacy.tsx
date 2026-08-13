@@ -2,10 +2,10 @@ import { FundSlug } from '@prisma/client'
 
 import markdownToHtml from '../utils/markdownToHtml'
 import { getSingleFile } from '../utils/md'
-import BigDumbMarkdown from '../components/BigDumbMarkdown'
+import Markdown from '../components/Markdown'
 
 export default function Privacy({ content }: { content: string }) {
-  return <BigDumbMarkdown content={content} />
+  return <Markdown content={content} />
 }
 
 export async function getStaticProps({ params }: { params: { fund: FundSlug } }) {

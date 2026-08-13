@@ -1,9 +1,9 @@
+import { z } from 'zod'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, CheckIcon } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
-import { z } from 'zod'
 import { GetServerSidePropsContext } from 'next'
 import { getServerSession } from 'next-auth'
 import { useRouter } from 'next/router'
@@ -39,84 +39,26 @@ import { env } from '../../env.mjs'
 import { authOptions } from '../api/auth/[...nextauth]'
 import MembershipPerksAside from '../../components/MembershipPerksAside'
 import CustomLink from '../../components/CustomLink'
+import {
+  applyRegisterRefinements,
+  registerAddressSchema,
+  zEmailNormalized,
+  zPersonNamePart,
+} from '../../utils/zod-common'
 
-const schema = z
-  .object({
+const schema = applyRegisterRefinements(
+  z.object({
     turnstileToken: z.string().min(1),
-    firstName: z
-      .string()
-      .trim()
-      .min(1)
-      .regex(/^[A-Za-záéíóúÁÉÍÓÚñÑçÇ]+$/, 'Use alphabetic characters only.'),
-    lastName: z
-      .string()
-      .trim()
-      .min(1)
-      .regex(/^[A-Za-záéíóúÁÉÍÓÚñÑçÇ]+$/, 'Use alphabetic characters only.'),
-    company: z.string(),
-    email: z.string().email(),
-    password: z.string().min(8),
-    confirmPassword: z.string().min(8),
+    firstName: zPersonNamePart,
+    lastName: zPersonNamePart,
+    company: z.string().trim().max(200),
+    email: zEmailNormalized,
+    password: z.string().min(8).max(128),
+    confirmPassword: z.string().min(8).max(128),
     _addMailingAddress: z.boolean(),
-    address: z
-      .object({
-        addressLine1: z.string(),
-        addressLine2: z.string(),
-        city: z.string(),
-        state: z.string(),
-        country: z.string(),
-        zip: z.string(),
-        _addressStateOptionsLength: z.number(),
-      })
-      .superRefine((data, ctx) => {
-        if (!data.state && data._addressStateOptionsLength) {
-          ctx.addIssue({
-            path: ['shippingState'],
-            code: 'custom',
-            message: 'State is required.',
-          })
-        }
-      }),
+    address: registerAddressSchema,
   })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords do not match.',
-    path: ['confirmPassword'],
-  })
-  .superRefine((data, ctx) => {
-    if (data._addMailingAddress) {
-      if (!data.address.addressLine1) {
-        ctx.addIssue({
-          path: ['shipping.addressLine1'],
-          code: 'custom',
-          message: 'Address line 1 is required.',
-        })
-      }
-
-      if (!data.address.country) {
-        ctx.addIssue({
-          path: ['shipping.country'],
-          code: 'custom',
-          message: 'Country is required.',
-        })
-      }
-
-      if (!data.address.city) {
-        ctx.addIssue({
-          path: ['shipping.city'],
-          code: 'custom',
-          message: 'City is required.',
-        })
-      }
-
-      if (!data.address.zip) {
-        ctx.addIssue({
-          path: ['shipping.zip'],
-          code: 'custom',
-          message: 'Postal code is required.',
-        })
-      }
-    }
-  })
+)
 
 type RegisterFormInputs = z.infer<typeof schema>
 
@@ -124,13 +66,13 @@ function RegisterFormModal() {
   const router = useRouter()
   const { toast } = useToast()
   const fundSlug = useFundSlug()
-  const turnstileRef = useRef<TurnstileInstance | null>()
+  const turnstileRef = useRef<TurnstileInstance | null>(null)
   const getCountriesQuery = trpc.perk.getCountries.useQuery()
   const registerMutation = trpc.auth.register.useMutation()
 
   const form = useForm<RegisterFormInputs>({
     resolver: zodResolver(schema),
-    mode: 'all',
+    mode: 'onTouched',
     defaultValues: {
       firstName: '',
       lastName: '',
@@ -225,10 +167,10 @@ function RegisterFormModal() {
   }
 
   return (
-    <div className="w-full flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0 justify-center items-center sm:items-start">
+    <div className="w-full m-auto flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0 justify-center items-center sm:items-start">
       {router.query.nextAction === 'membership' && <MembershipPerksAside />}
 
-      <div className="max-w-[540px] mx-auto p-6 space-y-6 rounded-lg bg-white">
+      <div className="max-w-[540px] m-auto p-6 space-y-6 rounded-lg bg-white">
         <h1 className="font-bold">Register</h1>
 
         <Form {...form}>

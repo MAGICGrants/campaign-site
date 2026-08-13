@@ -1,4 +1,4 @@
-import { useState, useEffect, SVGProps } from 'react'
+import { useState, useEffect, SVGProps, JSX } from 'react'
 import { FundSlug } from '@prisma/client'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -29,7 +29,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, customImageStyles })
   const PlaceholderImage = placeholderImages[project.fund]
 
   return (
-    <Link href={`/${project.fund}/projects/${project.slug}`} passHref target="_blank">
+    <Link href={`/${project.fund}/projects/${project.slug}`} passHref>
       <figure
         className={cn(
           'max-w-sm min-h-[460px] h-full space-y-2 flex flex-col rounded-lg border-b-4 bg-white',

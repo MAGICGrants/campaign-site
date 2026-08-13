@@ -6,12 +6,12 @@
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-1.1.x"]
+  runtime       = "nodejs"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum FundSlug {
@@ -19,6 +19,12 @@ enum FundSlug {
   firo
   privacyguides
   general
+}
+
+enum DonationSource {
+  btcpayserver
+  coinbase
+  stripe
 }
 
 enum AccountConnectionType {
@@ -38,7 +44,7 @@ model Donation {
   userId                     String?
   donorName                  String?
   donorNameIsProfane         Boolean?        @default(false)
-  btcPayInvoiceId            String?         @unique
+  btcPayInvoiceId            String?
   stripePaymentIntentId      String?         @unique // For donations and non-recurring memberships
   stripeInvoiceId            String?         @unique // For recurring memberships
   stripeSubscriptionId       String? // For recurring memberships
@@ -77,6 +83,41 @@ model ProjectAddresses {
   litecoinAddress String?
 
   @@unique([projectSlug, fundSlug])
+}
+
+model AccountingIgnore {
+  id    String @id @default(cuid())
+  type  String // 'deposit' | 'order'
+  value String // txid or orderId
+
+  @@unique([type, value])
+  @@index([type])
+}
+
+model DonationAccounting {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  source            DonationSource
+  invoiceId         String?
+  paymentId         String?        @unique
+  paymentReceivedAt DateTime
+  cryptoCode         String
+  cryptoAmount       String
+  rate               String
+  fiatAmount         Float
+  cryptoProcessorFee String?
+  fiatProcessorFee   Float?
+  krakenDeposits     Json
+  krakenOrders       Json
+  totalRealizedUsd   Float
+  projectSlug       String?
+  projectName       String?
+  fundSlug          FundSlug?
+
+  @@index([projectSlug])
+  @@index([fundSlug])
 }
 
 model AccountConnection {

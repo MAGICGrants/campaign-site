@@ -14,7 +14,7 @@ function Perks() {
   return (
     <>
       <Head>
-        <title>{funds[fundSlug].title} - Perks</title>
+        <title>{`${funds[fundSlug].title} - Perks`}</title>
       </Head>
 
       <div className="w-full max-w-5xl mx-auto flex flex-col">

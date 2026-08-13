@@ -3,11 +3,11 @@ import sanitize from 'sanitize-filename'
 
 import markdownToHtml from '../../utils/markdownToHtml'
 import { fileExists, getSingleFile } from '../../utils/md'
-import BigDumbMarkdown from '../../components/BigDumbMarkdown'
+import Markdown from '../../components/Markdown'
 import { fundSlugs } from '../../utils/funds'
 
 export default function About({ content }: { content: string }) {
-  return <BigDumbMarkdown content={content} />
+  return <Markdown content={content} />
 }
 
 export async function getStaticProps({ params }: { params: { fund: FundSlug } }) {

@@ -18,7 +18,10 @@ import { getDonationAttestation, getMembershipAttestation } from './attestation'
 import { addUserToPgMembersGroup } from '../../utils/pg-forum-connection'
 import { log } from '../../utils/logging'
 
-async function handleDonationOrNonRecurringMembership(paymentIntent: Stripe.PaymentIntent) {
+async function handleDonationOrNonRecurringMembership(
+  paymentIntent: Stripe.PaymentIntent,
+  res: NextApiResponse
+) {
   const metadata = paymentIntent.metadata as DonationMetadata
 
   // Payment intents for subscriptions will not have metadata
@@ -142,13 +145,27 @@ async function handleDonationOrNonRecurringMembership(paymentIntent: Stripe.Paym
     }
   }
 
+  try {
+    await Promise.all([
+      res.revalidate('/'),
+      res.revalidate(`/${metadata.fundSlug}/projects`),
+      res.revalidate(`/${metadata.fundSlug}`),
+      res.revalidate(`/${metadata.fundSlug}/projects/${metadata.projectSlug}`),
+    ])
+  } catch (err) {
+    log(
+      'warn',
+      `[Stripe webhook] Failed to revalidate pages for payment intent ${paymentIntent.id}.`
+    )
+  }
+
   log('info', `[Stripe webhook] Successfully processed payment intent ${paymentIntent.id}!`)
 }
 
-async function handleRecurringMembership(invoice: Stripe.Invoice) {
-  if (!invoice.subscription) return
+async function handleRecurringMembership(invoice: Stripe.Invoice, res: NextApiResponse) {
+  if (!invoice.parent?.subscription_details) return
 
-  const metadata = invoice.subscription_details?.metadata as DonationMetadata
+  const metadata = invoice.parent.subscription_details.metadata as DonationMetadata
   if (!metadata) return
   if (JSON.stringify(metadata) === '{}') return
   // If none of these are set, this donation didn't come from a campaign site user
@@ -190,7 +207,7 @@ async function handleRecurringMembership(invoice: Stripe.Invoice) {
     data: {
       userId: metadata.userId as string,
       stripeInvoiceId: invoice.id,
-      stripeSubscriptionId: invoice.subscription.toString(),
+      stripeSubscriptionId: invoice.parent.subscription_details.subscription.toString(),
       projectName: metadata.projectName,
       projectSlug: metadata.projectSlug,
       fundSlug: metadata.fundSlug,
@@ -225,7 +242,7 @@ async function handleRecurringMembership(invoice: Stripe.Invoice) {
   if (metadata.donorEmail && metadata.donorName && metadata.membershipTerm) {
     const donations = await prisma.donation.findMany({
       where: {
-        stripeSubscriptionId: invoice.subscription.toString(),
+        stripeSubscriptionId: invoice.parent.subscription_details.subscription.toString(),
         membershipExpiresAt: { not: null },
       },
       orderBy: { membershipExpiresAt: 'desc' },
@@ -263,6 +280,17 @@ async function handleRecurringMembership(invoice: Stripe.Invoice) {
     }
   }
 
+  try {
+    await Promise.all([
+      res.revalidate('/'),
+      res.revalidate(`/${metadata.fundSlug}/projects`),
+      res.revalidate(`/${metadata.fundSlug}`),
+      res.revalidate(`/${metadata.fundSlug}/projects/${metadata.projectSlug}`),
+    ])
+  } catch (err) {
+    log('warn', `[Stripe webhook] Failed to revalidate pages for invoice ${invoice.id}.`)
+  }
+
   log('info', `[Stripe webhook] Successfully processed invoice ${invoice.id}!`)
 }
 
@@ -285,12 +313,12 @@ export function getStripeWebhookHandler(fundSlug: FundSlug, secret: string) {
     // Store donation data when payment intent is valid
     // Subscriptions are handled on the invoice.paid event instead
     if (event.type === 'payment_intent.succeeded') {
-      handleDonationOrNonRecurringMembership(event.data.object)
+      await handleDonationOrNonRecurringMembership(event.data.object, res)
     }
 
     // Store subscription data when subscription invoice is paid
     if (event.type === 'invoice.paid') {
-      handleRecurringMembership(event.data.object)
+      await handleRecurringMembership(event.data.object, res)
     }
 
     // Return a 200 response to acknowledge receipt of the event

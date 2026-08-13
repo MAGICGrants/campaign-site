@@ -5,7 +5,6 @@ import crypto from 'crypto'
 import { env } from '../../../env.mjs'
 import { authenticateKeycloakClient } from '../../../server/utils/keycloak'
 import { authOptions } from '../../api/auth/[...nextauth]'
-import { keycloak, prisma, privacyGuidesDiscourseApi } from '../../../server/services'
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { toast } from '../../../components/ui/use-toast'
@@ -27,6 +26,7 @@ export async function getServerSideProps({ query, req, res }: GetServerSideProps
     return { props: { success: false } }
   }
 
+  const { keycloak, prisma, privacyGuidesDiscourseApi } = await import('../../../server/services')
   await authenticateKeycloakClient()
   const session = await getServerSession(req, res, authOptions)
   const userId = session?.user.sub || ''

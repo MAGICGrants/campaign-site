@@ -23,7 +23,7 @@ function VerifyDonation() {
   const form = useForm<AttestationInputs>({
     resolver: zodResolver(schema),
     defaultValues: { message: '', signature: '' },
-    mode: 'all',
+    mode: 'onTouched',
   })
 
   const message = form.watch('message')
@@ -35,14 +35,13 @@ function VerifyDonation() {
 
       try {
         const isValid = await ed.verifyAsync(
-          signature,
-          Buffer.from(message, 'utf-8').toString('hex'),
-          env.NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX.toLowerCase()
+          Buffer.from(signature, 'hex'),
+          Buffer.from(message, 'utf-8'),
+          Buffer.from(env.NEXT_PUBLIC_ATTESTATION_PUBLIC_KEY_HEX, 'hex')
         )
 
         return setSignatureIsValid(isValid)
       } catch (error) {
-        console.log(error)
         setSignatureIsValid(false)
       }
     })()
