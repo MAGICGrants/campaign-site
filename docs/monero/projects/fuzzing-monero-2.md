@@ -8,7 +8,7 @@ website: ''
 socialLinks:
   - ''
 date: '2025-12-04'
-goal: 50000
+goal: 25000
 isFunded: false
 ---
 
