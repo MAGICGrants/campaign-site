@@ -35,7 +35,7 @@ The cover image (`coverImage`) should be placed in `/public/img/project/`. For t
 
 - Docker
 - Docker Compose
-- NodeJS >=20
+- NodeJS >=22.12
 
 ### Running containers
 
