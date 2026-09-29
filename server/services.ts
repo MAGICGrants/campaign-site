@@ -52,12 +52,12 @@ const printfulApi = axios.create({
 })
 
 const stripe: Record<FundSlug, Stripe> = {
-  monero: new Stripe(env.STRIPE_MONERO_SECRET_KEY, { apiVersion: '2026-02-25.clover' }),
-  firo: new Stripe(env.STRIPE_FIRO_SECRET_KEY, { apiVersion: '2026-02-25.clover' }),
+  monero: new Stripe(env.STRIPE_MONERO_SECRET_KEY, { apiVersion: '2026-08-26.dahlia' }),
+  firo: new Stripe(env.STRIPE_FIRO_SECRET_KEY, { apiVersion: '2026-08-26.dahlia' }),
   privacyguides: new Stripe(env.STRIPE_PRIVACY_GUIDES_SECRET_KEY, {
-    apiVersion: '2026-02-25.clover',
+    apiVersion: '2026-08-26.dahlia',
   }),
-  general: new Stripe(env.STRIPE_GENERAL_SECRET_KEY, { apiVersion: '2026-02-25.clover' }),
+  general: new Stripe(env.STRIPE_GENERAL_SECRET_KEY, { apiVersion: '2026-08-26.dahlia' }),
 }
 
 const privacyGuidesDiscourseApi = axios.create({
