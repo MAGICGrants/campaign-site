@@ -1,4 +1,4 @@
-import { Donation, FundSlug } from '@prisma/client'
+import { Donation, FundSlug, MembershipTerm } from '@prisma/client'
 import localizedFormat from 'dayjs/plugin/localizedFormat'
 import dayjs from 'dayjs'
 
@@ -12,6 +12,11 @@ import { DonationCryptoPayments } from '../types'
 dayjs.extend(localizedFormat)
 
 const pointsFormat = Intl.NumberFormat('en', { notation: 'standard', compactDisplay: 'long' })
+
+const membershipTermDescriptions: Record<MembershipTerm, string> = {
+  monthly: 'a monthly membership',
+  annually: 'an annual membership',
+}
 
 type SendDonationConfirmationEmailParams = {
   to: string
@@ -30,7 +35,10 @@ export async function sendDonationConfirmationEmail({
 }: SendDonationConfirmationEmailParams) {
   const dateStr = dayjs().format('YYYY-M-D')
   const fundName = funds[donation.fundSlug].title
-  const isMembership = !donation.membershipExpiresAt
+  const isMembership = !!donation.membershipExpiresAt
+  const membershipDescription = donation.membershipTerm
+    ? membershipTermDescriptions[donation.membershipTerm]
+    : 'a membership'
   const isSubscription = donation.stripeSubscriptionId
   const isPaidWithCrypto = (donation.cryptoPayments as DonationCryptoPayments | null)?.length
   const cryptoDonationDescription = (donation.cryptoPayments as DonationCryptoPayments | null)
@@ -41,13 +49,13 @@ export async function sendDonationConfirmationEmail({
   
   Thank you for your donation to MAGIC Grants! Your donation supports our charitable mission.
 
-  ${isMembership ? `You donated to: ${fundName}` : ''}
+  ${!isMembership ? `You donated to: ${fundName}` : ''}
 
   ${donation.projectName ? `You supported this campaign: ${donation.projectName}` : ''}
 
   ${
     isMembership
-      ? `You purchased an annual membership for the ${fundName}.
+      ? `You purchased ${membershipDescription} for the ${fundName}.
   This membership ${isSubscription ? 'will' : 'will not'} renew automatically. Easily manage your membership by logging into your account at donate.magicgrants.org.`
       : ''
   }
