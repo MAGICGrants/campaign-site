@@ -87,13 +87,12 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Standalone output does not include a full Prisma CLI tree; install the same major as package.json and merge into traced node_modules.
-RUN mkdir -p /tmp/prisma-for-migrate && cd /tmp/prisma-for-migrate \
+# Standalone output does not include a full Prisma CLI tree; install it in its own dir.
+# Don't merge into /app/node_modules: its deps (e.g. an older @radix-ui/primitive) would clobber the app's.
+RUN mkdir -p /opt/prisma-cli && cd /opt/prisma-cli \
   && npm init -y \
   && npm install prisma@7.10.0 --omit=dev \
-  && cp -r /tmp/prisma-for-migrate/node_modules/. /app/node_modules/ \
-  && rm -rf /tmp/prisma-for-migrate \
-  && chown -R nextjs:nodejs /app/node_modules
+  && chown -R nextjs:nodejs /opt/prisma-cli
 
 USER nextjs
 
@@ -106,6 +105,6 @@ ENV PRISMA_BINARY_TARGETS='["native", "rhel-openssl-1.0.x"]'
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
-CMD ["/bin/sh", "-c", "npx prisma migrate deploy \
+CMD ["/bin/sh", "-c", "/opt/prisma-cli/node_modules/.bin/prisma migrate deploy \
 && (npm run sentry:sourcemaps \
 & node server.js)"]
