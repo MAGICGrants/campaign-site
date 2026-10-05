@@ -89,6 +89,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Standalone output does not include a full Prisma CLI tree; install it in its own dir.
 # Don't merge into /app/node_modules: its deps (e.g. an older @radix-ui/primitive) would clobber the app's.
+# CMD sets NODE_PATH for migrate so /app/prisma.config.ts can resolve dotenv/config and prisma/config.
 RUN mkdir -p /opt/prisma-cli && cd /opt/prisma-cli \
   && npm init -y \
   && npm install prisma@7.10.0 --omit=dev \
@@ -105,6 +106,6 @@ ENV PRISMA_BINARY_TARGETS='["native", "rhel-openssl-1.0.x"]'
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
-CMD ["/bin/sh", "-c", "/opt/prisma-cli/node_modules/.bin/prisma migrate deploy \
+CMD ["/bin/sh", "-c", "NODE_PATH=/opt/prisma-cli/node_modules /opt/prisma-cli/node_modules/.bin/prisma migrate deploy \
 && (npm run sentry:sourcemaps \
 & node server.js)"]
