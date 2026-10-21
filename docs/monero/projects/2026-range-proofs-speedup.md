@@ -9,7 +9,15 @@ socialLinks:
   - ''
 date: '2026-02-03'
 goal: 18708
-isFunded: false
+isFunded: true
+numDonationsXMR: 49
+totalDonationsXMRInFiat: 14454.76
+totalDonationsXMR: 43.24
+numDonationsBTC: 2
+totalDonationsBTCInFiat: 27.28
+totalDonationsBTC: 0.0003887
+numDonationsFiat: 1
+totalDonationsFiat: 5000
 ---
 
 Monero currently uses Bulletproofs+ to prove that transaction amounts are valid without revealing the amount. While Bulletproofs+ provides compact proofs ideal for blockchain storage constraints, computational costs remain a bottleneck. Prover time affects user experience when sending transactions, and verifier time impacts node scalability during block verification and chain synchronization.
