@@ -92,7 +92,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # CMD sets NODE_PATH for migrate so /app/prisma.config.ts can resolve dotenv/config and prisma/config.
 RUN mkdir -p /opt/prisma-cli && cd /opt/prisma-cli \
   && npm init -y \
-  && npm install prisma@7.10.0 --omit=dev \
+  && npm install prisma@7.10.1 --omit=dev \
   && chown -R nextjs:nodejs /opt/prisma-cli
 
 USER nextjs
