@@ -103,7 +103,7 @@ services:
       - btcpay_postgres_datadir:/var/lib/postgresql
 
   magic-app:
-    image: node:24-alpine3.22
+    image: node:24-alpine3.24
     container_name: magic-app
     restart: unless-stopped
     working_dir: /app
